@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FutureMe</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main class="landing">
+    <nav class="site-nav" aria-label="Site">
+      <strong>FUTUREME</strong>
+      <span>NO ACCOUNTS · NO SERVER COPY</span>
+    </nav>
+
+    <section class="hero">
+      <header class="hero-copy">
+        <p class="eyebrow">DIGITAL TIME CAPSULE</p>
+        <h1>Write it now.<br>Open it later.</h1>
+        <p>Preserve a message for the future. It stays sealed until the date you choose arrives.</p>
+        <div class="how-it-works">
+          <section><h2>Write</h2><p>A note for your future self or someone you love.</p></section>
+          <section><h2>Seal</h2><p>Your message stays hidden until its unlock time.</p></section>
+          <section><h2>Wait</h2><p>Return when the moment is ready to be remembered.</p></section>
+        </div>
+      </header>
+
+      <section class="panel create-panel" aria-labelledby="new-capsule">
+        <h2 id="new-capsule">Create a capsule</h2>
+        <form id="capsule-form">
+          <label>Title <input name="title" aria-required="true" placeholder="A note for the future"></label>
+          <label>Message <textarea name="message" aria-required="true" placeholder="What do you want to remember? What do you hope has changed?"></textarea></label>
+          <label>Unlock at <input type="datetime-local" name="unlock_at" aria-required="true"></label>
+          <p id="form-errors" role="alert"></p>
+          <button>Seal the capsule</button>
+        </form>
+      </section>
+    </section>
+
+    <section class="capsule-list" aria-labelledby="capsule-list">
+      <h2 id="capsule-list">Your capsules</h2>
+      <div id="capsules" class="capsules"></div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,37 @@
+# Ruby
+/.bundle
+/vendor/bundle
+*.gem
+
+# Rails runtime files
+/log/*
+!/log/.keep
+/tmp/*
+!/tmp/.keep
+!/tmp/pids/
+!/tmp/pids/.keep
+/public/assets
+/storage/*
+!/storage/.keep
+
+# Test output
+/coverage
+
+# Local planning artifacts (not part of the application)
+/html_for_plan/
+
+# Secrets and local environment
+/config/master.key
+/config/credentials/*.key
+.env
+.env.*
+!.env.example
+
+# Editor and OS files
+/.byebug_history
+.DS_Store
+*.swp
+*~
+
+# /html_for_plan html files for visualization
+/html_for_plan     
