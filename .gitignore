@@ -10,6 +10,7 @@
 !/tmp/.keep
 !/tmp/pids/
 !/tmp/pids/.keep
+/tmp/pids/*.pid
 /public/assets
 /storage/*
 !/storage/.keep
