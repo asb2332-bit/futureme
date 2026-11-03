@@ -5,12 +5,28 @@ Feature: Time capsules
 
   Scenario: Create a future capsule
     When I visit FutureMe
+    And I visit the new capsule page
     And I fill in "Title" with "Graduation day"
     And I fill in "Message" with "I am proud of how far you have come."
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then I see "Graduation day"
     And I see "This capsule is locked"
+
+  Scenario: Create a customized poster capsule
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I choose "Night" from "Theme"
+    And I fill in "Icon" with "✦"
+    And I add a text block
+    And I fill in "Text block 1" with "Private poster note"
+    And I fill in "Title" with "My custom poster"
+    And I fill in "Message" with "A message for later"
+    And I fill in "Unlock at" with a date one day from now
+    And I create the capsule
+    Then I see "My custom poster"
+    And I do not see "Private poster note"
+    And the poster design is saved
 
   Scenario: View a locked capsule
     Given a capsule titled "Birthday wishes" unlocks tomorrow with the message "Happy birthday from all of us!"
@@ -29,6 +45,7 @@ Feature: Time capsules
 
   Scenario: Reject an invalid capsule
     When I visit FutureMe
+    And I visit the new capsule page
     And I create the capsule
     Then I see "Title can't be blank"
     And I see "Message can't be blank"

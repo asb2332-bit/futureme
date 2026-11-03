@@ -46,13 +46,18 @@ class Api::CapsulesController < ApplicationController
   def capsule_params
     submitted_capsule = params.require(:capsule)
 
-    submitted_capsule.permit(:title, :message, :unlock_at)
+    submitted_capsule.permit(:title, :message, :unlock_at, design: {})
   end
 
   def capsule_json(capsule, include_message: false)
     unlocked = capsule.unlocked?
+    design = public_design(capsule.design)
     message = nil
-    message = capsule.message if include_message && unlocked
+
+    if include_message && unlocked
+      message = capsule.message
+      design["sealed_blocks"] = capsule.design.fetch("sealed_blocks", [])
+    end
 
     {
       id: capsule.id,
@@ -60,7 +65,16 @@ class Api::CapsulesController < ApplicationController
       unlock_at: capsule.unlock_at,
       created_at: capsule.created_at,
       locked: !unlocked,
-      message: message
+      message: message,
+      design: design
+    }
+  end
+
+  def public_design(design)
+    {
+      "theme" => design.fetch("theme", {}),
+      "title_block" => design.fetch("title_block", {}),
+      "message_block" => design.fetch("message_block", {})
     }
   end
 end

@@ -1,5 +1,3 @@
-const capsuleForm = document.querySelector("#capsule-form");
-const formErrors = document.querySelector("#form-errors");
 const capsulesContainer = document.querySelector("#capsules");
 const capsulesUrl = "/api/capsules";
 let countdownTimers = [];
@@ -10,10 +8,8 @@ function formatCountdown(unlockAt) {
   const hours = Math.floor((secondsRemaining % 86_400) / 3_600);
   const minutes = Math.floor((secondsRemaining % 3_600) / 60);
   const seconds = secondsRemaining % 60;
-  const parts = [];
 
-  parts.push(`${days}d`, `${hours}h`, `${minutes}m`, `${seconds}s`);
-  return `Opens in ${parts.join(" ")}`;
+  return `Opens in ${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
 
 function startCountdown(element, unlockAt) {
@@ -74,37 +70,5 @@ async function loadCapsules() {
 
   showCapsules(capsuleList);
 }
-
-function showValidationErrors(errors) {
-  formErrors.textContent = Object.values(errors).flat().join(", ");
-}
-
-capsuleForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  formErrors.textContent = "";
-
-  const formData = new FormData(capsuleForm);
-  const unlockAt = formData.get("unlock_at");
-  const capsule = {
-    title: formData.get("title"),
-    message: formData.get("message"),
-    unlock_at: unlockAt ? new Date(unlockAt).toISOString() : ""
-  };
-
-  const response = await fetch(capsulesUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ capsule: capsule })
-  });
-
-  if (!response.ok) {
-    const responseBody = await response.json();
-    showValidationErrors(responseBody.errors);
-    return;
-  }
-
-  capsuleForm.reset();
-  await loadCapsules();
-});
 
 loadCapsules();

@@ -1,10 +1,50 @@
 const capsuleId = new URLSearchParams(window.location.search).get("id");
-const title = document.querySelector("#capsule-title");
+const poster = document.querySelector("#capsule-poster");
 const creator = document.querySelector("#capsule-creator");
 const unlockTime = document.querySelector("#capsule-unlock-time");
-const status = document.querySelector("#capsule-status");
-const message = document.querySelector("#capsule-message");
 let countdownTimer;
+
+const defaultBlocks = {
+  title_block: { x: 8, y: 10, width: 72, height: 16, rotation: 0 },
+  message_block: { x: 8, y: 36, width: 84, height: 38, rotation: 0 },
+  icon_block: { x: 82, y: 8, width: 10, height: 12, rotation: 0 }
+};
+
+function blockStyle(design, name) {
+  return { ...defaultBlocks[name], ...(design[name] || {}) };
+}
+
+function addBlock(text, block, sealed) {
+  const element = document.createElement("div");
+  element.className = `poster-block ${sealed ? "sealed-block" : ""}`;
+  element.textContent = text;
+  element.style.left = `${block.x}%`;
+  element.style.top = `${block.y}%`;
+  element.style.width = `${block.width}%`;
+  element.style.height = `${block.height}%`;
+  element.style.transform = `rotate(${block.rotation}deg)`;
+  poster.append(element);
+}
+
+function showPoster(capsule) {
+  const design = capsule.design || {};
+  const theme = design.theme || {};
+  poster.replaceChildren();
+  poster.style.backgroundColor = theme.background_color || "#E3E7DF";
+  poster.style.color = theme.accent_color || "#202923";
+  poster.dataset.font = theme.font || "sans";
+
+  addBlock(capsule.title, blockStyle(design, "title_block"), false);
+  addBlock(theme.icon || "⏳", blockStyle(design, "icon_block"), false);
+
+  if (capsule.locked) {
+    addBlock("This capsule is locked", blockStyle(design, "message_block"), true);
+    return;
+  }
+
+  addBlock(capsule.message, blockStyle(design, "message_block"), true);
+  (design.sealed_blocks || []).forEach((block) => addBlock(block.text, block, true));
+}
 
 function showCountdown(capsule) {
   clearInterval(countdownTimer);
@@ -39,23 +79,18 @@ async function loadCapsule() {
   const response = await fetch(`/api/capsules/${capsuleId}`);
 
   if (!response.ok) {
-    title.textContent = "Capsule not found";
+    poster.textContent = "Capsule not found";
     return;
   }
 
   const capsule = await response.json();
-  title.textContent = capsule.title;
   creator.textContent = "Created by: You (accounts coming soon)";
+  showPoster(capsule);
   showCountdown(capsule);
-  status.textContent = capsule.locked ? "This capsule is locked" : "This capsule is unlocked";
-  status.className = capsule.locked ? "locked" : "";
-  message.hidden = capsule.locked;
-  message.textContent = capsule.message || "";
-
 }
 
 if (capsuleId) {
   loadCapsule();
 } else {
-  title.textContent = "Capsule not found";
+  poster.textContent = "Capsule not found";
 }

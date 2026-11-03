@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create a capsule · FutureMe</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/create.js" defer></script>
+</head>
+<body>
+  <main class="create-page">
+    <nav class="site-nav" aria-label="Site">
+      <a href="/">← FUTUREME</a>
+      <span>CREATE A CAPSULE</span>
+    </nav>
+
+    <section class="editor-shell" aria-label="Capsule editor">
+      <div class="editor-toolbar" aria-label="Poster controls">
+        <label>Theme <select id="theme-preset"><option value="sage">Sage</option><option value="sunset">Sunset</option><option value="night">Night</option></select></label>
+        <label>Background <input id="background-color" type="color" value="#E3E7DF"></label>
+        <label>Accent <input id="accent-color" type="color" value="#202923"></label>
+        <label>Font <select id="poster-font"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option><option value="display">Display</option></select></label>
+        <label>Icon <input id="poster-icon" value="⏳" maxlength="2"></label>
+        <button id="add-text-block" type="button">Add text</button>
+      </div>
+      <div id="poster-preview" class="poster-preview editor-canvas" aria-label="Capsule poster canvas"></div>
+
+      <footer class="editor-footer">
+        <label>Unlock at <input id="unlock-at" type="datetime-local" name="unlock_at"></label>
+        <p id="form-errors" role="alert"></p>
+        <button id="seal-capsule" type="button">Seal the capsule</button>
+      </footer>
+    </section>
+  </main>
+</body>
+</html>
