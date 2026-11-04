@@ -53,7 +53,7 @@ function showCapsules(capsuleList) {
     if (capsule.locked) startCountdown(countdown, capsule.unlock_at);
 
     const creator = document.createElement("p");
-    creator.textContent = "Created by: You (accounts coming soon)";
+    creator.textContent = "Created by: You";
 
     const status = document.createElement("p");
     status.textContent = capsule.locked ? "This capsule is locked" : "This capsule is unlocked";
@@ -65,7 +65,10 @@ function showCapsules(capsuleList) {
 }
 
 async function loadCapsules() {
+  const session = await window.futuremeSession;
+  if (!session.user) { capsulesContainer.textContent = "Log in to see your capsules."; return; }
   const response = await fetch(capsulesUrl);
+  if (!response.ok) { capsulesContainer.textContent = "Please log in again to load your capsules."; return; }
   const capsuleList = await response.json();
 
   showCapsules(capsuleList);

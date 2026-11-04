@@ -1,0 +1,5 @@
+<% if google_login_enabled? %>
+  <div class="google-login"><%= button_to "Continue with Google", "/auth/google_oauth2", data: { turbo: false } %></div>
+<% else %>
+  <p class="muted">Google sign-in is not available yet. You can use email and password.</p>
+<% end %>

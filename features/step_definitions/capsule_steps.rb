@@ -39,11 +39,11 @@ When('I open {string}') do |title|
 end
 
 Given('a capsule titled {string} unlocks tomorrow with the message {string}') do |title, message|
-  Capsule.create!(title: title, message: message, unlock_at: 1.day.from_now)
+  @account.capsules.create!(title: title, message: message, unlock_at: 1.day.from_now)
 end
 
 Given('a capsule titled {string} unlocked yesterday with the message {string}') do |title, message|
-  capsule = Capsule.create!(title: title, message: message, unlock_at: 1.day.from_now)
+  capsule = @account.capsules.create!(title: title, message: message, unlock_at: 1.day.from_now)
   capsule.update!(unlock_at: 1.day.ago)
 end
 

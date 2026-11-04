@@ -1,11 +1,10 @@
 class Api::CapsulesController < ApplicationController
-  # ponytail: public unauthenticated API; restore CSRF protection when user sessions are added.
-  skip_forgery_protection
+  before_action :require_login
 
   before_action :set_capsule, only: :show
 
   def index
-    capsules = Capsule.order(created_at: :desc)
+    capsules = current_user.capsules.order(created_at: :desc)
 
     capsules_as_json = capsules.map do |capsule|
       capsule_json(capsule)
@@ -16,7 +15,7 @@ class Api::CapsulesController < ApplicationController
 
   def create
     submitted_data = capsule_params
-    @capsule = Capsule.new(submitted_data)
+    @capsule = current_user.capsules.new(submitted_data)
 
     if @capsule.save
       capsule_data = capsule_json(@capsule)
@@ -40,7 +39,7 @@ class Api::CapsulesController < ApplicationController
 
   def set_capsule
     capsule_id = params[:id]
-    @capsule = Capsule.find(capsule_id)
+    @capsule = current_user.capsules.find(capsule_id)
   end
 
   def capsule_params

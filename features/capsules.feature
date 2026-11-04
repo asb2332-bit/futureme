@@ -3,6 +3,9 @@ Feature: Time capsules
   I want to schedule a message for a future date
   So that it is revealed at the right time
 
+  Background:
+    Given I am a registered user who is logged in
+
   Scenario: Create a future capsule
     When I visit FutureMe
     And I visit the new capsule page

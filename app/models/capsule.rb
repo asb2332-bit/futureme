@@ -1,4 +1,5 @@
 class Capsule < ApplicationRecord
+  belongs_to :user, optional: true
   validates :title, :message, :unlock_at, presence: true
   validate :unlock_at_is_in_the_future, on: :create
 

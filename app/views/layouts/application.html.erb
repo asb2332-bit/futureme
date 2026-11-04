@@ -1,15 +1,23 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Futureme</title>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <%= csrf_meta_tags %>
-    <%= csp_meta_tag %>
-
-    <%= stylesheet_link_tag "application" %>
-  </head>
-
-  <body>
+<html lang="en">
+<head>
+  <title>FutureMe · Account</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <%= csrf_meta_tags %>
+  <%= csp_meta_tag %>
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/auth.css">
+</head>
+<body>
+  <main class="account-shell">
+    <nav class="site-nav"><a href="/">FUTUREME</a>
+      <% if current_user %>
+        <span><%= current_user.email_address %></span>
+        <%= button_to "Log out", logout_path %>
+      <% end %>
+    </nav>
+    <% flash.each do |kind, message| %><p role="alert" class="flash"><%= message %></p><% end %>
     <%= yield %>
-  </body>
+  </main>
+</body>
 </html>

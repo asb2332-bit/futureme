@@ -228,9 +228,11 @@ async function createCapsule() {
     unlock_at: unlockAt ? new Date(unlockAt).toISOString() : "",
     design: design
   };
+  const session = await window.futuremeSession;
+  if (!session.user) { location.assign("/login"); return; }
   const response = await fetch("/api/capsules", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": session.csrf_token },
     body: JSON.stringify({ capsule: capsule })
   });
 

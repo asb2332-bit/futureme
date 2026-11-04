@@ -84,7 +84,7 @@ async function loadCapsule() {
   }
 
   const capsule = await response.json();
-  creator.textContent = "Created by: You (accounts coming soon)";
+  creator.textContent = "Created by: You";
   showPoster(capsule);
   showCountdown(capsule);
 }

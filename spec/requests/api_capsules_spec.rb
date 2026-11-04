@@ -1,6 +1,9 @@
 require 'rails_helper'
 
 RSpec.describe 'Capsules API', type: :request do
+  let(:user) { User.create!(email_address: 'owner@example.com', password: 'a-secure-password') }
+  before { post login_path, params: { email_address: user.email_address, password: 'a-secure-password' } }
+
   def response_body
     JSON.parse(response.body)
   end
@@ -36,7 +39,7 @@ RSpec.describe 'Capsules API', type: :request do
   end
 
   it 'hides the message of a locked capsule' do
-    capsule = Capsule.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now)
+    capsule = user.capsules.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now)
 
     get api_capsule_path(capsule)
 
@@ -45,7 +48,7 @@ RSpec.describe 'Capsules API', type: :request do
 
   it 'does not return sealed content in the capsule list' do
     design = { 'sealed_blocks' => [{ 'id' => 'note-1', 'text' => 'Private note' }] }
-    capsule = Capsule.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now, design: design)
+    capsule = user.capsules.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now, design: design)
     capsule.update!(unlock_at: 1.minute.ago)
 
     get api_capsules_path
@@ -56,7 +59,7 @@ RSpec.describe 'Capsules API', type: :request do
 
   it 'returns sealed content of an unlocked capsule' do
     design = { 'sealed_blocks' => [{ 'id' => 'note-1', 'text' => 'Private note' }] }
-    capsule = Capsule.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now, design: design)
+    capsule = user.capsules.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now, design: design)
     capsule.update!(unlock_at: 1.minute.ago)
 
     get api_capsule_path(capsule)
