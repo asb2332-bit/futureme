@@ -2,6 +2,7 @@ class Api::CapsulesController < ApplicationController
   skip_forgery_protection
 
   before_action :set_capsule, only: :show
+  rescue_from ActionController::ParameterMissing, ActionDispatch::Http::Parameters::ParseError, with: :invalid_capsule_request
 
   def index
     capsules = Capsule.order(created_at: :desc)
@@ -44,18 +45,29 @@ class Api::CapsulesController < ApplicationController
 
   def capsule_params
     submitted_capsule = params.require(:capsule)
+    unless submitted_capsule.is_a?(ActionController::Parameters)
+      raise ActionController::ParameterMissing, :capsule
+    end
 
-    submitted_capsule.permit(:title, :message, :unlock_at, design: {})
+    attributes = submitted_capsule.permit(:title, :message, :unlock_at).to_h
+    attributes["design"] = submitted_capsule.to_unsafe_h["design"] if submitted_capsule.key?(:design)
+    attributes
+  end
+
+  def invalid_capsule_request(error)
+    message = error.is_a?(ActionDispatch::Http::Parameters::ParseError) ? "Request body must be valid JSON." : "Capsule must be a JSON object."
+    render json: { errors: { capsule: [message] } }, status: :bad_request
   end
 
   def capsule_json(capsule, include_message: false)
     unlocked = capsule.unlocked?
-    design = public_design(capsule.design)
+    poster_design = PosterDesign.new(capsule.design)
+    design = poster_design.public_data
     message = nil
 
     if include_message && unlocked
       message = capsule.message
-      design["sealed_blocks"] = capsule.design.fetch("sealed_blocks", [])
+      design["sealed_blocks"] = poster_design.sealed_data
     end
 
     {
@@ -66,15 +78,6 @@ class Api::CapsulesController < ApplicationController
       locked: !unlocked,
       message: message,
       design: design
-    }
-  end
-
-  def public_design(design)
-    {
-      "theme" => design.fetch("theme", {}),
-      "title_block" => design.fetch("title_block", {}),
-      "message_block" => design.fetch("message_block", {}),
-      "icon_block" => design.fetch("icon_block", {})
     }
   end
 end
