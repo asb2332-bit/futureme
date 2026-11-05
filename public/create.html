@@ -5,32 +5,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Create a capsule · FutureMe</title>
   <link rel="stylesheet" href="/app.css">
+  <script src="/postal.js" defer></script>
   <script src="/create.js" defer></script>
 </head>
 <body>
-  <main class="create-page">
-    <nav class="site-nav" aria-label="Site">
-      <a href="/">← FUTUREME</a>
-      <span>CREATE A CAPSULE</span>
-    </nav>
+  <div class="stripe" aria-hidden="true"></div>
+  <main class="app">
+    <header class="site-nav">
+      <a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
+      <a class="back" href="/">Cancel</a>
+    </header>
 
-    <section class="editor-shell" aria-label="Capsule editor">
-      <div class="editor-toolbar" aria-label="Poster controls">
-        <label>Theme <select id="theme-preset"><option value="sage">Sage</option><option value="sunset">Sunset</option><option value="night">Night</option></select></label>
-        <label>Background <input id="background-color" type="color" value="#E3E7DF"></label>
-        <label>Accent <input id="accent-color" type="color" value="#202923"></label>
-        <label>Font <select id="poster-font"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option><option value="display">Display</option></select></label>
-        <label>Icon <input id="poster-icon" value="⏳" maxlength="2"></label>
-        <button id="add-text-block" type="button">Add text</button>
+    <div class="desk">
+      <div class="stage" id="stage">
+        <div id="poster-preview" class="poster" aria-label="Capsule poster canvas"></div>
+        <p class="hint">Drag to move · <kbd>double-click</kbd> text to write</p>
       </div>
-      <div id="poster-preview" class="poster-preview editor-canvas" aria-label="Capsule poster canvas"></div>
 
-      <footer class="editor-footer">
-        <label>Unlock at <input id="unlock-at" type="datetime-local" name="unlock_at"></label>
-        <p id="form-errors" role="alert"></p>
-        <button id="seal-capsule" type="button">Seal the capsule</button>
-      </footer>
-    </section>
+      <aside class="side" aria-label="Capsule settings">
+        <section>
+          <h2><span>01</span>Stationery</h2>
+          <div class="swatches" role="group" aria-label="Quick themes">
+            <button type="button" data-swatch="sage" aria-label="Sage swatch" aria-pressed="true" style="background:#E3E7DF;color:#202923">Aa</button>
+            <button type="button" data-swatch="sunset" aria-label="Sunset swatch" aria-pressed="false" style="background:#FFD0B5;color:#6F2540">Aa</button>
+            <button type="button" data-swatch="night" aria-label="Night swatch" aria-pressed="false" style="background:#202923;color:#F5E8C8">Aa</button>
+          </div>
+          <label class="fld">Theme
+            <select id="theme-preset">
+              <option value="sage">Sage</option>
+              <option value="sunset">Sunset</option>
+              <option value="night">Night</option>
+              <option value="custom" hidden>Custom</option>
+            </select>
+          </label>
+          <div class="two">
+            <label class="fld">Background<input id="background-color" type="color" value="#E3E7DF"></label>
+            <label class="fld">Accent<input id="accent-color" type="color" value="#202923"></label>
+          </div>
+          <div class="two">
+            <label class="fld">Font
+              <select id="poster-font">
+                <option value="sans">Sans</option>
+                <option value="serif">Serif</option>
+                <option value="mono">Mono</option>
+                <option value="display">Display</option>
+              </select>
+            </label>
+            <label class="fld">Icon<input id="poster-icon" value="⏳" maxlength="2"></label>
+          </div>
+        </section>
+
+        <section>
+          <h2><span>02</span>Contents</h2>
+          <ul class="layers" id="layers" aria-label="Elements"></ul>
+          <button type="button" class="rm" id="remove-block" hidden></button>
+          <div class="uploads">
+            <button type="button" class="btn sm quiet" id="add-text-block">Add text</button>
+          </div>
+        </section>
+
+        <section>
+          <h2><span>03</span>Delivery</h2>
+          <label class="fld" id="unlock-at-field">Unlock at<input id="unlock-at" type="datetime-local" name="unlock_at"></label>
+          <div class="quick" role="group" aria-label="Unlock shortcuts">
+            <button type="button" data-plus-months="1">+1 month</button>
+            <button type="button" data-plus-months="12">+1 year</button>
+            <button type="button" data-plus-months="60">+5 years</button>
+          </div>
+          <p class="help">Until then, people only see the title and stamp. The message and extra text stay sealed.</p>
+          <ul class="errors" id="form-errors" role="alert"></ul>
+          <button type="button" class="btn seal" id="seal-capsule"><span class="dot" aria-hidden="true">FM</span>Seal the capsule</button>
+        </section>
+      </aside>
+    </div>
   </main>
 </body>
 </html>

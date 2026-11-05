@@ -3,7 +3,8 @@ When('I visit FutureMe') do
 end
 
 When('I visit the new capsule page') do
-  click_link 'Create a capsule'
+  # The home page has the same link in the nav, the hero, and (when empty) the empty state.
+  click_link 'Create a capsule', match: :first
 end
 
 When('I fill in {string} with {string}') do |field, value|

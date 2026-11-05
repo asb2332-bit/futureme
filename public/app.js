@@ -1,74 +1,82 @@
 const capsulesContainer = document.querySelector("#capsules");
+const heroEnvelope = document.querySelector("#hero-envelope");
 const capsulesUrl = "/api/capsules";
-let countdownTimers = [];
+const { esc, plural, time } = Postal;
+let refreshTimer;
 
-function formatCountdown(unlockAt) {
-  const secondsRemaining = Math.max(0, Math.ceil((new Date(unlockAt).getTime() - Date.now()) / 1000));
-  const days = Math.floor(secondsRemaining / 86_400);
-  const hours = Math.floor((secondsRemaining % 86_400) / 3_600);
-  const minutes = Math.floor((secondsRemaining % 3_600) / 60);
-  const seconds = secondsRemaining % 60;
-
-  return `Opens in ${days}d ${hours}h ${minutes}m ${seconds}s`;
+function isLocked(capsule) {
+  return time(capsule.unlock_at) > Date.now();
 }
 
-function startCountdown(element, unlockAt) {
-  const updateCountdown = () => {
-    if (new Date(unlockAt).getTime() <= Date.now()) {
-      clearInterval(timer);
-      element.textContent = "Opening capsule…";
-      loadCapsules();
-      return;
-    }
+// The hero is a sample envelope, not a real capsule, so it never duplicates a capsule's title or link.
+function showHero() {
+  const opensAt = Date.now() + 365 * Postal.DAY;
+  const sample = { id: 0, title: "To future me", design: {} };
+  const p = Postal.postmarkParts(opensAt);
 
-    element.textContent = formatCountdown(unlockAt);
-  };
+  heroEnvelope.innerHTML = `<div class="top">${Postal.postmarkHTML(opensAt, "OPENS", true)}${Postal.stampHTML(sample)}</div>
+    <div class="addr"><span>To: you, later</span><span>Do not open before ${p.day} ${p.month} ${p.year}</span></div>
+    <div class="wax">FM</div>`;
+}
 
-  const timer = setInterval(updateCountdown, 1_000);
-  countdownTimers.push(timer);
-  updateCountdown();
+function envelopeHTML(capsule) {
+  const locked = isLocked(capsule);
+  const chip = locked
+    ? `<span class="chip sealed">${Postal.lockSvg}Sealed · opens in ${plural(Postal.daysUntil(capsule.unlock_at), "day")}</span>`
+    : `<span class="chip open">${Postal.openSvg}Unlocked</span>`;
+
+  return `<li><a class="env${locked ? "" : " open"}" href="/capsule.html?id=${encodeURIComponent(capsule.id)}">
+    <div class="meta"><span class="eyebrow">${esc(Postal.capsuleNumber(capsule))}</span><h3>${esc(capsule.title)}</h3>${chip}</div>
+    <div class="right">${Postal.postmarkHTML(capsule.unlock_at, locked ? "OPENS" : "OPENED", locked)}${Postal.stampHTML(capsule)}</div>
+  </a></li>`;
+}
+
+function emptyStateHTML() {
+  return `<div class="empty"><div class="wax">FM</div><h3>No capsules yet</h3>
+    <p>Seal your first message and it will wait here, counting down to the day it opens.</p>
+    <a class="btn primary" href="/create.html">Create a capsule</a></div>`;
+}
+
+// When the next sealed capsule opens, re-fetch so it moves to "Already opened".
+function scheduleRefresh(sealed) {
+  clearTimeout(refreshTimer);
+  if (sealed.length === 0) return;
+
+  const wait = time(sealed[0].unlock_at) - Date.now() + 1_000;
+  if (wait < 2 ** 31 - 1) refreshTimer = setTimeout(loadCapsules, wait);
 }
 
 function showCapsules(capsuleList) {
-  countdownTimers.forEach(clearInterval);
-  countdownTimers = [];
-  capsulesContainer.replaceChildren();
-
   if (capsuleList.length === 0) {
-    capsulesContainer.textContent = "No capsules yet.";
+    capsulesContainer.innerHTML = emptyStateHTML();
     return;
   }
 
-  capsuleList.forEach((capsule) => {
-    const card = document.createElement("a");
-    card.className = "capsule";
-    card.href = `/capsule.html?id=${capsule.id}`;
+  const sealed = capsuleList.filter(isLocked).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
+  const opened = capsuleList.filter((c) => !isLocked(c)).sort((a, b) => time(b.unlock_at) - time(a.unlock_at));
+  let html = "";
 
-    const title = document.createElement("h3");
-    title.textContent = capsule.title;
+  if (sealed.length) {
+    html += `<div class="sec-head"><h2>Opening soon</h2><span class="eyebrow">${plural(sealed.length, "sealed capsule")}</span></div>`;
+    html += `<ol class="timeline">${sealed.map(envelopeHTML).join("")}<li><a class="newenv" href="/create.html">+ Seal another capsule</a></li></ol>`;
+  }
+  if (opened.length) {
+    html += `<div class="sec-head"><h2>Already opened</h2></div><ol class="timeline opened">${opened.map(envelopeHTML).join("")}</ol>`;
+  }
 
-    const countdown = document.createElement("p");
-    countdown.className = "countdown";
-    countdown.textContent = "Unlocked";
-    if (capsule.locked) startCountdown(countdown, capsule.unlock_at);
-
-    const creator = document.createElement("p");
-    creator.textContent = "Created by: You (accounts coming soon)";
-
-    const status = document.createElement("p");
-    status.textContent = capsule.locked ? "This capsule is locked" : "This capsule is unlocked";
-    status.className = capsule.locked ? "locked" : "";
-
-    card.append(title, countdown, creator, status);
-    capsulesContainer.append(card);
-  });
+  capsulesContainer.innerHTML = html;
+  scheduleRefresh(sealed);
 }
 
 async function loadCapsules() {
-  const response = await fetch(capsulesUrl);
-  const capsuleList = await response.json();
-
-  showCapsules(capsuleList);
+  try {
+    const response = await fetch(capsulesUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    showCapsules(await response.json());
+  } catch (error) {
+    capsulesContainer.innerHTML = `<p class="loading">Couldn't load your capsules. Refresh to try again.</p>`;
+  }
 }
 
+showHero();
 loadCapsules();

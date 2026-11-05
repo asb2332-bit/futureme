@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FutureMe Capsule</title>
   <link rel="stylesheet" href="/app.css">
+  <script src="/postal.js" defer></script>
   <script src="/capsule.js" defer></script>
 </head>
 <body>
-  <main>
-    <a class="back" href="/">← All capsules</a>
-    <article class="panel capsule-detail">
-      <div id="capsule-poster" class="poster-preview" aria-label="Capsule poster"></div>
-      <p id="capsule-creator">Created by: You (accounts coming soon)</p>
-      <p id="capsule-unlock-time" class="countdown"></p>
-    </article>
+  <div class="stripe" aria-hidden="true"></div>
+  <main class="app">
+    <header class="site-nav">
+      <a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
+      <span id="sealed-toast"></span>
+    </header>
+    <div id="capsule-view" aria-live="polite"><p class="loading">Opening the mailbox…</p></div>
   </main>
 </body>
 </html>
