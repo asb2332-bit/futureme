@@ -2,6 +2,8 @@ const capsuleId = new URLSearchParams(window.location.search).get("id");
 const poster = document.querySelector("#capsule-poster");
 const creator = document.querySelector("#capsule-creator");
 const unlockTime = document.querySelector("#capsule-unlock-time");
+const calendarReminder = document.querySelector("#calendar-reminder");
+const calendarDownload = document.querySelector("#download-calendar");
 let countdownTimer;
 
 const defaultBlocks = {
@@ -75,22 +77,47 @@ function showCountdown(capsule) {
   updateCountdown();
 }
 
-async function loadCapsule() {
-  const response = await fetch(`/api/capsules/${capsuleId}`);
-
-  if (!response.ok) {
-    poster.textContent = "Capsule not found";
-    return;
+function showCalendarReminder(capsule) {
+  calendarReminder.hidden = !capsule.locked;
+  if (capsule.locked) {
+    calendarDownload.href = `/api/capsules/${encodeURIComponent(capsule.id)}/calendar`;
+  } else {
+    calendarDownload.removeAttribute("href");
   }
+}
 
-  const capsule = await response.json();
-  creator.textContent = "Created by: You (accounts coming soon)";
-  showPoster(capsule);
-  showCountdown(capsule);
+function showCapsuleError(message) {
+  clearInterval(countdownTimer);
+  poster.textContent = message;
+  creator.textContent = "";
+  unlockTime.textContent = "";
+  calendarReminder.hidden = true;
+  calendarDownload.removeAttribute("href");
+}
+
+async function loadCapsule() {
+  calendarReminder.hidden = true;
+  calendarDownload.removeAttribute("href");
+
+  try {
+    const response = await fetch(`/api/capsules/${capsuleId}`);
+    if (!response.ok) {
+      showCapsuleError(response.status === 404 ? "Capsule not found" : "Couldn't load this capsule. Please refresh.");
+      return;
+    }
+
+    const capsule = await response.json();
+    creator.textContent = "Created by: You (accounts coming soon)";
+    showPoster(capsule);
+    showCalendarReminder(capsule);
+    showCountdown(capsule);
+  } catch {
+    showCapsuleError("Couldn't load this capsule. Please refresh.");
+  }
 }
 
 if (capsuleId) {
   loadCapsule();
 } else {
-  poster.textContent = "Capsule not found";
+  showCapsuleError("Capsule not found");
 }

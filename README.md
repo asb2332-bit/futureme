@@ -29,6 +29,12 @@ bin/rails server
 
 Open <http://localhost:3000>.
 
+## Calendar reminders
+
+Open a locked capsule and choose **Download calendar reminder**, then open the downloaded `.ics` file in your calendar app. The event links back to the capsule and includes an alert for its unlock time; your calendar app controls how alerts are delivered.
+
+The calendar file contains the capsule title and link, but never its private message or sealed poster notes.
+
 ## Test
 
 ```sh
