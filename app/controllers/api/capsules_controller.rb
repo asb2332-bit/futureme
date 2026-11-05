@@ -1,8 +1,7 @@
 class Api::CapsulesController < ApplicationController
-  # ponytail: public unauthenticated API; restore CSRF protection when user sessions are added.
   skip_forgery_protection
 
-  before_action :set_capsule, only: :show
+  before_action :set_capsule, only: %i[show calendar]
 
   def index
     capsules = Capsule.order(created_at: :desc)
@@ -34,6 +33,16 @@ class Api::CapsulesController < ApplicationController
     capsule_data = capsule_json(@capsule, include_message: true)
 
     render json: capsule_data
+  end
+
+  def calendar
+    capsule_link = URI.join(root_url, "capsule.html?id=#{@capsule.id}").to_s
+    reminder = CapsuleCalendar.new(@capsule, url: capsule_link)
+    send_data reminder.to_ical,
+      type: "text/calendar; charset=utf-8",
+      disposition: "attachment",
+      filename: "futureme-capsule-#{@capsule.id}.ics"
+    response.headers["Cache-Control"] = "private, no-store"
   end
 
   private
