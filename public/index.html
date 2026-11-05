@@ -30,7 +30,32 @@
 
     <section class="capsule-list" aria-labelledby="capsule-list">
       <h2 id="capsule-list">Your capsules</h2>
-      <div id="capsules" class="capsules"></div>
+      <div class="capsule-controls">
+        <label for="capsule-search">Search capsules
+          <input id="capsule-search" type="search" placeholder="Search by title" aria-controls="capsules">
+        </label>
+        <label for="capsule-status">Status
+          <select id="capsule-status" aria-controls="capsules">
+            <option value="all">All capsules</option>
+            <option value="locked">Locked</option>
+            <option value="unlocked">Unlocked</option>
+          </select>
+        </label>
+        <label for="capsule-sort">Sort by
+          <select id="capsule-sort" aria-controls="capsules">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="unlock">Unlock date</option>
+          </select>
+        </label>
+        <button id="reset-filters" type="button">Reset filters</button>
+      </div>
+      <p id="capsule-summary" role="status">Loading capsules…</p>
+      <div id="capsule-load-error" class="capsule-feedback" role="alert" hidden>
+        <p id="capsule-load-error-message"></p>
+        <button id="retry-capsules" type="button">Try again</button>
+      </div>
+      <div id="capsules" class="capsules" aria-busy="true"></div>
     </section>
   </main>
 </body>
