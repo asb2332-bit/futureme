@@ -1,5 +1,4 @@
 class Api::CapsulesController < ApplicationController
-  # ponytail: public unauthenticated API; restore CSRF protection when user sessions are added.
   skip_forgery_protection
 
   before_action :set_capsule, only: :show
