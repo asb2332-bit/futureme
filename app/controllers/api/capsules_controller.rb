@@ -74,7 +74,8 @@ class Api::CapsulesController < ApplicationController
     {
       "theme" => design.fetch("theme", {}),
       "title_block" => design.fetch("title_block", {}),
-      "message_block" => design.fetch("message_block", {})
+      "message_block" => design.fetch("message_block", {}),
+      "icon_block" => design.fetch("icon_block", {})
     }
   end
 end
