@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FutureMe</title>
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/drafts.css">
+  <script src="/drafts.js" defer></script>
+  <script src="/draft-list.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -26,6 +29,13 @@
           <section><h2>Wait</h2><p>Return when the moment is ready to be remembered.</p></section>
         </div>
       </header>
+    </section>
+
+    <section class="draft-library" aria-labelledby="draft-list-title" hidden>
+      <h2 id="draft-list-title">Your drafts</h2>
+      <p class="draft-hint">Saved on this device, ready when you are. Drafts are not sealed yet.</p>
+      <p id="draft-list-status" role="status"></p>
+      <div id="draft-list"></div>
     </section>
 
     <section class="capsule-list" aria-labelledby="capsule-list">
