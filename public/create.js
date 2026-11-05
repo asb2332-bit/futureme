@@ -11,6 +11,11 @@ const posterPreview = document.querySelector("#poster-preview");
 let selectedBlockId = "message";
 let titleText = "";
 let messageText = "";
+let isSubmitting = false;
+
+function draftChanged() {
+  window.dispatchEvent(new Event("capsule:changed"));
+}
 
 const themePresets = {
   sage: { background_color: "#E3E7DF", accent_color: "#202923" },
@@ -63,6 +68,7 @@ function startDragging(event, id) {
   const stopDragging = () => {
     window.removeEventListener("pointermove", drag);
     window.removeEventListener("pointerup", stopDragging);
+    if (block.x !== originalX || block.y !== originalY) draftChanged();
   };
 
   window.addEventListener("pointermove", drag);
@@ -101,6 +107,7 @@ function startResizing(event, id, direction) {
   const stopResizing = () => {
     window.removeEventListener("pointermove", resize);
     window.removeEventListener("pointerup", stopResizing);
+    if (["x", "y", "width", "height"].some((name) => block[name] !== original[name])) draftChanged();
   };
 
   window.addEventListener("pointermove", resize);
@@ -124,6 +131,7 @@ function startRotating(event, id) {
   const stopRotating = () => {
     window.removeEventListener("pointermove", rotate);
     window.removeEventListener("pointerup", stopRotating);
+    draftChanged();
   };
 
   window.addEventListener("pointermove", rotate);
@@ -180,6 +188,7 @@ function addPosterBlock(id, text, block, editable) {
       if (id === "title") titleText = element.textContent;
       else if (id === "message") messageText = element.textContent;
       else block.text = element.textContent;
+      draftChanged();
     });
     element.addEventListener("blur", () => {
       element.dataset.editing = "false";
@@ -213,6 +222,7 @@ function addTextBlock() {
   const id = `text-${Date.now()}`;
   design.sealed_blocks.push({ id: id, text: "New text", x: 12, y: 78, width: 50, height: 12, rotation: 0 });
   selectBlock(id);
+  draftChanged();
 }
 
 function showValidationErrors(errors) {
@@ -220,28 +230,53 @@ function showValidationErrors(errors) {
 }
 
 async function createCapsule() {
+  if (isSubmitting) return;
+
   formErrors.textContent = "";
+  const submittedDraft = window.prepareCapsuleDraft?.();
   const unlockAt = unlockAtInput.value;
   const capsule = {
     title: titleText,
     message: messageText,
     unlock_at: unlockAt ? new Date(unlockAt).toISOString() : "",
-    design: design
+    design: JSON.parse(JSON.stringify(design))
   };
-  const response = await fetch("/api/capsules", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ capsule: capsule })
-  });
 
-  if (!response.ok) {
+  isSubmitting = true;
+  let sealed = false;
+  setEditorBusy(true);
+
+  try {
+    const response = await fetch("/api/capsules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ capsule: capsule })
+    });
     const responseBody = await response.json();
-    showValidationErrors(responseBody.errors);
-    return;
-  }
+    if (!response.ok) {
+      if (responseBody.errors) showValidationErrors(responseBody.errors);
+      else formErrors.textContent = "Your capsule couldn't be sealed. Please try again.";
+      return;
+    }
 
-  const createdCapsule = await response.json();
-  window.location.href = `/capsule.html?id=${createdCapsule.id}`;
+    sealed = true;
+    const draftCleared = window.finishCapsuleDraft?.(submittedDraft, responseBody.id) ?? true;
+    if (draftCleared) window.location.href = `/capsule.html?id=${responseBody.id}`;
+  } catch {
+    formErrors.textContent = "Your capsule couldn't be sealed. Your writing is still here; please try again.";
+  } finally {
+    if (!sealed) {
+      isSubmitting = false;
+      setEditorBusy(false);
+    }
+  }
+}
+
+function setEditorBusy(busy) {
+  document.querySelectorAll(".editor-toolbar, #poster-preview, .editor-footer").forEach((element) => { element.inert = busy; });
+  document.querySelectorAll(".draft-actions button").forEach((button) => { button.disabled = busy; });
+  sealButton.disabled = busy;
+  sealButton.textContent = busy ? "Sealing…" : "Seal the capsule";
 }
 
 presetInput.addEventListener("change", () => {
@@ -251,11 +286,14 @@ presetInput.addEventListener("change", () => {
   backgroundInput.value = preset.background_color;
   accentInput.value = preset.accent_color;
   renderPoster();
+  draftChanged();
 });
-backgroundInput.addEventListener("input", () => { design.theme.background_color = backgroundInput.value; renderPoster(); });
-accentInput.addEventListener("input", () => { design.theme.accent_color = accentInput.value; renderPoster(); });
-fontInput.addEventListener("change", () => { design.theme.font = fontInput.value; renderPoster(); });
-iconInput.addEventListener("input", () => { design.theme.icon = iconInput.value; renderPoster(); });
+backgroundInput.addEventListener("input", () => { design.theme.background_color = backgroundInput.value; presetInput.value = "custom"; renderPoster(); draftChanged(); });
+accentInput.addEventListener("input", () => { design.theme.accent_color = accentInput.value; presetInput.value = "custom"; renderPoster(); draftChanged(); });
+fontInput.addEventListener("change", () => { design.theme.font = fontInput.value; renderPoster(); draftChanged(); });
+iconInput.addEventListener("input", () => { design.theme.icon = iconInput.value; renderPoster(); draftChanged(); });
+unlockAtInput.addEventListener("input", draftChanged);
+unlockAtInput.addEventListener("change", draftChanged);
 addTextButton.addEventListener("click", addTextBlock);
 sealButton.addEventListener("click", createCapsule);
 

@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Create a capsule · FutureMe</title>
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/drafts.css">
+  <script src="/drafts.js" defer></script>
   <script src="/create.js" defer></script>
+  <script src="/editor-drafts.js" defer></script>
 </head>
 <body>
   <main class="create-page">
@@ -15,8 +18,22 @@
     </nav>
 
     <section class="editor-shell" aria-label="Capsule editor">
+      <div class="draft-panel">
+        <div>
+          <p id="draft-status" role="status">Changes are saved as drafts on this device.</p>
+          <p class="draft-hint">Drafts stay in this browser and are not sealed yet.</p>
+        </div>
+        <div class="draft-actions">
+          <button id="save-draft" type="button">Save draft</button>
+          <button id="discard-draft" type="button" disabled>Discard draft</button>
+          <span id="draft-conflict-actions" hidden>
+            <button id="reload-draft" type="button">Reload saved draft</button>
+            <button id="copy-draft" type="button">Save as new draft</button>
+          </span>
+        </div>
+      </div>
       <div class="editor-toolbar" aria-label="Poster controls">
-        <label>Theme <select id="theme-preset"><option value="sage">Sage</option><option value="sunset">Sunset</option><option value="night">Night</option></select></label>
+        <label>Theme <select id="theme-preset"><option value="sage">Sage</option><option value="sunset">Sunset</option><option value="night">Night</option><option value="custom" disabled>Custom</option></select></label>
         <label>Background <input id="background-color" type="color" value="#E3E7DF"></label>
         <label>Accent <input id="accent-color" type="color" value="#202923"></label>
         <label>Font <select id="poster-font"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option><option value="display">Display</option></select></label>
