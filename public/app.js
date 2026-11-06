@@ -19,15 +19,23 @@ function showHero() {
     <div class="wax">FM</div>`;
 }
 
+// Unlocked by time but nobody has broken the seal yet.
+function isReady(capsule) {
+  return !isLocked(capsule) && !capsule.opened;
+}
+
 function envelopeHTML(capsule) {
   const locked = isLocked(capsule);
-  const chip = locked
-    ? `<span class="chip sealed">${Postal.lockSvg}Sealed · opens in ${plural(Postal.daysUntil(capsule.unlock_at), "day")}</span>`
-    : `<span class="chip open">${Postal.openSvg}Unlocked</span>`;
+  const ready = isReady(capsule);
+  let chip = `<span class="chip open">${Postal.openSvg}Unlocked</span>`;
+  if (locked) chip = `<span class="chip sealed">${Postal.lockSvg}Sealed · opens in ${plural(Postal.daysUntil(capsule.unlock_at), "day")}</span>`;
+  if (ready) chip = `<span class="chip ready">${Postal.openSvg}Ready to open</span>`;
+  const label = locked ? "OPENS" : ready ? "READY" : "OPENED";
+  const postmarkDate = locked || ready ? capsule.unlock_at : capsule.opened_at || capsule.unlock_at;
 
-  return `<li><a class="env${locked ? "" : " open"}" href="/capsule.html?id=${encodeURIComponent(capsule.id)}">
+  return `<li><a class="env${locked || ready ? "" : " open"}" href="/capsule.html?id=${encodeURIComponent(capsule.id)}">
     <div class="meta"><span class="eyebrow">${esc(Postal.capsuleNumber(capsule))}</span><h3>${esc(capsule.title)}</h3>${chip}<span class="inside">Inside: ${esc(Postal.insideText(capsule.contents))}</span></div>
-    <div class="right">${Postal.postmarkHTML(capsule.unlock_at, locked ? "OPENS" : "OPENED", locked)}${Postal.stampHTML(capsule)}</div>
+    <div class="right">${Postal.postmarkHTML(postmarkDate, label, locked)}${Postal.stampHTML(capsule)}</div>
   </a></li>`;
 }
 
@@ -37,7 +45,7 @@ function emptyStateHTML() {
     <a class="btn primary" href="/create.html">Create a capsule</a></div>`;
 }
 
-// When the next sealed capsule opens, re-fetch so it moves to "Already opened".
+// When the next sealed capsule unlocks, re-fetch so it moves to "Ready to open".
 function scheduleRefresh(sealed) {
   clearTimeout(refreshTimer);
   if (sealed.length === 0) return;
@@ -53,9 +61,15 @@ function showCapsules(capsuleList) {
   }
 
   const sealed = capsuleList.filter(isLocked).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
-  const opened = capsuleList.filter((c) => !isLocked(c)).sort((a, b) => time(b.unlock_at) - time(a.unlock_at));
+  const ready = capsuleList.filter(isReady).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
+  const opened = capsuleList.filter((c) => !isLocked(c) && c.opened)
+    .sort((a, b) => time(b.opened_at || b.unlock_at) - time(a.opened_at || a.unlock_at));
   let html = "";
 
+  if (ready.length) {
+    html += `<div class="sec-head"><h2>Ready to open</h2><span class="eyebrow">${plural(ready.length, "unopened capsule")}</span></div>`;
+    html += `<ol class="timeline">${ready.map(envelopeHTML).join("")}</ol>`;
+  }
   if (sealed.length) {
     html += `<div class="sec-head"><h2>Opening soon</h2><span class="eyebrow">${plural(sealed.length, "sealed capsule")}</span></div>`;
     html += `<ol class="timeline">${sealed.map(envelopeHTML).join("")}<li><a class="newenv" href="/create.html">+ Seal another capsule</a></li></ol>`;

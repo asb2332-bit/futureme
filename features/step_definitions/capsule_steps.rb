@@ -65,6 +65,15 @@ Given('a capsule titled {string} unlocked yesterday with the message {string}') 
   capsule.update!(unlock_at: 1.day.ago)
 end
 
+Given('a capsule titled {string} was opened yesterday with the message {string}') do |title, message|
+  capsule = Capsule.create!(title: title, message: message, unlock_at: 1.day.from_now)
+  capsule.update!(unlock_at: 2.days.ago, opened_at: 1.day.ago)
+end
+
+When('I break the seal') do
+  click_button 'Break the seal'
+end
+
 def create_capsule_with_photo(title)
   photo = ActiveStorage::Blob.create_and_upload!(
     io: File.open(Rails.root.join('features/fixtures/grad.jpg')),

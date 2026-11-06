@@ -2,7 +2,7 @@ class Api::CapsulesController < ApplicationController
   # ponytail: public unauthenticated API; restore CSRF protection when user sessions are added.
   skip_forgery_protection
 
-  before_action :set_capsule, only: :show
+  before_action :set_capsule, only: %i[show open]
 
   rescue_from ActiveRecord::RecordNotFound do
     render json: { error: "Capsule not found" }, status: :not_found
@@ -40,6 +40,15 @@ class Api::CapsulesController < ApplicationController
     render json: capsule_data
   end
 
+  # Breaking the seal: allowed once the unlock time has passed, and returns the contents.
+  def open
+    if @capsule.open!
+      render json: capsule_json(@capsule, include_message: true)
+    else
+      render json: { error: "This capsule is locked" }, status: :forbidden
+    end
+  end
+
   private
 
   def set_capsule
@@ -53,14 +62,15 @@ class Api::CapsulesController < ApplicationController
     submitted_capsule.permit(:title, :message, :unlock_at, design: {})
   end
 
-  # Sealing rule: while a capsule is locked its JSON carries no message, no sealed blocks,
-  # and therefore no media ids or URLs. Only the counts in `contents` describe what's inside.
+  # Sealing rule: until a capsule is unlocked *and* its seal has been broken, its JSON carries
+  # no message, no sealed blocks, and therefore no media ids or URLs. Only the counts in
+  # `contents` describe what's inside.
   def capsule_json(capsule, include_message: false)
     unlocked = capsule.unlocked?
     design = public_design(capsule.design)
     message = nil
 
-    if include_message && unlocked
+    if include_message && capsule.opened?
       message = capsule.message
       design["sealed_blocks"] = capsule.sealed_blocks_with_media_urls do |blob|
         rails_blob_path(blob, disposition: "inline", only_path: true)
@@ -73,6 +83,8 @@ class Api::CapsulesController < ApplicationController
       unlock_at: capsule.unlock_at,
       created_at: capsule.created_at,
       locked: !unlocked,
+      opened: capsule.opened?,
+      opened_at: capsule.opened? ? capsule.opened_at : nil,
       message: message,
       contents: capsule.contents,
       design: design

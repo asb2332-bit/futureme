@@ -17,6 +17,19 @@ class Capsule < ApplicationRecord
     !unlocked?
   end
 
+  # Reaching the unlock time only makes a capsule ready; it opens when someone breaks the seal.
+  def opened?
+    unlocked? && opened_at.present?
+  end
+
+  # Breaks the seal once. Opening again keeps the first time. Returns false while locked.
+  def open!
+    return false if locked?
+
+    update!(opened_at: Time.current) if opened_at.nil?
+    true
+  end
+
   def sealed_blocks
     blocks = design.is_a?(Hash) ? design["sealed_blocks"] : nil
     blocks.is_a?(Array) ? blocks.select { |block| block.is_a?(Hash) } : []

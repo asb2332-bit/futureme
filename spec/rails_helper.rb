@@ -34,6 +34,7 @@ rescue ActiveRecord::PendingMigrationError => e
 end
 require_relative "support/media_helpers"
 RSpec.configure do |config|
+  config.include ActiveSupport::Testing::TimeHelpers
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
   config.fixture_paths = [
     Rails.root.join('spec/fixtures')

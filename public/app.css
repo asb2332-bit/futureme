@@ -122,6 +122,7 @@ a { color: inherit; }
 .chip svg { width: 13px; height: 13px; }
 .chip.sealed { color: var(--red); }
 .chip.open { color: var(--blue); }
+.chip.ready { color: var(--ok); }
 .newenv { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 18px; border: 2px dashed var(--muted); color: var(--muted); text-decoration: none; font-weight: 600; border-radius: var(--radius); }
 .newenv:hover { border-color: var(--ink); color: var(--ink); }
 .empty { background: var(--paper); border: 2px dashed var(--muted); border-radius: var(--radius); padding: 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
@@ -199,6 +200,10 @@ a { color: inherit; }
 .opening .pocket { position: absolute; left: -6%; right: -6%; bottom: 0; height: 46%; z-index: 2; background: var(--paper); border: 8px solid; border-image: var(--airmail) 8; box-shadow: var(--lift); animation: drop 1.4s ease both; display: grid; place-items: center; }
 @keyframes rise { 0% { transform: translateY(42%); } 55% { transform: translateY(-4%); } 100% { transform: translateY(0); } }
 @keyframes drop { 0%, 45% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(40%); opacity: 0; visibility: hidden; } }
+/* Breaking the seal: the wax cracks and falls away before the poster slides out. */
+.big-env.breaking .wax { animation: crack .65s ease-in forwards; }
+@keyframes crack { 0% { transform: scale(1) rotate(0); } 30% { transform: scale(1.15) rotate(-8deg); } 100% { transform: scale(.4) rotate(25deg) translateY(60%); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .big-env.breaking .wax { animation: none; opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .opening .poster { animation: none; } .opening .pocket { display: none; } .env, .btn { transition: none; } }
 
 .rts { max-width: 520px; margin: 40px auto; background: var(--paper); border: 1.5px solid var(--rule); box-shadow: var(--lift); padding: 34px 26px; display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center; position: relative; }

@@ -54,15 +54,56 @@ RSpec.describe 'Capsules API', type: :request do
     expect(response_body.first.fetch('design')).not_to have_key('sealed_blocks')
   end
 
-  it 'returns sealed content of an unlocked capsule' do
-    design = { 'sealed_blocks' => [{ 'id' => 'note-1', 'text' => 'Private note' }] }
-    capsule = Capsule.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now, design: design)
-    capsule.update!(unlock_at: 1.minute.ago)
+  describe 'breaking the seal' do
+    let(:design) { { 'sealed_blocks' => [{ 'id' => 'note-1', 'text' => 'Private note' }] } }
+    let(:capsule) { Capsule.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now, design: design) }
 
-    get api_capsule_path(capsule)
+    it 'keeps an unlocked capsule closed until someone opens it' do
+      capsule.update!(unlock_at: 1.minute.ago)
 
-    expect(response_body).to include('locked' => false, 'message' => 'Surprise!')
-    expect(response_body.fetch('design').fetch('sealed_blocks')).to eq(design['sealed_blocks'])
+      get api_capsule_path(capsule)
+
+      expect(response_body).to include('locked' => false, 'opened' => false, 'opened_at' => nil, 'message' => nil)
+      expect(response_body.fetch('design')).not_to have_key('sealed_blocks')
+    end
+
+    it 'refuses to open a locked capsule' do
+      post open_api_capsule_path(capsule)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response_body).to eq('error' => 'This capsule is locked')
+      expect(capsule.reload.opened_at).to be_nil
+    end
+
+    it 'opens an unlocked capsule and returns its sealed content' do
+      capsule.update!(unlock_at: 1.minute.ago)
+
+      post open_api_capsule_path(capsule)
+
+      expect(response).to have_http_status(:ok)
+      expect(response_body).to include('locked' => false, 'opened' => true, 'message' => 'Surprise!')
+      expect(response_body.fetch('design').fetch('sealed_blocks')).to eq(design['sealed_blocks'])
+    end
+
+    it 'stays open afterwards and keeps the first opening time' do
+      capsule.update!(unlock_at: 1.minute.ago)
+      post open_api_capsule_path(capsule)
+      first_opened_at = capsule.reload.opened_at
+
+      travel 1.hour do
+        post open_api_capsule_path(capsule)
+      end
+      get api_capsule_path(capsule)
+
+      expect(capsule.reload.opened_at).to eq(first_opened_at)
+      expect(response_body).to include('opened' => true, 'message' => 'Surprise!')
+    end
+
+    it 'returns a JSON 404 when opening a capsule that does not exist' do
+      post open_api_capsule_path(id: 999_999)
+
+      expect(response).to have_http_status(:not_found)
+    end
   end
 end
 
@@ -136,11 +177,30 @@ RSpec.describe 'Capsules API with media', type: :request do
     expect(response_body.fetch('contents')).to eq('notes' => 1, 'photos' => 1, 'audio' => 1)
   end
 
-  it 'adds a working url to each media block once unlocked' do
+  it 'never exposes media of an unlocked capsule whose seal is unbroken' do
     capsule = create_capsule_with_media
     capsule.update!(unlock_at: 1.minute.ago)
 
     get api_capsule_path(capsule)
+
+    expect(response_body).to include('locked' => false, 'opened' => false)
+    expect_no_media_references
+  end
+
+  it 'never exposes media when opening a locked capsule is refused' do
+    capsule = create_capsule_with_media
+
+    post open_api_capsule_path(capsule)
+
+    expect(response).to have_http_status(:forbidden)
+    expect_no_media_references
+  end
+
+  it 'adds a working url to each media block once the seal is broken' do
+    capsule = create_capsule_with_media
+    capsule.update!(unlock_at: 1.minute.ago)
+
+    post open_api_capsule_path(capsule)
 
     blocks = response_body.fetch('design').fetch('sealed_blocks').index_by { |block| block['id'] }
     expect(blocks['note-1']).not_to have_key('url')

@@ -41,7 +41,21 @@ Feature: Time capsules
     When I visit FutureMe
     And I open "A note from last year"
     Then I see "A note from last year"
-    And I see "Keep believing in yourself."
+    And I see "Ready to open"
+    And I do not see "Keep believing in yourself."
+    When I break the seal
+    Then I see "Keep believing in yourself."
+
+  Scenario: An opened capsule stays open
+    Given a capsule titled "A note from last year" unlocked yesterday with the message "Keep believing in yourself."
+    When I visit FutureMe
+    And I open "A note from last year"
+    And I break the seal
+    And I visit FutureMe
+    Then I see "Already opened"
+    When I open "A note from last year"
+    Then I see "Keep believing in yourself."
+    And I do not see "Break the seal"
 
   Scenario: Reject an invalid capsule
     When I visit FutureMe
@@ -53,9 +67,11 @@ Feature: Time capsules
 
   Scenario: See capsules on the timeline
     Given a capsule titled "Birthday wishes" unlocks tomorrow with the message "Happy birthday!"
-    And a capsule titled "A note from last year" unlocked yesterday with the message "Keep going."
+    And a capsule titled "Summer letter" unlocked yesterday with the message "Hi."
+    And a capsule titled "A note from last year" was opened yesterday with the message "Keep going."
     When I visit FutureMe
     Then I see "Opening soon"
+    And I see "Ready to open"
     And I see "Already opened"
     And I see "Sealed"
     And I see "Unlocked"
@@ -97,6 +113,8 @@ Feature: Time capsules
     Given a capsule titled "Last year" with a photo unlocked yesterday
     When I visit FutureMe
     And I open "Last year"
+    Then I do not see a photo on the poster
+    When I break the seal
     Then I see a photo on the poster
 
   Scenario: Reject an unsupported file
