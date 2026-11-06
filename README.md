@@ -13,8 +13,6 @@ FutureMe lets people create digital time capsules containing a message that rema
 | Sammy | sn3136 |
 | Yiyao | yz5137 |
 
-Screenshots: see [`docs/screenshots/`](docs/screenshots/) (home timeline, editor, sealed, opened, not found, mobile).
-
 ## Requirements
 
 - Ruby 3.3.8 (managed by rbenv)
