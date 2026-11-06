@@ -36,3 +36,6 @@
 
 # /html_for_plan html files for visualization
 /html_for_plan     
+
+# Local repo snapshot (not part of the application)
+/futureme.zip

@@ -62,4 +62,30 @@ RSpec.describe Capsule, type: :model do
       expect(capsule.unlocked?).to be(true)
     end
   end
+
+  describe '#open!' do
+    it 'does nothing while locked' do
+      capsule.save!
+
+      expect(capsule.open!).to be(false)
+      expect(capsule.reload.opened_at).to be_nil
+      expect(capsule).not_to be_opened
+    end
+
+    it 'records the first opening once unlocked' do
+      capsule.save!
+      capsule.update!(unlock_at: 1.minute.ago)
+
+      expect(capsule).not_to be_opened
+      expect(capsule.open!).to be(true)
+      first = capsule.reload.opened_at
+
+      travel 1.hour do
+        capsule.open!
+      end
+
+      expect(capsule.reload.opened_at).to eq(first)
+      expect(capsule).to be_opened
+    end
+  end
 end

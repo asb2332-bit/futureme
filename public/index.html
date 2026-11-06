@@ -4,34 +4,36 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FutureMe</title>
+  <link rel="preload" href="/fonts/young-serif-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/app.css">
+  <script src="/postal.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <main class="landing">
-    <nav class="site-nav" aria-label="Site">
-      <strong>FUTUREME</strong>
-      <span>NO ACCOUNTS · NO SERVER COPY</span>
-    </nav>
+  <div class="stripe" aria-hidden="true"></div>
+  <main class="app">
+    <header class="site-nav">
+      <a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
+      <a class="btn sm primary" href="/create.html">Create a capsule</a>
+    </header>
 
-    <section class="home-hero">
-      <header class="hero-copy">
-        <p class="eyebrow">DIGITAL TIME CAPSULE</p>
-        <h1>Write it now.<br>Open it later.</h1>
-        <p>Preserve a message for the future. It stays sealed until the date you choose arrives.</p>
-        <a class="button-link" href="/create.html">Create a capsule</a>
-        <div class="how-it-works">
-          <section><h2>Write</h2><p>A note for your future self or someone you love.</p></section>
-          <section><h2>Seal</h2><p>Your message stays hidden until its unlock time.</p></section>
-          <section><h2>Wait</h2><p>Return when the moment is ready to be remembered.</p></section>
-        </div>
-      </header>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">A digital time capsule</p>
+        <h1>Seal a letter to the <em>future.</em></h1>
+        <p class="sub">Design a poster around your message. It stays sealed until the day you choose.</p>
+        <a class="btn primary" href="/create.html">Create a capsule</a>
+      </div>
+      <div class="hero-env" id="hero-envelope" aria-hidden="true"></div>
     </section>
 
-    <section class="capsule-list" aria-labelledby="capsule-list">
-      <h2 id="capsule-list">Your capsules</h2>
-      <div id="capsules" class="capsules"></div>
-    </section>
+    <ol class="how">
+      <li><span class="n">1</span><b>Write</b><p>A message for your future self or someone you love.</p></li>
+      <li><span class="n">2</span><b>Seal</b><p>Only the title and stamp show until the unlock time.</p></li>
+      <li><span class="n">3</span><b>Open</b><p>Come back on the day and read what you wrote.</p></li>
+    </ol>
+
+    <div id="capsules" aria-live="polite"><p class="loading">Fetching your capsules…</p></div>
   </main>
 </body>
 </html>

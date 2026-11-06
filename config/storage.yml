@@ -1,0 +1,10 @@
+# Uploaded photos and voice notes. Disk only (no cloud storage).
+# In Docker, /rails/storage is the named volume "storage_data" (see compose.yml),
+# so uploads survive redeploys.
+test:
+  service: Disk
+  root: <%= Rails.root.join("tmp/storage") %>
+
+local:
+  service: Disk
+  root: <%= Rails.root.join("storage") %>
