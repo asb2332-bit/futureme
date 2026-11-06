@@ -54,12 +54,126 @@ const Postal = (() => {
 
     if (!titleOnly) {
       html += `<div class="pb message" style="${blockStyle(blockOf(design, "message_block"))}">${esc(capsule.message)}</div>`;
+      const counts = { image: 0, audio: 0 };
       (design.sealed_blocks || []).forEach((block) => {
+        if (block.type === "image" || block.type === "audio") {
+          counts[block.type] += 1;
+          // Media only arrives with a url once the capsule is unlocked.
+          if (block.url) html += mediaBlockHTML(block, block.url, counts[block.type]);
+          return;
+        }
         html += `<div class="pb note" style="${blockStyle(block)}">${esc(block.text)}</div>`;
       });
     }
 
     return `${html}</div>`;
+  }
+
+  /* ---- photos and voice notes ---- */
+  const WAVE = [5, 9, 6, 11, 8, 4, 10, 7, 12, 6, 9, 5, 8, 11, 6, 4];
+
+  function audioPillHTML() {
+    return `<button type="button" class="play" aria-label="Play voice note"></button>` +
+      `<span class="wave" aria-hidden="true">${WAVE.map((h) => `<i style="height:${h * 8}%"></i>`).join("")}</span>` +
+      `<span class="dur">0:00</span>`;
+  }
+
+  function mediaBlockHTML(block, src, number) {
+    const style = blockStyle(block);
+    if (block.type === "image") {
+      return `<div class="pb photo" style="${style}"><img src="${esc(src)}" alt="Photo ${number}" draggable="false"></div>`;
+    }
+    return `<div class="pb audio" style="${style}" data-src="${esc(src)}" role="group" aria-label="Voice note ${number}">${audioPillHTML()}</div>`;
+  }
+
+  function formatDuration(seconds) {
+    if (!Number.isFinite(seconds)) return "0:00";
+    const total = Math.round(seconds);
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+  }
+
+  // One shared Audio element plays every voice note on the page; starting one stops the other.
+  const player = new Audio();
+  let playingElement = null;
+
+  function markPlaying(element, playing) {
+    element.classList.toggle("playing", playing);
+    element.querySelector(".play").setAttribute("aria-label", playing ? "Pause voice note" : "Play voice note");
+    if (!playing) element.querySelectorAll(".wave i").forEach((bar) => bar.classList.remove("on"));
+  }
+
+  function stopAudio() {
+    player.pause();
+    if (playingElement) markPlaying(playingElement, false);
+    playingElement = null;
+  }
+
+  player.addEventListener("timeupdate", () => {
+    if (!playingElement || !Number.isFinite(player.duration) || !player.duration) return;
+    const bars = playingElement.querySelectorAll(".wave i");
+    const lit = Math.round((player.currentTime / player.duration) * bars.length);
+    bars.forEach((bar, index) => bar.classList.toggle("on", index < lit));
+  });
+  player.addEventListener("ended", stopAudio);
+
+  // Wire play buttons under root and fill in durations. Safe to call after every re-render:
+  // the pill that matches what's playing picks the playing state back up.
+  function wireAudio(root) {
+    root.querySelectorAll(".pb.audio[data-src]").forEach((pill) => {
+      const button = pill.querySelector(".play");
+      const src = pill.dataset.src;
+      button.addEventListener("pointerdown", (event) => event.stopPropagation());
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (playingElement && playingElement.dataset.src === src) return stopAudio();
+
+        stopAudio();
+        player.src = src;
+        player.play().catch(() => stopAudio());
+        playingElement = pill;
+        markPlaying(pill, true);
+      });
+
+      if (!player.paused && playingElement && playingElement.dataset.src === src) {
+        playingElement = pill;
+        markPlaying(pill, true);
+      }
+
+      showDuration(pill, src);
+    });
+  }
+
+  // Durations are probed once per file and cached; the editor re-renders on every drag move.
+  const durations = new Map();
+  function showDuration(pill, src) {
+    const label = pill.querySelector(".dur");
+    const known = durations.get(src);
+    if (typeof known === "number") {
+      label.textContent = formatDuration(known);
+      return;
+    }
+    if (known) return; // probe already in flight
+
+    const probe = new Audio();
+    durations.set(src, probe);
+    probe.preload = "metadata";
+    probe.addEventListener("loadedmetadata", () => {
+      durations.set(src, probe.duration);
+      document.querySelectorAll(".pb.audio[data-src]").forEach((other) => {
+        if (other.dataset.src === src) other.querySelector(".dur").textContent = formatDuration(probe.duration);
+      });
+    });
+    probe.src = src;
+  }
+
+  // "a message, a note, a photo and a voice note" from the API's contents counts.
+  function insideText(contents) {
+    const { notes = 0, photos = 0, audio = 0 } = contents || {};
+    const parts = ["a message"];
+    if (notes) parts.push(notes === 1 ? "a note" : `${notes} notes`);
+    if (photos) parts.push(photos === 1 ? "a photo" : `${photos} photos`);
+    if (audio) parts.push(audio === 1 ? "a voice note" : `${audio} voice notes`);
+    return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
   }
 
   function stampHTML(capsule) {
@@ -74,6 +188,7 @@ const Postal = (() => {
   return {
     DAY, lockSvg, openSvg, defaultTheme, defaultBlocks,
     esc, time, plural, capsuleNumber, daysUntil, formatDate, formatDay, postmarkParts,
-    themeOf, blockOf, blockStyle, posterStyle, posterHTML, stampHTML, postmarkHTML
+    themeOf, blockOf, blockStyle, posterStyle, posterHTML, stampHTML, postmarkHTML,
+    audioPillHTML, wireAudio, stopAudio, insideText
   };
 })();

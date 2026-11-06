@@ -19,7 +19,7 @@
     <div class="desk">
       <div class="stage" id="stage">
         <div id="poster-preview" class="poster" aria-label="Capsule poster canvas"></div>
-        <p class="hint">Drag to move · <kbd>double-click</kbd> text to write</p>
+        <p class="hint">Drag to move · <kbd>double-click</kbd> text to write · drop photos or audio here</p>
       </div>
 
       <aside class="side" aria-label="Capsule settings">
@@ -61,7 +61,11 @@
           <button type="button" class="rm" id="remove-block" hidden></button>
           <div class="uploads">
             <button type="button" class="btn sm quiet" id="add-text-block">Add text</button>
+            <label class="btn sm quiet" for="photo-upload">Add photo<input class="sr-file" id="photo-upload" name="photo" type="file" accept="image/jpeg,image/png,image/gif,image/webp"></label>
+            <label class="btn sm quiet" for="audio-upload">Add audio<input class="sr-file" id="audio-upload" name="audio" type="file" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/webm,audio/ogg,.m4a,.aac"></label>
           </div>
+          <p class="upmsg" id="upload-error" role="alert" hidden></p>
+          <p class="help" id="upload-status" aria-live="polite">Photos: JPG, PNG, GIF, WebP. Audio: MP3, M4A, AAC, WAV, WebM, OGG. Up to 25 MB each. You can also drop a file on the poster.</p>
         </section>
 
         <section>
@@ -72,7 +76,7 @@
             <button type="button" data-plus-months="12">+1 year</button>
             <button type="button" data-plus-months="60">+5 years</button>
           </div>
-          <p class="help">Until then, people only see the title and stamp. The message and extra text stay sealed.</p>
+          <p class="help">Until then, people only see the title and stamp. The message, extra text, photos and voice notes stay sealed.</p>
           <ul class="errors" id="form-errors" role="alert"></ul>
           <button type="button" class="btn seal" id="seal-capsule"><span class="dot" aria-hidden="true">FM</span>Seal the capsule</button>
         </section>

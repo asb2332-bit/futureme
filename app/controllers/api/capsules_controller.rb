@@ -4,8 +4,12 @@ class Api::CapsulesController < ApplicationController
 
   before_action :set_capsule, only: :show
 
+  rescue_from ActiveRecord::RecordNotFound do
+    render json: { error: "Capsule not found" }, status: :not_found
+  end
+
   def index
-    capsules = Capsule.order(created_at: :desc)
+    capsules = Capsule.order(created_at: :desc).with_attached_media
 
     capsules_as_json = capsules.map do |capsule|
       capsule_json(capsule)
@@ -49,6 +53,8 @@ class Api::CapsulesController < ApplicationController
     submitted_capsule.permit(:title, :message, :unlock_at, design: {})
   end
 
+  # Sealing rule: while a capsule is locked its JSON carries no message, no sealed blocks,
+  # and therefore no media ids or URLs. Only the counts in `contents` describe what's inside.
   def capsule_json(capsule, include_message: false)
     unlocked = capsule.unlocked?
     design = public_design(capsule.design)
@@ -56,7 +62,9 @@ class Api::CapsulesController < ApplicationController
 
     if include_message && unlocked
       message = capsule.message
-      design["sealed_blocks"] = capsule.design.fetch("sealed_blocks", [])
+      design["sealed_blocks"] = capsule.sealed_blocks_with_media_urls do |blob|
+        rails_blob_path(blob, disposition: "inline", only_path: true)
+      end
     end
 
     {
@@ -66,6 +74,7 @@ class Api::CapsulesController < ApplicationController
       created_at: capsule.created_at,
       locked: !unlocked,
       message: message,
+      contents: capsule.contents,
       design: design
     }
   end
@@ -74,7 +83,8 @@ class Api::CapsulesController < ApplicationController
     {
       "theme" => design.fetch("theme", {}),
       "title_block" => design.fetch("title_block", {}),
-      "message_block" => design.fetch("message_block", {})
+      "message_block" => design.fetch("message_block", {}),
+      "icon_block" => design.fetch("icon_block", {})
     }
   end
 end

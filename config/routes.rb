@@ -3,6 +3,7 @@ Rails.application.routes.draw do
 
   namespace :api do
     resources :capsules, only: %i[index create show]
+    resources :uploads, only: :create
   end
 
   root to: redirect("/index.html")

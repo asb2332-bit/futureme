@@ -26,7 +26,7 @@ function envelopeHTML(capsule) {
     : `<span class="chip open">${Postal.openSvg}Unlocked</span>`;
 
   return `<li><a class="env${locked ? "" : " open"}" href="/capsule.html?id=${encodeURIComponent(capsule.id)}">
-    <div class="meta"><span class="eyebrow">${esc(Postal.capsuleNumber(capsule))}</span><h3>${esc(capsule.title)}</h3>${chip}</div>
+    <div class="meta"><span class="eyebrow">${esc(Postal.capsuleNumber(capsule))}</span><h3>${esc(capsule.title)}</h3>${chip}<span class="inside">Inside: ${esc(Postal.insideText(capsule.contents))}</span></div>
     <div class="right">${Postal.postmarkHTML(capsule.unlock_at, locked ? "OPENS" : "OPENED", locked)}${Postal.stampHTML(capsule)}</div>
   </a></li>`;
 }

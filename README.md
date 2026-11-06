@@ -29,6 +29,25 @@ bin/rails server
 
 Open <http://localhost:3000>.
 
+## Uploaded photos and voice notes
+
+Photos and voice notes are stored with Active Storage on local disk (no cloud storage):
+
+- Development: `storage/` in the repo (git-ignored).
+- Test: `tmp/storage/`, removed after each RSpec run.
+- Docker (`docker compose --profile app up --build`): `/rails/storage` inside the container,
+  backed by the named volume `storage_data`, so uploads survive rebuilds and redeploys.
+  Export `RAILS_MASTER_KEY` (contents of `config/master.key`) or `SECRET_KEY_BASE` first,
+  and keep it the same across deploys: upload ids are signed with it, so a new secret
+  invalidates uploads that haven't been sealed yet. Back up the `storage_data` volume along
+  with the database; `docker compose down -v` deletes it.
+
+Uploads that are never sealed into a capsule are left behind. Remove the ones older than a day with:
+
+```sh
+bin/rails futureme:purge_unattached_uploads
+```
+
 ## Test
 
 ```sh

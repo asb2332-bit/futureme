@@ -13,7 +13,16 @@ const removeButton = document.querySelector("#remove-block");
 const swatchButtons = document.querySelectorAll("[data-swatch]");
 const quickDateButtons = document.querySelectorAll("[data-plus-months]");
 const unlockAtField = document.querySelector("#unlock-at-field");
+const stage = document.querySelector("#stage");
+const photoInput = document.querySelector("#photo-upload");
+const audioInput = document.querySelector("#audio-upload");
+const uploadError = document.querySelector("#upload-error");
+const uploadStatus = document.querySelector("#upload-status");
+const uploadHelp = uploadStatus.textContent;
 const placeholders = { title: "Your title", message: "Your sealed message", note: "New text" };
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+// Local previews of uploaded files, keyed by signed id. Only the signed id is sent to the server.
+const mediaPreviews = {};
 let selectedBlockId = "message";
 let titleText = "";
 let messageText = "";
@@ -52,10 +61,16 @@ function blockLabel(id) {
   if (id === "message") return "Message";
   if (id === "icon") return "Icon";
 
+  // Each kind is numbered on its own: "Text block 1", "Photo 1", "Voice note 1".
   const block = blockFor(id);
   const type = block.type || "text";
   const sameType = design.sealed_blocks.filter((other) => (other.type || "text") === type);
-  return `Text block ${sameType.indexOf(block) + 1}`;
+  const name = type === "image" ? "Photo" : type === "audio" ? "Voice note" : "Text block";
+  return `${name} ${sameType.indexOf(block) + 1}`;
+}
+
+function isMediaBlock(block) {
+  return block.type === "image" || block.type === "audio";
 }
 
 // "02 Contents": every block, sealed ones marked with a lock; clicking selects the block.
@@ -83,6 +98,7 @@ function renderLayers() {
 }
 
 function removeSelectedBlock() {
+  Postal.stopAudio();
   design.sealed_blocks = design.sealed_blocks.filter((block) => block.id !== selectedBlockId);
   selectedBlockId = "message";
   renderPoster();
@@ -217,13 +233,35 @@ function blockKind(id) {
   return "note";
 }
 
+function fillMediaBlock(element, block) {
+  const previewUrl = mediaPreviews[block.media_id] || "";
+  element.setAttribute("aria-label", blockLabel(block.id));
+
+  if (block.type === "image") {
+    element.className = "pb photo";
+    const image = document.createElement("img");
+    image.src = previewUrl;
+    image.alt = blockLabel(block.id);
+    image.draggable = false;
+    element.append(image);
+  } else {
+    element.className = "pb audio";
+    element.dataset.src = previewUrl;
+    element.innerHTML = Postal.audioPillHTML();
+  }
+}
+
 function addPosterBlock(id, text, block, editable) {
   const element = document.createElement("div");
   const kind = blockKind(id);
   element.className = `pb ${kind}`;
   element.dataset.id = id;
-  element.textContent = text || placeholders[kind];
-  element.dataset.placeholder = String(!text && kind in placeholders);
+  if (isMediaBlock(block)) {
+    fillMediaBlock(element, block);
+  } else {
+    element.textContent = text || placeholders[kind];
+    element.dataset.placeholder = String(!text && kind in placeholders);
+  }
   if (selectedBlockId === id) {
     element.classList.add("selected");
     addSelectionHandles(element, id);
@@ -270,7 +308,63 @@ function renderPoster() {
   addPosterBlock("title", titleText, design.title_block, true);
   addPosterBlock("icon", theme.icon || "⏳", design.icon_block, false);
   addPosterBlock("message", messageText, design.message_block, true);
-  design.sealed_blocks.forEach((block) => addPosterBlock(block.id, block.text === placeholders.note ? "" : block.text, block, true));
+  design.sealed_blocks.forEach((block) => {
+    // Media blocks drag, resize and rotate like text, but aren't editable on double-click.
+    if (isMediaBlock(block)) addPosterBlock(block.id, null, block, false);
+    else addPosterBlock(block.id, block.text === placeholders.note ? "" : block.text, block, true);
+  });
+  Postal.wireAudio(posterPreview);
+}
+
+function showUploadError(message) {
+  uploadError.textContent = message;
+  uploadError.hidden = !message;
+  uploadStatus.hidden = Boolean(message);
+  uploadStatus.textContent = uploadHelp;
+}
+
+function placeMediaBlock(kind, signedId) {
+  const count = design.sealed_blocks.filter((block) => block.type === kind).length;
+  const id = `${kind}-${Date.now()}`;
+  const block = kind === "image"
+    ? { id, type: "image", media_id: signedId, x: Math.max(0, 48 - count * 4), y: Math.max(0, 50 - count * 4), width: 42, height: 30, rotation: 3 }
+    : { id, type: "audio", media_id: signedId, x: 8, y: Math.max(0, 80 - count * 12), width: 50, height: 10, rotation: 0 };
+
+  design.sealed_blocks.push(block);
+  selectedBlockId = id;
+  renderPoster();
+  renderLayers();
+}
+
+// Upload right away; the block is placed only once the server has accepted the file.
+async function uploadMedia(file) {
+  showUploadError("");
+  if (file.size > MAX_UPLOAD_BYTES) return showUploadError("File must be under 25 MB");
+
+  uploadStatus.textContent = `Uploading ${file.name}…`;
+  const body = new FormData();
+  body.append("file", file);
+
+  let response;
+  let result = {};
+  try {
+    response = await fetch("/api/uploads", { method: "POST", body: body });
+    result = await response.json().catch(() => ({}));
+  } catch (error) {
+    return showUploadError("Upload failed. Check your connection and try again.");
+  }
+
+  if (!response.ok) return showUploadError(result.error || "Upload failed. Try again.");
+
+  mediaPreviews[result.signed_id] = URL.createObjectURL(file);
+  uploadStatus.textContent = uploadHelp;
+  placeMediaBlock(result.kind, result.signed_id);
+}
+
+function uploadFromInput(input) {
+  const file = input.files[0];
+  input.value = ""; // so choosing the same file again still fires "change"
+  if (file) uploadMedia(file);
 }
 
 function addTextBlock() {
@@ -360,6 +454,20 @@ iconInput.addEventListener("input", () => { design.theme.icon = iconInput.value;
 quickDateButtons.forEach((button) => button.addEventListener("click", () => setUnlockMonthsFromNow(Number(button.dataset.plusMonths))));
 addTextButton.addEventListener("click", addTextBlock);
 removeButton.addEventListener("click", removeSelectedBlock);
+photoInput.addEventListener("change", () => uploadFromInput(photoInput));
+audioInput.addEventListener("change", () => uploadFromInput(audioInput));
+stage.addEventListener("dragover", (event) => {
+  if (!event.dataTransfer.types.includes("Files")) return;
+  event.preventDefault();
+  stage.classList.add("drop-on");
+});
+stage.addEventListener("dragleave", () => stage.classList.remove("drop-on"));
+stage.addEventListener("drop", (event) => {
+  if (!event.dataTransfer.files.length) return;
+  event.preventDefault();
+  stage.classList.remove("drop-on");
+  uploadMedia(event.dataTransfer.files[0]);
+});
 sealButton.addEventListener("click", createCapsule);
 
 renderPoster();

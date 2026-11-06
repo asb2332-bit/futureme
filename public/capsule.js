@@ -47,6 +47,7 @@ function showLocked(capsule) {
         <dl class="facts">
           <dt>Unlocks</dt><dd>${esc(Postal.formatDate(capsule.unlock_at))}</dd>
           <dt>Sealed</dt><dd>${esc(Postal.formatDay(capsule.created_at))}</dd>
+          <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
           <dt>From</dt><dd>You</dd>
         </dl>
         <div class="row">
@@ -113,10 +114,12 @@ function showOpened(capsule) {
         <dl class="facts">
           <dt>Sealed</dt><dd>${esc(Postal.formatDay(capsule.created_at))}</dd>
           <dt>Opened</dt><dd>${esc(Postal.formatDate(capsule.unlock_at))}</dd>
+          <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
         </dl>
         <div class="row"><a class="btn primary" href="/create.html">Seal another</a></div>
       </div>
     </section>`;
+  Postal.wireAudio(view);
 }
 
 function showNotFound() {
