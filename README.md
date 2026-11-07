@@ -1,10 +1,15 @@
 # FutureMe
 
-Preserve the moment. Share the meaning.
+FutureMe is a digital time-capsule app. Signed-in users can design a capsule with text, images, audio, and video; seal it until a future date; and reopen or edit their own capsules later.
 
-FutureMe lets people create digital time capsules containing a message that remains sealed until a chosen future date.
+## Iteration 1 submission
 
-## Team Members
+- **Working SaaS prototype:** <https://calm-shore-09946-2d1c172059b3.herokuapp.com/>
+- **GitHub repository:** <https://github.com/asb2332-bit/futureme>
+- **Cucumber user stories:** [`features/`](features/)
+- **RSpec tests:** [`spec/`](spec/)
+
+## Team members
 
 | Name | UNI |
 | --- | --- |
@@ -15,12 +20,15 @@ FutureMe lets people create digital time capsules containing a message that rema
 
 ## Requirements
 
-- Ruby 3.3.8 (managed by rbenv)
-- Docker Desktop
+- Ruby 3.3.8
+- Bundler
+- Docker Desktop (for local PostgreSQL)
 
 ## Run locally
 
 ```sh
+git clone https://github.com/asb2332-bit/futureme.git
+cd futureme
 docker compose up -d db
 bundle install
 bin/rails db:prepare
@@ -29,81 +37,57 @@ bin/rails server
 
 Open <http://localhost:3000>.
 
-## Test
+### Optional local integrations
 
-```sh
-bundle exec rspec
-bundle exec cucumber
+Create a local `.env` file for Cloudinary uploads and Google sign-in. Development automatically loads this file; never commit it.
+
+```dotenv
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 ```
 
-## Stop the database
+Cloudinary is required to persist uploaded media outside the local process. Google OAuth is optional; email/password accounts work without it. For local Google sign-in, add this authorized redirect URI in Google Cloud Console:
+
+```text
+http://localhost:3000/auth/google_oauth2/callback
+```
+
+Stop the local database with:
 
 ```sh
 docker compose down
 ```
 
-## Accounts and permissions
-
-Run `bundle install` and `bin/rails db:prepare` after checking out this branch.
-Visit `/signup` to create an email/password account, or `/login` to sign in.
-Passwords require 12–72 characters. Sign-ups always receive the `user` role.
-Each account can list/create/read only its own capsules; admins cannot bypass
-capsule privacy or unlock dates. Pre-existing anonymous capsules remain in the
-database with no owner and are not displayed to signed-in users.
-
-To grant admin access, first register the intended account, then run this on the
-trusted application server (there are no default admin credentials):
-
-```sh
-EMAIL=you@example.com bundle exec rake accounts:promote
-```
-
-Admins can open `/admin` to view account counts and the first 100 accounts.
-Role assignment is intentionally not exposed through public signup parameters.
-
-### Google OAuth setup
-
-Create a Web application OAuth client in Google Cloud / Google Auth Platform.
-Configure the consent screen and, while in testing mode, add your team's Google
-accounts as test users. Register this exact local authorized redirect URI:
-
-```
-http://localhost:3000/auth/google_oauth2/callback
-```
-
-For deployment, also register the same path on your HTTPS application domain.
-Set these variables in your shell or hosting provider's secret settings before
-starting Rails (a `.env` file is not automatically loaded):
-
-```sh
-export GOOGLE_CLIENT_ID='your-client-id'
-export GOOGLE_CLIENT_SECRET='your-client-secret'
-bin/rails server
-```
-
-Never commit these values. Google sign-in appears once both are configured.
-It uses a CSRF-protected POST and OAuth state verification. New Google accounts
-are regular users. Existing Google accounts are identified by Google's stable
-user ID; provider access/refresh tokens are not stored. An email already used by
-a password account is not automatically linked: use the original password for
-that account. Account linking and password recovery are not part of this change.
-
-Reference: https://github.com/zquestz/omniauth-google-oauth2
-
-### Authentication tests
+## Run tests
 
 ```sh
 bundle exec rspec
 bundle exec cucumber
 ```
 
-Cucumber includes registration, login/logout, denied login, admin permissions,
-and Google success/cancellation scenarios. Google is mocked in tests; running
-these tests does not contact Google or require real credentials. A real Google
-round-trip must be checked after configuring your team's OAuth client.
+The Cucumber stories cover registration/login, authorization, creating and viewing capsules, multiple capsules, custom poster layouts, and image/audio/video media. The RSpec suite covers models and authenticated API behavior.
 
-For local development, you can keep Google's downloaded credentials JSON at
-`~/.config/futureme/google-oauth.json` (outside the repository, permissions `600`)
-and start the app with `bin/dev-google`. Set `GOOGLE_OAUTH_CREDENTIALS_FILE` to use
-a different path. The launcher loads credentials into the server environment;
-no secrets are stored in source files or command-line arguments.
+## Deployment
+
+The deployed app is at <https://calm-shore-09946-2d1c172059b3.herokuapp.com/>. It runs on Heroku with Heroku Postgres and Cloudinary Active Storage.
+
+For Google login in production, add this authorized redirect URI to the same Google OAuth client:
+
+```text
+https://calm-shore-09946-2d1c172059b3.herokuapp.com/auth/google_oauth2/callback
+```
+
+## Accounts and permissions
+
+Visit `/signup` to create an email/password account or `/login` to sign in. Passwords require 12–72 characters. Users can list, create, read, update, and delete only their own capsules. Capsule contents remain sealed until the unlock date.
+
+To grant an existing account admin access on a trusted server:
+
+```sh
+EMAIL=you@example.com bundle exec rake accounts:promote
+```
+
+Admins can open `/admin` to view account counts and the first 100 accounts. Admin role assignment is intentionally not exposed through signup parameters.
