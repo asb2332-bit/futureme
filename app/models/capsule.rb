@@ -1,6 +1,8 @@
 require "uri"
 
 class Capsule < ApplicationRecord
+  MAX_MEDIA_SIZE = 2.megabytes
+
   belongs_to :user, optional: true
   has_many_attached :images
   has_many_attached :audio
@@ -11,6 +13,7 @@ class Capsule < ApplicationRecord
   validate :audio_is_valid
   validate :video_is_valid
   validate :media_total_is_valid
+  validate :media_files_are_valid
   validate :remote_image_urls_use_https
 
   def unlocked?
@@ -47,7 +50,13 @@ class Capsule < ApplicationRecord
 
   def media_total_is_valid
     total_size = (images.blobs + audio.blobs + video.blobs).sum(&:byte_size)
-    errors.add(:base, "uploaded media must be 50 MB or smaller in total") if total_size > 50.megabytes
+    errors.add(:base, "uploaded media must be 2 MB or smaller in total") if total_size > MAX_MEDIA_SIZE
+  end
+
+  def media_files_are_valid
+    (images.blobs + audio.blobs + video.blobs).each do |file|
+      errors.add(:base, "each uploaded file must be 2 MB or smaller") if file.byte_size > MAX_MEDIA_SIZE
+    end
   end
 
   def remote_image_urls_use_https

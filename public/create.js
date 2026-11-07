@@ -7,10 +7,10 @@ const fontInput = document.querySelector("#poster-font");
 const remoteImageUrlInput = document.querySelector("#remote-image-url");
 const imageInput = document.querySelector("#capsule-images");
 const audioInput = document.querySelector("#capsule-audio");
-const audioPreview = document.querySelector("#audio-preview");
 const videoInput = document.querySelector("#capsule-video");
-const addTextButton = document.querySelector("#add-text-block");
-const addImageButton = document.querySelector("#add-image-block");
+const addMessageButton = document.querySelector("#add-message-block");
+const makeTitleBlockButton = document.querySelector("#make-title-block");
+const restoreTitleBlockButton = document.querySelector("#restore-title-block");
 const sealButton = document.querySelector("#seal-capsule");
 const editingCapsuleId = new URLSearchParams(location.search).get("id");
 const posterPreview = document.querySelector("#poster-preview");
@@ -20,9 +20,12 @@ let messageText = "";
 let imageSignedIds = [];
 const imagePreviewUrls = {};
 let imageFiles = [];
-let audioPreviewUrl;
-let videoPreviewUrl;
+let audioFiles = [];
+let videoFiles = [];
+let audioPreviewUrls = [];
+let videoPreviewUrls = [];
 const undoHistory = [];
+const maxCapsuleSize = 2 * 1024 * 1024;
 
 const themePresets = {
   sage: { background_color: "#E3E7DF", accent_color: "#202923" },
@@ -224,54 +227,48 @@ function addPosterImageBlock(id, url, block) {
   posterPreview.append(element);
 }
 
-function addPosterVideoBlock(block) {
+function addMediaMoveHandle(element, id) {
+  const handle = document.createElement("button");
+  handle.type = "button";
+  handle.className = "media-drag-handle";
+  handle.textContent = "Move";
+  handle.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+    startDragging(event, id);
+  });
+  element.append(handle);
+}
+
+function addPosterVideoBlock(id, url, block) {
   const element = document.createElement("div");
   element.className = "poster-block sealed-block";
-  if (selectedBlockId === "video") { element.classList.add("selected"); addSelectionHandles(element, "video"); }
+  if (selectedBlockId === id) { element.classList.add("selected"); addSelectionHandles(element, id); }
   element.style.left = `${block.x}%`; element.style.top = `${block.y}%`; element.style.width = `${block.width}%`; element.style.height = `${block.height}%`; element.style.transform = `rotate(${block.rotation}deg)`;
   const video = document.createElement("video");
-  video.controls = true; video.src = videoPreviewUrl;
+  video.controls = true; video.src = url;
   video.addEventListener("loadedmetadata", () => {
     if (block.aspect_ratio) return;
     block.aspect_ratio = video.videoWidth / video.videoHeight;
     const canvasRatio = posterPreview.clientWidth / posterPreview.clientHeight;
     block.height = block.width * canvasRatio / block.aspect_ratio;
-    if (block.y + block.height > 100) {
-      block.height = 100 - block.y;
-      block.width = block.height * block.aspect_ratio / canvasRatio;
-    }
     renderPoster();
   });
   video.addEventListener("pointerdown", (event) => event.stopPropagation());
-  const moveHandle = document.createElement("button");
-  moveHandle.type = "button"; moveHandle.className = "media-drag-handle"; moveHandle.textContent = "Move";
-  moveHandle.addEventListener("pointerdown", (event) => {
-    event.stopPropagation();
-    startDragging(event, "video");
-  });
-  element.append(video, moveHandle);
+  element.append(video);
+  addMediaMoveHandle(element, id);
   posterPreview.append(element);
 }
 
-function addPosterAudioBlock(block) {
+function addPosterAudioBlock(id, url, block) {
   const element = document.createElement("div");
   element.className = "poster-block sealed-block";
-  if (selectedBlockId === "audio") {
-    element.classList.add("selected");
-    addSelectionHandles(element, "audio");
-  }
-  element.style.left = `${block.x}%`;
-  element.style.top = `${block.y}%`;
-  element.style.width = `${block.width}%`;
-  element.style.height = `${block.height}%`;
-  element.style.transform = `rotate(${block.rotation}deg)`;
-
+  if (selectedBlockId === id) { element.classList.add("selected"); addSelectionHandles(element, id); }
+  element.style.left = `${block.x}%`; element.style.top = `${block.y}%`; element.style.width = `${block.width}%`; element.style.height = `${block.height}%`; element.style.transform = `rotate(${block.rotation}deg)`;
   const audio = document.createElement("audio");
-  audio.controls = true;
-  audio.src = audioPreviewUrl;
+  audio.controls = true; audio.src = url;
   audio.addEventListener("pointerdown", (event) => event.stopPropagation());
   element.append(audio);
-  element.addEventListener("pointerdown", (event) => startDragging(event, "audio"));
+  addMediaMoveHandle(element, id);
   posterPreview.append(element);
 }
 
@@ -291,7 +288,7 @@ function addPosterBlock(id, text, block, editable) {
 
   if (editable) {
     element.contentEditable = "false";
-    const label = id === "title" ? "Title" : id === "message" ? "Message" : `Text block ${design.sealed_blocks.indexOf(block) + 1}`;
+    const label = id === "title" ? "Title" : id === "message" ? "Message" : `Message block ${design.sealed_blocks.indexOf(block) + 1}`;
     element.setAttribute("aria-label", label);
     element.addEventListener("input", () => {
       if (id === "title") titleText = element.textContent;
@@ -322,10 +319,12 @@ function renderPoster() {
 
   if (!design.hidden_blocks.includes("title")) addPosterBlock("title", titleText || "Your title", design.title_block, true);
   if (!design.hidden_blocks.includes("message")) addPosterBlock("message", messageText || "Your sealed message", design.message_block, true);
-  if (design.audio_block) addPosterAudioBlock(design.audio_block);
-  if (design.video_block) addPosterVideoBlock(design.video_block);
+  if (design.audio_block && audioPreviewUrls[0]) addPosterAudioBlock("audio", audioPreviewUrls[0], design.audio_block);
+  if (design.video_block && videoPreviewUrls[0]) addPosterVideoBlock("video", videoPreviewUrls[0], design.video_block);
   design.sealed_blocks.forEach((block) => {
-    if (block.image_url || Number.isInteger(block.image_index)) addPosterImageBlock(block.id, block.image_url || imagePreviewUrls[block.id], block);
+    if (block.media_type === "audio") addPosterAudioBlock(block.id, audioPreviewUrls[block.media_index], block);
+    else if (block.media_type === "video") addPosterVideoBlock(block.id, videoPreviewUrls[block.media_index], block);
+    else if (block.image_url || Number.isInteger(block.image_index)) addPosterImageBlock(block.id, block.image_url || imagePreviewUrls[block.id], block);
     else addPosterBlock(block.id, block.text || "New text", block, true);
   });
 }
@@ -359,19 +358,18 @@ function addImageBlock() {
   selectBlock(id);
 }
 
-function addVideoBlock() {
-  if (!videoInput.files[0]) { formErrors.textContent = "Choose a video file first."; return; }
-  design.video_block ||= { x: 20, y: 48, width: 60, height: 25, rotation: 0 };
-  selectBlock("video");
-}
-
-function addAudioBlock() {
-  if (!audioInput.files[0]) {
-    formErrors.textContent = "Choose an audio file first.";
-    return;
+function addMediaBlocks(type, startIndex, count) {
+  for (let offset = 0; offset < count; offset += 1) {
+    const index = startIndex + offset;
+    const id = `${type}-${Date.now()}-${index}`;
+    design.sealed_blocks.push({
+      id: id, media_type: type, media_index: index,
+      x: 12 + (index * 13) % 50, y: 48 + (index * 9) % 35,
+      width: type === "video" ? 35 : 45, height: type === "video" ? 25 : 10, rotation: 0
+    });
+    selectedBlockId = id;
   }
-  design.audio_block ||= { x: 25, y: 78, width: 50, height: 10, rotation: 0 };
-  selectBlock("audio");
+  renderPoster();
 }
 
 function saveUndoState() {
@@ -405,7 +403,7 @@ function deleteSelectedImage() {
     return;
   }
 
-  if (!block || (!block.image_url && !Number.isInteger(block.image_index) && selectedBlockId !== "audio" && selectedBlockId !== "video")) {
+  if (!block || (!block.image_url && !Number.isInteger(block.image_index) && !block.media_type && selectedBlockId !== "audio" && selectedBlockId !== "video")) {
     formErrors.textContent = "Select media to delete it.";
     return;
   }
@@ -413,8 +411,9 @@ function deleteSelectedImage() {
   if (selectedBlockId === "audio") {
     design.audio_block = null;
     audioInput.value = "";
-    audioPreview.removeAttribute("src");
-    audioPreview.hidden = true;
+    audioFiles = [];
+    audioPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    audioPreviewUrls = [];
     selectedBlockId = "message";
     renderPoster();
     return;
@@ -422,13 +421,23 @@ function deleteSelectedImage() {
   if (selectedBlockId === "video") {
     design.video_block = null;
     videoInput.value = "";
-    videoPreviewUrl = null;
+    videoFiles = [];
+    videoPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    videoPreviewUrls = [];
     selectedBlockId = "message";
     renderPoster();
     return;
   }
 
-  if (Number.isInteger(block.image_index)) {
+  if (block?.media_type) {
+    const files = block.media_type === "audio" ? audioFiles : videoFiles;
+    const urls = block.media_type === "audio" ? audioPreviewUrls : videoPreviewUrls;
+    files.splice(block.media_index, 1);
+    URL.revokeObjectURL(urls.splice(block.media_index, 1)[0]);
+    design.sealed_blocks.forEach((item) => {
+      if (item.media_type === block.media_type && item.media_index > block.media_index) item.media_index -= 1;
+    });
+  } else if (Number.isInteger(block.image_index)) {
     imageFiles.splice(block.image_index, 1);
     const files = new DataTransfer();
     imageFiles.forEach((file) => files.items.add(file));
@@ -443,10 +452,30 @@ function deleteSelectedImage() {
   renderPoster();
 }
 
-function addTextBlock() {
-  const id = `text-${Date.now()}`;
-  design.sealed_blocks.push({ id: id, text: "New text", x: 12, y: 78, width: 50, height: 12, rotation: 0 });
+function addMessageBlock() {
+  const id = `message-${Date.now()}`;
+  design.sealed_blocks.push({ id: id, kind: "message", text: "New message", x: 12, y: 78, width: 50, height: 12, rotation: 0 });
   selectBlock(id);
+}
+
+function makeSelectedTextTitle() {
+  const block = blockFor(selectedBlockId);
+  if (!block?.text) {
+    formErrors.textContent = "Select a text block to make it the title.";
+    return;
+  }
+  titleText = block.text;
+  design.title_block = { x: block.x, y: block.y, width: block.width, height: block.height, rotation: block.rotation };
+  design.hidden_blocks = design.hidden_blocks.filter((id) => id !== "title");
+  design.sealed_blocks = design.sealed_blocks.filter((item) => item.id !== block.id);
+  selectedBlockId = "title";
+  renderPoster();
+}
+
+function restoreTitleBlock() {
+  design.hidden_blocks = design.hidden_blocks.filter((id) => id !== "title");
+  selectedBlockId = "title";
+  renderPoster();
 }
 
 async function uploadSelectedImages(session) {
@@ -469,31 +498,19 @@ async function uploadSelectedImages(session) {
   return imageSignedIds;
 }
 
-async function uploadAudio(session) {
-  const file = audioInput.files[0];
-  if (!file) return null;
-
-  const formData = new FormData();
-  formData.append("audio", file);
-  const response = await fetch("/api/uploads", {
-    method: "POST",
-    headers: { "X-CSRF-Token": session.csrf_token },
-    body: formData
-  });
-  const responseBody = await response.json();
-  if (!response.ok) throw new Error(Object.values(responseBody.errors || {}).flat().join(", ") || "Audio upload failed.");
-  return responseBody.signed_id;
-}
-
-async function uploadVideo(session) {
-  const file = videoInput.files[0];
-  if (!file) return null;
-  const formData = new FormData();
-  formData.append("video", file);
-  const response = await fetch("/api/uploads", { method: "POST", headers: { "X-CSRF-Token": session.csrf_token }, body: formData });
-  const body = await response.json();
-  if (!response.ok) throw new Error(Object.values(body.errors || {}).flat().join(", ") || "Video upload failed.");
-  return body.signed_id;
+async function uploadMedia(session, files, type) {
+  const signedIds = [];
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append(type, file);
+    const response = await fetch("/api/uploads", {
+      method: "POST", headers: { "X-CSRF-Token": session.csrf_token }, body: formData
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(Object.values(body.errors || {}).flat().join(", ") || `${type} upload failed.`);
+    signedIds.push(body.signed_id);
+  }
+  return signedIds;
 }
 
 function showValidationErrors(errors) {
@@ -503,26 +520,38 @@ function showValidationErrors(errors) {
 async function createCapsule() {
   formErrors.textContent = "";
   const unlockAt = unlockAtInput.value;
+  const messageBlocks = design.sealed_blocks.filter((block) => block.text).map((block) => block.text.trim()).filter(Boolean);
+  const capsuleMessage = messageText.trim() || messageBlocks.join("\n");
+  const missingFields = [];
+  if (!titleText.trim()) missingFields.push("Title can't be blank");
+  if (!capsuleMessage) missingFields.push("Message can't be blank");
+  if (!unlockAt) missingFields.push("Unlock at can't be blank");
+  if (missingFields.length) {
+    formErrors.textContent = missingFields.join(", ");
+    return;
+  }
   const session = await window.futuremeSession;
   if (!session.user) { location.assign("/login"); return; }
 
-  let imageSignedIds;
+  let imageSignedIds, audioSignedIds, videoSignedIds;
   try {
     imageSignedIds = await uploadSelectedImages(session);
-    var audioSignedId = await uploadAudio(session);
-    var videoSignedId = await uploadVideo(session);
+    audioSignedIds = await uploadMedia(session, audioFiles, "audio");
+    videoSignedIds = await uploadMedia(session, videoFiles, "video");
   } catch (error) {
     formErrors.textContent = error.message;
     return;
   }
 
+  if (!messageText.trim() && messageBlocks.length && !design.hidden_blocks.includes("message")) design.hidden_blocks.push("message");
+
   const capsule = {
     title: titleText,
-    message: messageText,
+    message: capsuleMessage,
     unlock_at: unlockAt ? new Date(unlockAt).toISOString() : "",
     image_signed_ids: imageSignedIds,
-    audio_signed_id: audioSignedId,
-    video_signed_id: videoSignedId,
+    audio_signed_ids: audioSignedIds,
+    video_signed_ids: videoSignedIds,
     design: design
   };
   const response = await fetch(editingCapsuleId ? `/api/capsules/${editingCapsuleId}` : "/api/capsules", {
@@ -553,8 +582,8 @@ async function loadCapsuleForEditing() {
   (design.sealed_blocks || []).forEach((block) => {
     if (Number.isInteger(block.image_index)) imagePreviewUrls[block.id] = capsule.image_urls[block.image_index];
   });
-  if (capsule.audio_url) { audioPreview.src = capsule.audio_url; audioPreview.hidden = false; }
-  if (capsule.video_url) videoPreviewUrl = capsule.video_url;
+  audioPreviewUrls = capsule.audio_url || [];
+  videoPreviewUrls = capsule.video_url || [];
   sealButton.textContent = "Save changes";
   renderPoster();
 }
@@ -571,45 +600,54 @@ backgroundInput.addEventListener("input", () => { design.theme.background_color 
 accentInput.addEventListener("input", () => { design.theme.accent_color = accentInput.value; renderPoster(); });
 fontInput.addEventListener("change", () => { design.theme.font = fontInput.value; renderPoster(); });
 function showCapsuleLimitError() {
-  const message = "This file can't be added: it would exceed this capsule's 50 MB limit.";
+  const message = "This file can't be added: it would exceed this capsule's 2 MB limit.";
   formErrors.textContent = message;
   alert(message);
 }
 
 function exceedsCapsuleLimit(extraFiles = []) {
-  const files = [...imageFiles, ...Array.from(audioInput.files), ...Array.from(videoInput.files), ...extraFiles];
-  return files.reduce((total, file) => total + file.size, 0) > 50 * 1024 * 1024;
+  return [...imageFiles, ...audioFiles, ...videoFiles, ...extraFiles].reduce((total, file) => total + file.size, 0) > maxCapsuleSize;
 }
 
-function rejectInvalidFile(input, label) {
-  const files = Array.from(input.files);
-  const file = files[0];
-  if (!file) return false;
-  const error = files.some((item) => !item.type.startsWith(`${label.toLowerCase()}/`)) ? `${label} files only.` : exceedsCapsuleLimit() ? "This file can't be added: it would exceed this capsule's 50 MB limit." : null;
-  if (!error) return false;
-  if (error.includes("50 MB")) showCapsuleLimitError();
-  else formErrors.textContent = error;
-  input.value = "";
-  return true;
+function addSelectedMedia(input, files, label) {
+  const addedFiles = Array.from(input.files);
+  if (!addedFiles.length) return false;
+  const error = addedFiles.some((file) => !file.type.startsWith(`${label.toLowerCase()}/`)) ? `${label} files only.` :
+    addedFiles.some((file) => file.size > maxCapsuleSize) ? "Each file must be 2 MB or smaller." :
+    exceedsCapsuleLimit(addedFiles) ? "This file can't be added: it would exceed this capsule's 2 MB limit." : null;
+  if (error) {
+    if (error.includes("capsule's")) showCapsuleLimitError();
+    else formErrors.textContent = error;
+    input.value = "";
+    return false;
+  }
+  files.push(...addedFiles);
+  input.value = ""; // Allows selecting the same file again.
+  return addedFiles;
 }
 
 videoInput.addEventListener("change", () => {
-  if (rejectInvalidFile(videoInput, "Video")) return;
-  if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
-  videoPreviewUrl = videoInput.files[0] && URL.createObjectURL(videoInput.files[0]);
-  addVideoBlock();
+  const addedFiles = addSelectedMedia(videoInput, videoFiles, "Video");
+  if (!addedFiles) return;
+  const firstIndex = videoFiles.length - addedFiles.length;
+  videoPreviewUrls.push(...addedFiles.map((file) => URL.createObjectURL(file)));
+  addMediaBlocks("video", firstIndex, addedFiles.length);
 });
 audioInput.addEventListener("change", () => {
-  if (rejectInvalidFile(audioInput, "Audio")) return;
-  if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
-  audioPreviewUrl = audioInput.files[0] && URL.createObjectURL(audioInput.files[0]);
-  audioPreview.src = audioPreviewUrl || "";
-  audioPreview.hidden = !audioPreviewUrl;
-  addAudioBlock();
+  const addedFiles = addSelectedMedia(audioInput, audioFiles, "Audio");
+  if (!addedFiles) return;
+  const firstIndex = audioFiles.length - addedFiles.length;
+  audioPreviewUrls.push(...addedFiles.map((file) => URL.createObjectURL(file)));
+  addMediaBlocks("audio", firstIndex, addedFiles.length);
 });
 imageInput.addEventListener("change", () => {
   const addedFiles = Array.from(imageInput.files);
-  if ([...imageFiles, ...addedFiles, ...Array.from(audioInput.files), ...Array.from(videoInput.files)].reduce((total, file) => total + file.size, 0) > 50 * 1024 * 1024) {
+  if (addedFiles.some((file) => file.size > maxCapsuleSize)) {
+    formErrors.textContent = "Each file must be 2 MB or smaller.";
+    imageInput.value = "";
+    return;
+  }
+  if (exceedsCapsuleLimit(addedFiles)) {
     showCapsuleLimitError();
     imageInput.value = "";
     return;
@@ -639,7 +677,15 @@ window.addEventListener("keydown", (event) => {
   event.preventDefault();
   deleteSelectedImage();
 });
-addTextButton.addEventListener("click", addTextBlock);
+remoteImageUrlInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addImageBlock();
+  }
+});
+addMessageButton.addEventListener("click", addMessageBlock);
+makeTitleBlockButton.addEventListener("click", makeSelectedTextTitle);
+restoreTitleBlockButton.addEventListener("click", restoreTitleBlock);
 sealButton.addEventListener("click", createCapsule);
 
 renderPoster();

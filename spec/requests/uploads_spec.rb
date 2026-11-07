@@ -28,4 +28,14 @@ RSpec.describe 'Uploads API', type: :request do
     blob = ActiveStorage::Blob.find_signed(JSON.parse(response.body).fetch('signed_id'))
     expect(blob.content_type).to eq('image/png')
   end
+
+  it 'rejects a file that exceeds the capsule limit before uploading it' do
+    video = Rack::Test::UploadedFile.new(Rails.root.join('spec/fixtures/files/over-limit.mp4'), 'video/mp4')
+    post login_path, params: { email_address: user.email_address, password: 'a-secure-password' }
+
+    expect { post api_uploads_path, params: { video: video } }.not_to change(ActiveStorage::Blob, :count)
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(JSON.parse(response.body).dig('errors', 'video')).to include('must be 2 MB or smaller')
+  end
 end

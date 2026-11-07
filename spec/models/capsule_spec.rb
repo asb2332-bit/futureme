@@ -21,6 +21,14 @@ RSpec.describe Capsule, type: :model do
     expect(capsule.errors[:unlock_at]).to include('must be in the future')
   end
 
+  it 'rejects media exceeding the 2 MB capsule limit' do
+    capsule.images.attach(io: StringIO.new('x' * 1.1.megabytes), filename: 'first.png', content_type: 'image/png')
+    capsule.audio.attach(io: StringIO.new('y' * 1.1.megabytes), filename: 'second.mp3', content_type: 'audio/mpeg')
+
+    expect(capsule).not_to be_valid
+    expect(capsule.errors[:base]).to include('uploaded media must be 2 MB or smaller in total')
+  end
+
   it 'starts with empty design data' do
     capsule.save!
 

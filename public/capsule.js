@@ -101,10 +101,12 @@ function showPoster(capsule) {
   }
 
   if (!(design.hidden_blocks || []).includes("message")) addBlock(capsule.message, blockStyle(design, "message_block"), true);
-  if (capsule.audio_url) addAudioBlock(blockStyle(design, "audio_block"), capsule.audio_url);
-  if (capsule.video_url) addVideoBlock(blockStyle(design, "video_block"), capsule.video_url);
+  if (capsule.audio_url?.[0]) addAudioBlock(blockStyle(design, "audio_block"), capsule.audio_url[0]);
+  if (capsule.video_url?.[0]) addVideoBlock(blockStyle(design, "video_block"), capsule.video_url[0]);
   (design.sealed_blocks || []).forEach((block) => {
-    if (block.image_url || Number.isInteger(block.image_index)) addImageBlock(block.image_url || capsule.image_urls[block.image_index], block);
+    if (block.media_type === "audio") addAudioBlock(block, capsule.audio_url[block.media_index]);
+    else if (block.media_type === "video") addVideoBlock(block, capsule.video_url[block.media_index]);
+    else if (block.image_url || Number.isInteger(block.image_index)) addImageBlock(block.image_url || capsule.image_urls[block.image_index], block);
     else addBlock(block.text, block, true);
   });
 }
@@ -125,13 +127,29 @@ function showImages(capsule) {
 }
 
 function showAudio(capsule) {
-  capsuleAudio.hidden = !capsule.audio_url || Boolean(capsule.design?.audio_block);
-  capsuleAudio.src = capsule.audio_url || "";
+  capsuleAudio.replaceChildren();
+  const placedIndexes = (capsule.design?.sealed_blocks || []).filter((block) => block.media_type === "audio").map((block) => block.media_index);
+  const urls = capsule.audio_url?.filter((_, index) => !(capsule.design?.audio_block && index === 0) && !placedIndexes.includes(index));
+  capsuleAudio.hidden = !urls?.length;
+  urls?.forEach((url) => {
+    const audio = document.createElement("audio");
+    audio.controls = true;
+    audio.src = url;
+    capsuleAudio.append(audio);
+  });
 }
 
 function showVideo(capsule) {
-  capsuleVideo.hidden = !capsule.video_url || Boolean(capsule.design?.video_block);
-  capsuleVideo.src = capsule.video_url || "";
+  capsuleVideo.replaceChildren();
+  const placedIndexes = (capsule.design?.sealed_blocks || []).filter((block) => block.media_type === "video").map((block) => block.media_index);
+  const urls = capsule.video_url?.filter((_, index) => !(capsule.design?.video_block && index === 0) && !placedIndexes.includes(index));
+  capsuleVideo.hidden = !urls?.length;
+  urls?.forEach((url) => {
+    const video = document.createElement("video");
+    video.controls = true;
+    video.src = url;
+    capsuleVideo.append(video);
+  });
 }
 
 function showCountdown(capsule) {

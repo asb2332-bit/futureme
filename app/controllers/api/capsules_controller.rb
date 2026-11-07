@@ -20,14 +20,14 @@ class Api::CapsulesController < ApplicationController
 
     submitted_data = capsule_params
     image_signed_ids = submitted_data.delete(:image_signed_ids)
-    audio_signed_id = submitted_data.delete(:audio_signed_id)
-    video_signed_id = submitted_data.delete(:video_signed_id)
+    audio_signed_ids = signed_ids(submitted_data, :audio)
+    video_signed_ids = signed_ids(submitted_data, :video)
     remote_image_urls = submitted_data.delete(:remote_image_urls)
     submitted_data[:design] = (submitted_data[:design]&.to_h || {}).merge("remote_image_urls" => remote_image_urls) if remote_image_urls.present?
     @capsule = current_user.capsules.new(submitted_data)
     @capsule.images.attach(image_signed_ids) if image_signed_ids.present?
-    @capsule.audio.attach(Array(audio_signed_id)) if audio_signed_id.present?
-    @capsule.video.attach(Array(video_signed_id)) if video_signed_id.present?
+    @capsule.audio.attach(audio_signed_ids) if audio_signed_ids.any?
+    @capsule.video.attach(video_signed_ids) if video_signed_ids.any?
 
     if @capsule.save
       capsule_data = capsule_json(@capsule)
@@ -50,7 +50,14 @@ class Api::CapsulesController < ApplicationController
   def update
     return render(json: { error: "Capsule is still locked." }, status: :forbidden) unless @capsule.unlocked?
 
-    if @capsule.update(capsule_params.except(:image_signed_ids, :audio_signed_id, :video_signed_id))
+    submitted_data = capsule_params
+    audio_signed_ids = signed_ids(submitted_data, :audio)
+    video_signed_ids = signed_ids(submitted_data, :video)
+    @capsule.assign_attributes(submitted_data.except(:image_signed_ids))
+    @capsule.audio.attach(audio_signed_ids) if audio_signed_ids.any?
+    @capsule.video.attach(video_signed_ids) if video_signed_ids.any?
+
+    if @capsule.save
       render json: capsule_json(@capsule, include_message: true)
     else
       render json: { errors: @capsule.errors.to_hash(full_messages: true) }, status: :unprocessable_entity
@@ -74,7 +81,12 @@ class Api::CapsulesController < ApplicationController
   def capsule_params
     submitted_capsule = params.require(:capsule)
 
-    submitted_capsule.permit(:title, :message, :unlock_at, :audio_signed_id, :video_signed_id, image_signed_ids: [], remote_image_urls: [], design: {})
+    submitted_capsule.permit(:title, :message, :unlock_at, :audio_signed_id, :video_signed_id,
+      image_signed_ids: [], audio_signed_ids: [], video_signed_ids: [], remote_image_urls: [], design: {})
+  end
+
+  def signed_ids(data, name)
+    Array(data.delete("#{name}_signed_ids")) + Array(data.delete("#{name}_signed_id"))
   end
 
   def capsule_json(capsule, include_message: false)

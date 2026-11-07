@@ -72,25 +72,46 @@ RSpec.describe 'Capsules API', type: :request do
     expect(response_body.dig('errors', 'images')).to include('Images must be an image')
   end
 
-  it 'attaches signed audio without exposing a locked capsule audio URL' do
-    audio = ActiveStorage::Blob.create_and_upload!(io: StringIO.new('audio'), filename: 'memory.mp3', content_type: 'audio/mpeg')
+  it 'attaches multiple signed audio and video files without exposing them while locked' do
+    audio = 2.times.map { |i| ActiveStorage::Blob.create_and_upload!(io: StringIO.new("audio #{i}"), filename: 'memory.mp3', content_type: 'audio/mpeg') }
+    video = 2.times.map { |i| ActiveStorage::Blob.create_and_upload!(io: StringIO.new("video #{i}"), filename: 'memory.mp4', content_type: 'video/mp4') }
 
     post api_capsules_path, params: { capsule: { title: 'Graduation', message: 'Proud of you!', unlock_at: 1.day.from_now,
-      audio_signed_id: audio.signed_id } }, as: :json
+      audio_signed_ids: audio.map(&:signed_id), video_signed_ids: video.map(&:signed_id) } }, as: :json
 
     expect(response).to have_http_status(:created)
-    expect(Capsule.last.audio.blob).to eq(audio)
+    expect(Capsule.last.audio.blobs).to match_array(audio)
+    expect(Capsule.last.video.blobs).to match_array(video)
     expect(response_body.fetch('audio_url')).to be_nil
+    expect(response_body.fetch('video_url')).to be_nil
   end
 
-  it 'returns an audio URL only after a capsule unlocks' do
+  it 'returns every audio and video URL only after a capsule unlocks' do
     capsule = user.capsules.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now)
-    capsule.audio.attach(io: StringIO.new('audio'), filename: 'memory.mp3', content_type: 'audio/mpeg')
+    2.times { |i| capsule.audio.attach(io: StringIO.new("audio #{i}"), filename: 'memory.mp3', content_type: 'audio/mpeg') }
+    2.times { |i| capsule.video.attach(io: StringIO.new("video #{i}"), filename: 'memory.mp4', content_type: 'video/mp4') }
     capsule.update!(unlock_at: 1.minute.ago)
 
     get api_capsule_path(capsule)
 
-    expect(response_body.fetch('audio_url')).to include('/rails/active_storage/blobs/')
+    expect(response_body.fetch('audio_url')).to all(include('/rails/active_storage/blobs/'))
+    expect(response_body.fetch('video_url')).to all(include('/rails/active_storage/blobs/'))
+    expect(response_body.fetch('audio_url')).to have_attributes(length: 2)
+    expect(response_body.fetch('video_url')).to have_attributes(length: 2)
+  end
+
+  it 'adds multiple audio and video files when an unlocked capsule is edited' do
+    capsule = user.capsules.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now)
+    capsule.update!(unlock_at: 1.minute.ago)
+    audio = 2.times.map { |i| ActiveStorage::Blob.create_and_upload!(io: StringIO.new("audio #{i}"), filename: 'memory.mp3', content_type: 'audio/mpeg') }
+    video = 2.times.map { |i| ActiveStorage::Blob.create_and_upload!(io: StringIO.new("video #{i}"), filename: 'memory.mp4', content_type: 'video/mp4') }
+
+    patch api_capsule_path(capsule), params: { capsule: { title: capsule.title, message: capsule.message, unlock_at: capsule.unlock_at,
+      audio_signed_ids: audio.map(&:signed_id), video_signed_ids: video.map(&:signed_id) } }, as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(capsule.reload.audio.blobs).to match_array(audio)
+    expect(capsule.video.blobs).to match_array(video)
   end
 
   it 'returns image URLs only after a capsule unlocks' do
@@ -120,7 +141,7 @@ RSpec.describe 'Capsules API', type: :request do
     capsule.audio.attach(io: StringIO.new('audio'), filename: 'memory.mp3', content_type: 'audio/mpeg')
 
     image_blob = capsule.images.blobs.first
-    audio_blob = capsule.audio.blob
+    audio_blob = capsule.audio.blobs.first
     expect { delete api_capsule_path(capsule), as: :json }.to change(Capsule, :count).by(-1)
 
     expect(response).to have_http_status(:no_content)

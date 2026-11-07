@@ -7,7 +7,7 @@ When('I visit the new capsule page') do
 end
 
 When('I fill in {string} with {string}') do |field, value|
-  if field == 'Title' || field == 'Message' || field.start_with?('Text block')
+  if field == 'Title' || field == 'Message' || field.start_with?('Message block')
     text_block = find("[aria-label='#{field}']")
     page.execute_script("arguments[0].textContent = arguments[1]; arguments[0].dispatchEvent(new Event('input', { bubbles: true }))", text_block, value)
   else
@@ -30,12 +30,16 @@ When('I choose {string} from {string}') do |option, field|
   select option, from: field
 end
 
-When('I add a text block') do
-  click_button 'Add text'
+When('I add a message block') do
+  click_button 'Add message'
 end
 
-When('I add an image') do
-  click_button 'Add image'
+When('I click {string}') do |label|
+  click_button label
+end
+
+When('I press Enter in {string}') do |field|
+  find_field(field).send_keys(:enter)
 end
 
 When('I delete the selected image') do
@@ -54,6 +58,10 @@ When('I attach an audio file') do
   attach_file 'Audio', Rails.root.join('spec/fixtures/files/capsule.mp3')
 end
 
+When('I attach a video file') do
+  attach_file 'Video', Rails.root.join('spec/fixtures/files/capsule.mp4')
+end
+
 When('I open {string}') do |title|
   click_link title
 end
@@ -65,6 +73,16 @@ end
 Given('a capsule titled {string} unlocked yesterday with the message {string}') do |title, message|
   capsule = @account.capsules.create!(title: title, message: message, unlock_at: 1.day.from_now)
   capsule.update!(unlock_at: 1.day.ago)
+end
+
+Then('the capsule title is {string}') do |title|
+  expect(page).to have_current_path(/capsule\.html/)
+  expect(Capsule.find_by!(title: title).title).to eq(title)
+end
+
+Then('the capsule titled {string} has message {string}') do |title, message|
+  expect(page).to have_current_path(/capsule\.html/)
+  expect(Capsule.find_by!(title: title).message).to eq(message)
 end
 
 Then('the poster design is saved') do
@@ -94,11 +112,27 @@ Then('I can play the selected audio') do
   expect(page).to have_css('#poster-preview audio[controls]')
 end
 
+Then('I see two selected audio previews') do
+  expect(page).to have_css('#poster-preview audio[controls]', count: 2)
+end
+
+Then('I see two selected video previews') do
+  expect(page).to have_css('#poster-preview video[controls]', count: 2)
+end
+
 Then('the audio is sealed') do
   expect(page).to have_current_path(/capsule\.html/)
   capsule = Capsule.find_by!(title: 'My audio capsule')
   expect(capsule.audio).to be_attached
-  expect(capsule.design.fetch('audio_block')).to be_present
+  expect(capsule.design.fetch('sealed_blocks').any? { |block| block['media_type'] == 'audio' }).to be(true)
+end
+
+Then('the repeated media files are sealed') do
+  expect(page).to have_current_path(/capsule\.html/)
+  capsule = Capsule.find_by!(title: 'My media capsule')
+
+  expect(capsule.audio.blobs.count).to eq(2)
+  expect(capsule.video.blobs.count).to eq(2)
 end
 
 Then('no image is sealed') do
