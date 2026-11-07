@@ -72,6 +72,8 @@ The Cucumber stories cover registration/login, authorization, creating and viewi
 
 ## Product limits
 
+These limits keep the prototype within the Cloudinary free-tier storage allowance.
+
 - Each account can create up to **5 capsules**.
 - Uploaded image, audio, and video files are limited to **2 MB total per capsule**.
 
