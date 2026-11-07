@@ -21,6 +21,19 @@ RSpec.describe 'Capsules API', type: :request do
     expect(response_body.map { |capsule| capsule.fetch('title') }).to contain_exactly('First', 'Second')
   end
 
+  it 'rejects a sixth capsule for the signed-in user' do
+    5.times do |index|
+      user.capsules.create!(title: "Capsule #{index}", message: "Message #{index}", unlock_at: 1.day.from_now)
+    end
+
+    expect {
+      post api_capsules_path, params: { capsule: { title: 'Sixth', message: 'One too many', unlock_at: 1.day.from_now } }, as: :json
+    }.not_to change(Capsule, :count)
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response_body.dig('errors', 'base')).to include('You can create up to 5 capsules.')
+  end
+
   it 'creates a locked capsule without exposing its message' do
     expect {
       post api_capsules_path, params: { capsule: { title: 'Graduation', message: 'Proud of you!', unlock_at: 1.day.from_now } }, as: :json

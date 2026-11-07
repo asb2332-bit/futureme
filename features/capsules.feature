@@ -12,6 +12,16 @@ Feature: Time capsules
     Then I see "First capsule"
     And I see "Second capsule"
 
+  Scenario: Reject a sixth capsule
+    Given I already have 5 capsules
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I fill in "Title" with "Sixth capsule"
+    And I fill in "Message" with "This should not be created."
+    And I fill in "Unlock at" with a date one day from now
+    And I create the capsule
+    Then I see "You can create up to 5 capsules."
+
   Scenario: Create a future capsule
     When I visit FutureMe
     And I visit the new capsule page
