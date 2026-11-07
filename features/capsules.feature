@@ -6,6 +6,12 @@ Feature: Time capsules
   Background:
     Given I am a registered user who is logged in
 
+  Scenario: View multiple capsules
+    Given I have capsules titled "First capsule" and "Second capsule"
+    When I visit FutureMe
+    Then I see "First capsule"
+    And I see "Second capsule"
+
   Scenario: Create a future capsule
     When I visit FutureMe
     And I visit the new capsule page
