@@ -3,7 +3,7 @@ When('I visit FutureMe') do
 end
 
 When('I visit the new capsule page') do
-  click_link 'Create a capsule'
+  find('.hero').click_link 'Create a capsule'
 end
 
 When('I fill in {string} with {string}') do |field, value|
@@ -47,7 +47,7 @@ When('I delete the selected image') do
 end
 
 When('I attach an image file') do
-  attach_file 'Images', Rails.root.join('spec/fixtures/files/capsule.png')
+  attach_file 'capsule-images', Rails.root.join('spec/fixtures/files/capsule.png'), visible: false
 end
 
 When('I add audio') do
@@ -55,11 +55,11 @@ When('I add audio') do
 end
 
 When('I attach an audio file') do
-  attach_file 'Audio', Rails.root.join('spec/fixtures/files/capsule.mp3')
+  attach_file 'capsule-audio', Rails.root.join('spec/fixtures/files/capsule.mp3'), visible: false
 end
 
 When('I attach a video file') do
-  attach_file 'Video', Rails.root.join('spec/fixtures/files/capsule.mp4')
+  attach_file 'capsule-video', Rails.root.join('spec/fixtures/files/capsule.mp4'), visible: false
 end
 
 When('I open {string}') do |title|

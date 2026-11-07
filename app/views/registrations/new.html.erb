@@ -11,8 +11,8 @@
     <%= f.password_field :password, required: true, minlength: 12, maxlength: 72, autocomplete: "new-password" %>
     <%= f.label :password_confirmation, "Confirm password" %>
     <%= f.password_field :password_confirmation, required: true, autocomplete: "new-password" %>
-    <%= f.submit "Create account" %>
+    <%= f.submit "Create account", class: "btn primary" %>
   <% end %>
   <%= render "shared/google_login" %>
-  <p>Already registered? <%= link_to "Log in", login_path %></p>
+  <p>Already registered?</p><%= link_to "Log in", login_path, class: "btn quiet" %>
 </section>

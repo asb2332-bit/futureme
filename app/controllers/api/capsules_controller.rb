@@ -48,8 +48,6 @@ class Api::CapsulesController < ApplicationController
   end
 
   def update
-    return render(json: { error: "Capsule is still locked." }, status: :forbidden) unless @capsule.unlocked?
-
     submitted_data = capsule_params
     audio_signed_ids = signed_ids(submitted_data, :audio)
     video_signed_ids = signed_ids(submitted_data, :video)

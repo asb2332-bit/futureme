@@ -101,9 +101,11 @@ function showPoster(capsule) {
   }
 
   if (!(design.hidden_blocks || []).includes("message")) addBlock(capsule.message, blockStyle(design, "message_block"), true);
-  if (capsule.audio_url?.[0]) addAudioBlock(blockStyle(design, "audio_block"), capsule.audio_url[0]);
-  if (capsule.video_url?.[0]) addVideoBlock(blockStyle(design, "video_block"), capsule.video_url[0]);
-  (design.sealed_blocks || []).forEach((block) => {
+  const hasCanvasBlocks = Array.isArray(design.sealed_blocks);
+  const sealedBlocks = design.sealed_blocks || [];
+  if (capsule.audio_url?.[0] && (!hasCanvasBlocks || design.audio_block)) addAudioBlock(blockStyle(design, "audio_block"), capsule.audio_url[0]);
+  if (!hasCanvasBlocks && capsule.video_url?.[0]) addVideoBlock(blockStyle(design, "video_block"), capsule.video_url[0]);
+  sealedBlocks.forEach((block) => {
     if (block.media_type === "audio") addAudioBlock(block, capsule.audio_url[block.media_index]);
     else if (block.media_type === "video") addVideoBlock(block, capsule.video_url[block.media_index]);
     else if (block.image_url || Number.isInteger(block.image_index)) addImageBlock(block.image_url || capsule.image_urls[block.image_index], block);
@@ -191,12 +193,9 @@ async function loadCapsule() {
 
   const capsule = await response.json();
   creator.textContent = "Created by: You";
-  editCapsuleLink.hidden = capsule.locked;
+  editCapsuleLink.hidden = false;
   editCapsuleLink.href = `/create.html?id=${capsule.id}`;
   showPoster(capsule);
-  showImages(capsule);
-  showAudio(capsule);
-  showVideo(capsule);
   showCountdown(capsule);
 }
 
