@@ -1,0 +1,18 @@
+<section class="account-card">
+  <p class="eyebrow">A PLACE FOR YOUR FUTURE</p>
+  <h1>Create an account.</h1>
+  <% if @user.errors.any? %>
+    <ul role="alert"><% @user.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
+  <% end %>
+  <%= form_with model: @user, url: signup_path do |f| %>
+    <%= f.label :email_address, "Email" %>
+    <%= f.email_field :email_address, required: true, autocomplete: "email" %>
+    <%= f.label :password, "Password (at least 12 characters)" %>
+    <%= f.password_field :password, required: true, minlength: 12, maxlength: 72, autocomplete: "new-password" %>
+    <%= f.label :password_confirmation, "Confirm password" %>
+    <%= f.password_field :password_confirmation, required: true, autocomplete: "new-password" %>
+    <%= f.submit "Create account" %>
+  <% end %>
+  <%= render "shared/google_login" %>
+  <p>Already registered? <%= link_to "Log in", login_path %></p>
+</section>

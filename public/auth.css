@@ -1,0 +1,17 @@
+.account-shell { max-width: 1000px; margin: auto; padding: 24px; }
+.account-card { max-width: 480px; margin: 48px auto; padding: 32px; border: 1px solid #bec7b9; border-radius: 20px; background: #fafbf7; }
+.account-card h1 { font-size: 2.4rem; line-height: 1.15; }
+.account-card form { display: grid; gap: 12px; margin: 24px 0; }
+.account-card input { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #899780; border-radius: 8px; font: inherit; }
+.account-card input[type=submit] { background: #202923; color: white; cursor: pointer; }
+.flash { padding: 16px; background: #e3e7df; border-radius: 8px; }
+.muted { color: #586352; font-size: .9rem; }
+.admin-card { max-width: 850px; overflow-x: auto; }
+.admin-card table { width: 100%; text-align: left; border-collapse: collapse; }
+.admin-card th, .admin-card td { padding: 12px; border-bottom: 1px solid #bec7b9; }
+.account-nav { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.site-nav .account-nav, .site-nav .account-nav span { text-transform: none; letter-spacing: normal; }
+
+.account-card h1 { letter-spacing: -0.035em; }
+.account-shell a { color: #314f37; }
+.account-shell .site-nav > a { text-decoration: none; font-weight: 700; }

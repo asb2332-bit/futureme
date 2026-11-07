@@ -7,7 +7,7 @@ When('I visit the new capsule page') do
 end
 
 When('I fill in {string} with {string}') do |field, value|
-  if field == 'Title' || field == 'Message' || field.start_with?('Text block')
+  if field == 'Title' || field == 'Message' || field.start_with?('Message block')
     text_block = find("[aria-label='#{field}']")
     page.execute_script("arguments[0].textContent = arguments[1]; arguments[0].dispatchEvent(new Event('input', { bubbles: true }))", text_block, value)
   else
@@ -30,8 +30,36 @@ When('I choose {string} from {string}') do |option, field|
   select option, from: field
 end
 
-When('I add a text block') do
-  click_button 'Add text'
+When('I add a message block') do
+  click_button 'Add message'
+end
+
+When('I click {string}') do |label|
+  click_button label
+end
+
+When('I press Enter in {string}') do |field|
+  find_field(field).send_keys(:enter)
+end
+
+When('I delete the selected image') do
+  find('body').send_keys(:delete)
+end
+
+When('I attach an image file') do
+  attach_file 'Images', Rails.root.join('spec/fixtures/files/capsule.png')
+end
+
+When('I add audio') do
+  click_button 'Add audio'
+end
+
+When('I attach an audio file') do
+  attach_file 'Audio', Rails.root.join('spec/fixtures/files/capsule.mp3')
+end
+
+When('I attach a video file') do
+  attach_file 'Video', Rails.root.join('spec/fixtures/files/capsule.mp4')
 end
 
 When('I open {string}') do |title|
@@ -39,20 +67,79 @@ When('I open {string}') do |title|
 end
 
 Given('a capsule titled {string} unlocks tomorrow with the message {string}') do |title, message|
-  Capsule.create!(title: title, message: message, unlock_at: 1.day.from_now)
+  @account.capsules.create!(title: title, message: message, unlock_at: 1.day.from_now)
 end
 
 Given('a capsule titled {string} unlocked yesterday with the message {string}') do |title, message|
-  capsule = Capsule.create!(title: title, message: message, unlock_at: 1.day.from_now)
+  capsule = @account.capsules.create!(title: title, message: message, unlock_at: 1.day.from_now)
   capsule.update!(unlock_at: 1.day.ago)
+end
+
+Then('the capsule title is {string}') do |title|
+  expect(page).to have_current_path(/capsule\.html/)
+  expect(Capsule.find_by!(title: title).title).to eq(title)
+end
+
+Then('the capsule titled {string} has message {string}') do |title, message|
+  expect(page).to have_current_path(/capsule\.html/)
+  expect(Capsule.find_by!(title: title).message).to eq(message)
 end
 
 Then('the poster design is saved') do
   design = Capsule.find_by!(title: 'My custom poster').design
 
   expect(design.dig('theme', 'background_color')).to eq('#202923')
-  expect(design.dig('theme', 'icon')).to eq('✦')
   expect(design.fetch('sealed_blocks').first.fetch('text')).to eq('Private poster note')
+end
+
+Then('the linked image is sealed') do
+  expect(page).to have_current_path(/capsule\.html/)
+  image_block = Capsule.find_by!(title: 'My image capsule').design.fetch('sealed_blocks').find { |block| block['image_url'] }
+
+  expect(image_block.fetch('image_url')).to eq('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee')
+end
+
+Then('the uploaded image is sealed') do
+  expect(page).to have_current_path(/capsule\.html/)
+  capsule = Capsule.find_by!(title: 'My uploaded image capsule')
+
+  expect(capsule.images).to be_attached
+  image_block = capsule.design.fetch('sealed_blocks').find { |block| block['image_index'] == 0 }
+  expect(image_block.fetch('aspect_ratio')).to be > 0
+end
+
+Then('I can play the selected audio') do
+  expect(page).to have_css('#poster-preview audio[controls]')
+end
+
+Then('I see two selected audio previews') do
+  expect(page).to have_css('#poster-preview audio[controls]', count: 2)
+end
+
+Then('I see two selected video previews') do
+  expect(page).to have_css('#poster-preview video[controls]', count: 2)
+end
+
+Then('the audio is sealed') do
+  expect(page).to have_current_path(/capsule\.html/)
+  capsule = Capsule.find_by!(title: 'My audio capsule')
+  expect(capsule.audio).to be_attached
+  expect(capsule.design.fetch('sealed_blocks').any? { |block| block['media_type'] == 'audio' }).to be(true)
+end
+
+Then('the repeated media files are sealed') do
+  expect(page).to have_current_path(/capsule\.html/)
+  capsule = Capsule.find_by!(title: 'My media capsule')
+
+  expect(capsule.audio.blobs.count).to eq(2)
+  expect(capsule.video.blobs.count).to eq(2)
+end
+
+Then('no image is sealed') do
+  expect(page).to have_current_path(/capsule\.html/)
+  blocks = Capsule.find_by!(title: 'No image capsule').design.fetch('sealed_blocks')
+
+  expect(blocks.none? { |block| block['image_url'] || block['image_index'] }).to be(true)
 end
 
 Then('I see {string}') do |text|

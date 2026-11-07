@@ -5,15 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FutureMe Capsule</title>
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/auth.css">
+  <script src="/auth.js" defer></script>
   <script src="/capsule.js" defer></script>
 </head>
 <body>
-  <main>
+  <main class="create-page">
     <a class="back" href="/">← All capsules</a>
     <article class="panel capsule-detail">
       <div id="capsule-poster" class="poster-preview" aria-label="Capsule poster"></div>
+      <div id="capsule-images" class="capsule-images" aria-label="Capsule images"></div>
+      <div id="capsule-audio" class="capsule-media" hidden></div>
+      <div id="capsule-video" class="capsule-media" hidden></div>
       <p id="capsule-creator">Created by: You (accounts coming soon)</p>
       <p id="capsule-unlock-time" class="countdown"></p>
+      <a id="edit-capsule" hidden>Edit capsule</a>
+      <form id="delete-capsule-form" method="post">
+        <input id="delete-capsule-token" type="hidden" name="authenticity_token">
+        <button type="submit">Delete capsule</button>
+      </form>
     </article>
   </main>
 </body>
