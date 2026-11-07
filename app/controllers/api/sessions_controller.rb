@@ -1,6 +1,7 @@
 class Api::SessionsController < ApplicationController
   def show
     response.headers["Cache-Control"] = "no-store"
-    render json: { user: current_user&.as_json(only: %i[email_address role]), csrf_token: form_authenticity_token }
+    token_options = params[:form_action].present? ? { form_options: { action: params[:form_action], method: :post } } : {}
+    render json: { user: current_user&.as_json(only: %i[email_address role]), csrf_token: form_authenticity_token(**token_options) }
   end
 end

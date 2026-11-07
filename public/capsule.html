@@ -10,12 +10,20 @@
   <script src="/capsule.js" defer></script>
 </head>
 <body>
-  <main>
+  <main class="create-page">
     <a class="back" href="/">← All capsules</a>
     <article class="panel capsule-detail">
       <div id="capsule-poster" class="poster-preview" aria-label="Capsule poster"></div>
+      <div id="capsule-images" class="capsule-images" aria-label="Capsule images"></div>
+      <audio id="capsule-audio" controls hidden></audio>
+      <video id="capsule-video" controls hidden></video>
       <p id="capsule-creator">Created by: You (accounts coming soon)</p>
       <p id="capsule-unlock-time" class="countdown"></p>
+      <a id="edit-capsule" hidden>Edit capsule</a>
+      <form id="delete-capsule-form" method="post">
+        <input id="delete-capsule-token" type="hidden" name="authenticity_token">
+        <button type="submit">Delete capsule</button>
+      </form>
     </article>
   </main>
 </body>

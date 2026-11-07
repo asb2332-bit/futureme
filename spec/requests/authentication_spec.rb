@@ -1,4 +1,5 @@
 require 'rails_helper'
+require 'digest/md5'
 
 RSpec.describe 'Authentication and authorization', type: :request do
   let(:password) { 'a-secure-password' }
@@ -45,6 +46,22 @@ RSpec.describe 'Authentication and authorization', type: :request do
     expect(response).to have_http_status(:unprocessable_entity)
     get '/api/capsules'
     expect(response).to have_http_status(:unauthorized)
+  end
+
+  it 'requires login for direct image uploads' do
+    post '/rails/active_storage/direct_uploads'
+
+    expect(response).to have_http_status(:unauthorized)
+  end
+
+  it 'creates a signed direct upload for a logged-in user' do
+    login
+
+    post '/rails/active_storage/direct_uploads', params: { blob: { filename: 'memory.jpg', byte_size: 5,
+      checksum: Digest::MD5.base64digest('image'), content_type: 'image/jpeg' } }
+
+    expect(response).to have_http_status(:ok)
+    expect(JSON.parse(response.body)).to include('signed_id', 'direct_upload')
   end
 
   it 'requires login for reading and creating capsules' do

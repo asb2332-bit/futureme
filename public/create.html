@@ -22,13 +22,18 @@
         <label>Background <input id="background-color" type="color" value="#E3E7DF"></label>
         <label>Accent <input id="accent-color" type="color" value="#202923"></label>
         <label>Font <select id="poster-font"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option><option value="display">Display</option></select></label>
-        <label>Icon <input id="poster-icon" value="⏳" maxlength="2"></label>
+        <label>Images <input id="capsule-images" type="file" accept="image/*" multiple></label>
+        <label>Audio <input id="capsule-audio" type="file" accept="audio/*" multiple></label>
+        <label>Video <input id="capsule-video" type="file" accept="video/*" multiple></label>
+        <label>Image URL <input id="remote-image-url" type="url" placeholder="https://images.unsplash.com/…"></label>
+        <button id="add-image-block" type="button">Add image</button>
         <button id="add-text-block" type="button">Add text</button>
       </div>
-      <div id="poster-preview" class="poster-preview editor-canvas" aria-label="Capsule poster canvas"></div>
+      <div id="poster-preview" class="poster-preview editor-canvas" aria-label="Capsule poster canvas" tabindex="0"></div>
 
       <footer class="editor-footer">
         <label>Unlock at <input id="unlock-at" type="datetime-local" name="unlock_at"></label>
+        <audio id="audio-preview" controls hidden></audio>
         <p id="form-errors" role="alert"></p>
         <button id="seal-capsule" type="button">Seal the capsule</button>
       </footer>

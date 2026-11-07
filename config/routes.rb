@@ -9,10 +9,13 @@ Rails.application.routes.draw do
   get "/auth/google_oauth2/callback", to: "oauth#create"
   get "/auth/failure", to: "oauth#failure"
   get "/admin", to: "admin#index", as: :admin
+  post "/capsules/:id/delete", to: "capsule_deletions#create"
+  post "/rails/active_storage/direct_uploads", to: "direct_uploads#create"
 
   namespace :api do
     resource :session, only: :show
-    resources :capsules, only: %i[index create show]
+    resources :uploads, only: :create
+    resources :capsules, only: %i[index create show update destroy]
   end
 
   root to: redirect("/index.html")

@@ -2,12 +2,19 @@ const capsuleId = new URLSearchParams(window.location.search).get("id");
 const poster = document.querySelector("#capsule-poster");
 const creator = document.querySelector("#capsule-creator");
 const unlockTime = document.querySelector("#capsule-unlock-time");
+const capsuleImages = document.querySelector("#capsule-images");
+const capsuleAudio = document.querySelector("#capsule-audio");
+const deleteCapsuleForm = document.querySelector("#delete-capsule-form");
+const editCapsuleLink = document.querySelector("#edit-capsule");
+const deleteCapsuleToken = document.querySelector("#delete-capsule-token");
+const capsuleVideo = document.querySelector("#capsule-video");
 let countdownTimer;
 
 const defaultBlocks = {
   title_block: { x: 8, y: 10, width: 72, height: 16, rotation: 0 },
   message_block: { x: 8, y: 36, width: 84, height: 38, rotation: 0 },
-  icon_block: { x: 82, y: 8, width: 10, height: 12, rotation: 0 }
+  audio_block: { x: 25, y: 78, width: 50, height: 10, rotation: 0 },
+  video_block: { x: 20, y: 48, width: 60, height: 25, rotation: 0 }
 };
 
 function blockStyle(design, name) {
@@ -26,6 +33,56 @@ function addBlock(text, block, sealed) {
   poster.append(element);
 }
 
+function addImageBlock(url, block) {
+  const element = document.createElement("div");
+  element.className = "poster-block sealed-block poster-image-block";
+  element.style.left = `${block.x}%`;
+  element.style.top = `${block.y}%`;
+  element.style.width = `${block.width}%`;
+  element.style.height = `${block.height}%`;
+  element.style.transform = `rotate(${block.rotation}deg)`;
+
+  const image = document.createElement("img");
+  image.src = url;
+  image.alt = "Capsule image";
+  element.append(image);
+  poster.append(element);
+}
+
+function addVideoBlock(block, url) {
+  const element = document.createElement("div");
+  element.className = "poster-block sealed-block";
+  element.style.left = `${block.x}%`;
+  element.style.top = `${block.y}%`;
+  element.style.width = `${block.width}%`;
+  element.style.height = `${block.height}%`;
+  element.style.transform = `rotate(${block.rotation}deg)`;
+  const video = document.createElement("video");
+  video.controls = true;
+  video.src = url;
+  video.addEventListener("loadedmetadata", () => {
+    const aspectRatio = block.aspect_ratio || video.videoWidth / video.videoHeight;
+    element.style.height = `${block.width * (poster.clientWidth / poster.clientHeight) / aspectRatio}%`;
+  });
+  element.append(video);
+  poster.append(element);
+}
+
+function addAudioBlock(block, url) {
+  const element = document.createElement("div");
+  element.className = "poster-block sealed-block";
+  element.style.left = `${block.x}%`;
+  element.style.top = `${block.y}%`;
+  element.style.width = `${block.width}%`;
+  element.style.height = `${block.height}%`;
+  element.style.transform = `rotate(${block.rotation}deg)`;
+  const audio = document.createElement("audio");
+  audio.controls = true;
+  audio.src = url;
+  element.append(audio);
+  poster.append(element);
+}
+
 function showPoster(capsule) {
   const design = capsule.design || {};
   const theme = design.theme || {};
@@ -34,16 +91,47 @@ function showPoster(capsule) {
   poster.style.color = theme.accent_color || "#202923";
   poster.dataset.font = theme.font || "sans";
 
-  addBlock(capsule.title, blockStyle(design, "title_block"), false);
-  addBlock(theme.icon || "⏳", blockStyle(design, "icon_block"), false);
+  if (!(design.hidden_blocks || []).includes("title")) addBlock(capsule.title, blockStyle(design, "title_block"), false);
 
   if (capsule.locked) {
-    addBlock("This capsule is locked", blockStyle(design, "message_block"), true);
+    if (!(design.hidden_blocks || []).includes("message")) addBlock("This capsule is locked", blockStyle(design, "message_block"), true);
+    if (design.audio_block) addBlock("🔊 Audio locked", blockStyle(design, "audio_block"), true);
+    if (design.video_block) addBlock("▶ Video locked", blockStyle(design, "video_block"), true);
     return;
   }
 
-  addBlock(capsule.message, blockStyle(design, "message_block"), true);
-  (design.sealed_blocks || []).forEach((block) => addBlock(block.text, block, true));
+  if (!(design.hidden_blocks || []).includes("message")) addBlock(capsule.message, blockStyle(design, "message_block"), true);
+  if (capsule.audio_url) addAudioBlock(blockStyle(design, "audio_block"), capsule.audio_url);
+  if (capsule.video_url) addVideoBlock(blockStyle(design, "video_block"), capsule.video_url);
+  (design.sealed_blocks || []).forEach((block) => {
+    if (block.image_url || Number.isInteger(block.image_index)) addImageBlock(block.image_url || capsule.image_urls[block.image_index], block);
+    else addBlock(block.text, block, true);
+  });
+}
+
+function showImages(capsule) {
+  capsuleImages.replaceChildren();
+  if (capsule.locked) return;
+
+  const placedImageIndexes = (capsule.design?.sealed_blocks || []).filter((block) => Number.isInteger(block.image_index)).map((block) => block.image_index);
+  (capsule.image_urls || []).forEach((url, index) => {
+    if (placedImageIndexes.includes(index)) return;
+    const image = document.createElement("img");
+    image.src = url;
+    image.alt = "Capsule image";
+    image.loading = "lazy";
+    capsuleImages.append(image);
+  });
+}
+
+function showAudio(capsule) {
+  capsuleAudio.hidden = !capsule.audio_url || Boolean(capsule.design?.audio_block);
+  capsuleAudio.src = capsule.audio_url || "";
+}
+
+function showVideo(capsule) {
+  capsuleVideo.hidden = !capsule.video_url || Boolean(capsule.design?.video_block);
+  capsuleVideo.src = capsule.video_url || "";
 }
 
 function showCountdown(capsule) {
@@ -85,9 +173,19 @@ async function loadCapsule() {
 
   const capsule = await response.json();
   creator.textContent = "Created by: You";
+  editCapsuleLink.hidden = capsule.locked;
+  editCapsuleLink.href = `/create.html?id=${capsule.id}`;
   showPoster(capsule);
+  showImages(capsule);
+  showAudio(capsule);
+  showVideo(capsule);
   showCountdown(capsule);
 }
+
+deleteCapsuleForm.action = `/capsules/${capsuleId}/delete`;
+fetch(`/api/session?form_action=${encodeURIComponent(deleteCapsuleForm.action)}`, { cache: "no-store" })
+  .then((response) => response.json())
+  .then((session) => { deleteCapsuleToken.value = session.csrf_token; });
 
 if (capsuleId) {
   loadCapsule();
