@@ -70,3 +70,8 @@ bundle exec cucumber
 
 The Cucumber stories cover registration/login, authorization, creating and viewing capsules, multiple capsules, custom poster layouts, and image/audio/video media. The RSpec suite covers models and authenticated API behavior.
 
+## Product limits
+
+- Each account can create up to **5 capsules**.
+- Uploaded image, audio, and video files are limited to **2 MB total per capsule**.
+
