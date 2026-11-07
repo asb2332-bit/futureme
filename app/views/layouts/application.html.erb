@@ -9,11 +9,11 @@
   <link rel="stylesheet" href="/auth.css">
 </head>
 <body>
-  <main class="account-shell">
-    <nav class="site-nav"><a href="/">FUTUREME</a>
+  <div class="stripe" aria-hidden="true"></div>
+  <main class="app account-shell">
+    <nav class="site-nav"><a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
       <% if current_user %>
-        <span><%= current_user.email_address %></span>
-        <%= button_to "Log out", logout_path %>
+        <span class="account-nav"><span><%= current_user.email_address %></span><%= button_to "Log out", logout_path %></span>
       <% end %>
     </nav>
     <% flash.each do |kind, message| %><p role="alert" class="flash"><%= message %></p><% end %>

@@ -4,6 +4,8 @@ const presetInput = document.querySelector("#theme-preset");
 const backgroundInput = document.querySelector("#background-color");
 const accentInput = document.querySelector("#accent-color");
 const fontInput = document.querySelector("#poster-font");
+const titleInput = document.querySelector("#title-input");
+const messageInput = document.querySelector("#message-input");
 const remoteImageUrlInput = document.querySelector("#remote-image-url");
 const imageInput = document.querySelector("#capsule-images");
 const audioInput = document.querySelector("#capsule-audio");
@@ -291,8 +293,8 @@ function addPosterBlock(id, text, block, editable) {
     const label = id === "title" ? "Title" : id === "message" ? "Message" : `Message block ${design.sealed_blocks.indexOf(block) + 1}`;
     element.setAttribute("aria-label", label);
     element.addEventListener("input", () => {
-      if (id === "title") titleText = element.textContent;
-      else if (id === "message") messageText = element.textContent;
+      if (id === "title") { titleText = element.textContent; titleInput.value = titleText; }
+      else if (id === "message") { messageText = element.textContent; messageInput.value = messageText; }
       else block.text = element.textContent;
     });
     element.addEventListener("blur", () => {
@@ -520,10 +522,10 @@ function showValidationErrors(errors) {
 async function createCapsule() {
   formErrors.textContent = "";
   const unlockAt = unlockAtInput.value;
-  const messageBlocks = design.sealed_blocks.filter((block) => block.text).map((block) => block.text.trim()).filter(Boolean);
-  const capsuleMessage = messageText.trim() || messageBlocks.join("\n");
+  const messageBlocks = design.sealed_blocks.filter((block) => block.text).map((block) => String(block.text).trim()).filter(Boolean);
+  const capsuleMessage = String(messageText || "").trim() || messageBlocks.join("\n");
   const missingFields = [];
-  if (!titleText.trim()) missingFields.push("Title can't be blank");
+  if (!String(titleText || "").trim()) missingFields.push("Title can't be blank");
   if (!capsuleMessage) missingFields.push("Message can't be blank");
   if (!unlockAt) missingFields.push("Unlock at can't be blank");
   if (missingFields.length) {
@@ -543,7 +545,7 @@ async function createCapsule() {
     return;
   }
 
-  if (!messageText.trim() && messageBlocks.length && !design.hidden_blocks.includes("message")) design.hidden_blocks.push("message");
+  if (!String(messageText || "").trim() && messageBlocks.length && !design.hidden_blocks.includes("message")) design.hidden_blocks.push("message");
 
   const capsule = {
     title: titleText,
@@ -562,7 +564,7 @@ async function createCapsule() {
 
   if (!response.ok) {
     const responseBody = await response.json();
-    showValidationErrors(responseBody.errors);
+    showValidationErrors(responseBody.errors || { base: [responseBody.error || "Couldn't save this capsule."] });
     return;
   }
 
@@ -574,9 +576,11 @@ async function loadCapsuleForEditing() {
   if (!editingCapsuleId) return;
   const response = await fetch(`/api/capsules/${editingCapsuleId}`);
   const capsule = await response.json();
-  if (!response.ok || capsule.locked) { location.replace(`/capsule.html?id=${editingCapsuleId}`); return; }
-  titleText = capsule.title;
-  messageText = capsule.message;
+  if (!response.ok) { location.replace(`/capsule.html?id=${editingCapsuleId}`); return; }
+  titleText = capsule.title || "";
+  messageText = capsule.message || "";
+  titleInput.value = titleText;
+  messageInput.value = messageText;
   unlockAtInput.value = new Date(capsule.unlock_at).toISOString().slice(0, 16);
   Object.assign(design, capsule.design);
   (design.sealed_blocks || []).forEach((block) => {
@@ -599,6 +603,8 @@ presetInput.addEventListener("change", () => {
 backgroundInput.addEventListener("input", () => { design.theme.background_color = backgroundInput.value; renderPoster(); });
 accentInput.addEventListener("input", () => { design.theme.accent_color = accentInput.value; renderPoster(); });
 fontInput.addEventListener("change", () => { design.theme.font = fontInput.value; renderPoster(); });
+titleInput.addEventListener("input", () => { titleText = titleInput.value; renderPoster(); });
+messageInput.addEventListener("input", () => { messageText = messageInput.value; renderPoster(); });
 function showCapsuleLimitError() {
   const message = "This file can't be added: it would exceed this capsule's 2 MB limit.";
   formErrors.textContent = message;
@@ -686,7 +692,12 @@ remoteImageUrlInput.addEventListener("keydown", (event) => {
 addMessageButton.addEventListener("click", addMessageBlock);
 makeTitleBlockButton.addEventListener("click", makeSelectedTextTitle);
 restoreTitleBlockButton.addEventListener("click", restoreTitleBlock);
-sealButton.addEventListener("click", createCapsule);
+sealButton.addEventListener("click", () => {
+  createCapsule().catch((error) => {
+    console.error(error);
+    formErrors.textContent = error.message || "Couldn't seal this capsule. Please refresh and try again.";
+  });
+});
 
 renderPoster();
 loadCapsuleForEditing();

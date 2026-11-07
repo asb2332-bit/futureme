@@ -7,8 +7,8 @@
     <%= f.email_field :email_address, required: true, autocomplete: "email" %>
     <%= f.label :password %>
     <%= f.password_field :password, required: true, autocomplete: "current-password" %>
-    <%= f.submit "Log in" %>
+    <%= f.submit "Log in", class: "btn primary" %>
   <% end %>
   <%= render "shared/google_login" %>
-  <p>New here? <%= link_to "Create an account", signup_path %></p>
+  <p>New here?</p><%= link_to "Create an account", signup_path, class: "btn quiet" %>
 </section>
