@@ -70,14 +70,3 @@ bundle exec cucumber
 
 The Cucumber stories cover registration/login, authorization, creating and viewing capsules, multiple capsules, custom poster layouts, and image/audio/video media. The RSpec suite covers models and authenticated API behavior.
 
-## Accounts and permissions
-
-Visit `/signup` to create an email/password account or `/login` to sign in. Passwords require 12–72 characters. Users can list, create, read, update, and delete only their own capsules. Capsule contents remain sealed until the unlock date.
-
-To grant an existing account admin access on a trusted server:
-
-```sh
-EMAIL=you@example.com bundle exec rake accounts:promote
-```
-
-Admins can open `/admin` to view account counts and the first 100 accounts. Admin role assignment is intentionally not exposed through signup parameters.
