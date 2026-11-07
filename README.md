@@ -70,16 +70,6 @@ bundle exec cucumber
 
 The Cucumber stories cover registration/login, authorization, creating and viewing capsules, multiple capsules, custom poster layouts, and image/audio/video media. The RSpec suite covers models and authenticated API behavior.
 
-## Deployment
-
-The deployed app is at <https://calm-shore-09946-2d1c172059b3.herokuapp.com/>. It runs on Heroku with Heroku Postgres and Cloudinary Active Storage.
-
-For Google login in production, add this authorized redirect URI to the same Google OAuth client:
-
-```text
-https://calm-shore-09946-2d1c172059b3.herokuapp.com/auth/google_oauth2/callback
-```
-
 ## Accounts and permissions
 
 Visit `/signup` to create an email/password account or `/login` to sign in. Passwords require 12–72 characters. Users can list, create, read, update, and delete only their own capsules. Capsule contents remain sealed until the unlock date.
