@@ -66,6 +66,12 @@ When('I open {string}') do |title|
   click_link title
 end
 
+Given('I have capsules titled {string} and {string}') do |first_title, second_title|
+  [first_title, second_title].each do |title|
+    @account.capsules.create!(title: title, message: "Message for #{title}", unlock_at: 1.day.from_now)
+  end
+end
+
 Given('a capsule titled {string} unlocks tomorrow with the message {string}') do |title, message|
   @account.capsules.create!(title: title, message: message, unlock_at: 1.day.from_now)
 end

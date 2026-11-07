@@ -9,6 +9,18 @@ RSpec.describe 'Capsules API', type: :request do
     JSON.parse(response.body)
   end
 
+  it 'lists every capsule owned by the signed-in user' do
+    user.capsules.create!(title: 'First', message: 'One', unlock_at: 1.day.from_now)
+    user.capsules.create!(title: 'Second', message: 'Two', unlock_at: 2.days.from_now)
+    other_user = User.create!(email_address: 'other@example.com', password: 'a-secure-password')
+    other_user.capsules.create!(title: 'Private', message: 'Hidden', unlock_at: 1.day.from_now)
+
+    get api_capsules_path
+
+    expect(response).to have_http_status(:ok)
+    expect(response_body.map { |capsule| capsule.fetch('title') }).to contain_exactly('First', 'Second')
+  end
+
   it 'creates a locked capsule without exposing its message' do
     expect {
       post api_capsules_path, params: { capsule: { title: 'Graduation', message: 'Proud of you!', unlock_at: 1.day.from_now } }, as: :json
