@@ -16,8 +16,8 @@ LIVE SAAS PROTOTYPE
 -------------------
 https://calm-shore-09946-2d1c172059b3.herokuapp.com/
 
-GITHUB REPOSITORY
------------------
+GITHUB REPOSITORY (COPY AND PASTE THIS URL)
+--------------------------------------------
 https://github.com/asb2332-bit/futureme
 
 RUN LOCALLY
