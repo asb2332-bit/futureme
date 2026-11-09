@@ -1,3 +1,15 @@
+def retry_stale_browser_node
+  attempts = 0
+  begin
+    yield
+  rescue Selenium::WebDriver::Error::UnknownError => error
+    raise unless error.message.include?('Node with given id does not belong to the document') && (attempts += 1) < 3
+
+    sleep 0.1
+    retry
+  end
+end
+
 When('I visit FutureMe') do
   visit '/'
 end
@@ -155,9 +167,9 @@ Then('no image is sealed') do
 end
 
 Then('I see {string}') do |text|
-  expect(page).to have_text(text)
+  retry_stale_browser_node { expect(page).to have_text(text) }
 end
 
 Then('I do not see {string}') do |text|
-  expect(page).not_to have_text(text)
+  retry_stale_browser_node { expect(page).not_to have_text(text) }
 end
