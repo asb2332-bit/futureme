@@ -28,6 +28,9 @@
 .env.*
 !.env.example
 
+# Submission-only text files
+*.txt
+
 # Editor and OS files
 /.byebug_history
 .DS_Store
