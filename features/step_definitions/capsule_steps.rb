@@ -46,6 +46,10 @@ When('I save the capsule changes') do
   click_button 'Save changes'
 end
 
+When('I edit the capsule') do
+  click_link 'Edit capsule'
+end
+
 When('I choose {string} from {string}') do |option, field|
   select option, from: field
 end

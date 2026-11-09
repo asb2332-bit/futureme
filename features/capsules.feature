@@ -132,7 +132,7 @@ Feature: Time capsules
     Given a capsule titled "Keep this message" unlocks tomorrow with the message "Do not erase this."
     When I visit FutureMe
     And I open "Keep this message"
-    And I click "Edit capsule"
+    And I edit the capsule
     And I save the capsule changes
     Then the capsule titled "Keep this message" has message "Do not erase this."
 
