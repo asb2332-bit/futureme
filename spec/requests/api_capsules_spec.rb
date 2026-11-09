@@ -189,6 +189,18 @@ RSpec.describe 'Capsules API', type: :request do
     expect(response_body).to include('locked' => true, 'message' => nil)
   end
 
+  it 'returns a locked capsule’s sealed content to its owner for editing' do
+    design = { 'sealed_blocks' => [{ 'id' => 'note-1', 'text' => 'Private note' }] }
+    capsule = user.capsules.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now, design: design)
+    capsule.audio.attach(io: StringIO.new('audio'), filename: 'memory.mp3', content_type: 'audio/mpeg')
+
+    get api_capsule_path(capsule), params: { editing: true }
+
+    expect(response_body).to include('locked' => true, 'message' => 'Surprise!')
+    expect(response_body.dig('design', 'sealed_blocks')).to eq(design['sealed_blocks'])
+    expect(response_body.fetch('audio_url')).to contain_exactly(a_string_including('/rails/active_storage/blobs/'))
+  end
+
   it 'does not return sealed content in the capsule list' do
     design = { 'sealed_blocks' => [{ 'id' => 'note-1', 'text' => 'Private note' }] }
     capsule = user.capsules.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now, design: design)

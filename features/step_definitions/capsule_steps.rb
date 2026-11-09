@@ -42,6 +42,10 @@ When('I create the capsule') do
   click_button 'Seal the capsule'
 end
 
+When('I save the capsule changes') do
+  click_button 'Save changes'
+end
+
 When('I choose {string} from {string}') do |option, field|
   select option, from: field
 end

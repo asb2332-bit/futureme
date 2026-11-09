@@ -128,6 +128,14 @@ Feature: Time capsules
     And I create the capsule
     Then no image is sealed
 
+  Scenario: Edit a locked capsule without losing its message
+    Given a capsule titled "Keep this message" unlocks tomorrow with the message "Do not erase this."
+    When I visit FutureMe
+    And I open "Keep this message"
+    And I click "Edit capsule"
+    And I save the capsule changes
+    Then the capsule titled "Keep this message" has message "Do not erase this."
+
   Scenario: View a locked capsule
     Given a capsule titled "Birthday wishes" unlocks tomorrow with the message "Happy birthday from all of us!"
     When I visit FutureMe

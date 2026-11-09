@@ -574,7 +574,7 @@ async function createCapsule() {
 
 async function loadCapsuleForEditing() {
   if (!editingCapsuleId) return;
-  const response = await fetch(`/api/capsules/${editingCapsuleId}`);
+  const response = await fetch(`/api/capsules/${editingCapsuleId}?editing=true`);
   const capsule = await response.json();
   if (!response.ok) { location.replace(`/capsule.html?id=${editingCapsuleId}`); return; }
   titleText = capsule.title || "";

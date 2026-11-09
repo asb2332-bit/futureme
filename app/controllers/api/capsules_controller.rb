@@ -42,7 +42,7 @@ class Api::CapsulesController < ApplicationController
   end
 
   def show
-    capsule_data = capsule_json(@capsule, include_message: true)
+    capsule_data = capsule_json(@capsule, include_message: params[:editing] == "true" || @capsule.unlocked?)
 
     render json: capsule_data
   end
@@ -95,7 +95,7 @@ class Api::CapsulesController < ApplicationController
     audio_url = nil
     video_url = nil
 
-    if include_message && unlocked
+    if include_message
       message = capsule.message
       design["sealed_blocks"] = capsule.design.fetch("sealed_blocks", [])
       image_urls = Array(capsule.design["remote_image_urls"]) + capsule.images.blobs.map { |image| rails_blob_url(image) }
