@@ -12,7 +12,7 @@ end
 Given('I am a registered user who is logged in') do
   step 'an account exists with email "member@example.com"'
   step 'I log in with email "member@example.com" and password "a-secure-password"'
-  expect(page).to have_text('member@example.com')
+  step 'I see "member@example.com"'
 end
 
 When('I register with email {string} and password {string}') do |email, password|
@@ -36,7 +36,7 @@ Given('I am logged in as an admin') do
   step 'an account exists with email "admin@example.com"'
   @account.update!(role: 'admin')
   step 'I log in with email "admin@example.com" and password "a-secure-password"'
-  expect(page).to have_text('admin@example.com')
+  step 'I see "admin@example.com"'
 end
 
 When('I visit the admin overview') do
