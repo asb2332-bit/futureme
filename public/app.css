@@ -248,6 +248,12 @@ body { margin: 0; }
 .errors li + li { margin-top: 2px; }
 .info .lead { font-size: 18px; color: var(--muted); max-width: 34ch; }
 .loading { color: var(--muted); font-family: var(--f-type); }
+.saving-overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgb(32 41 35 / .38); }
+.saving-overlay[hidden] { display: none; }
+.saving-card { display: grid; justify-items: center; gap: 10px; padding: 28px 36px; border: 1px solid var(--blue); background: var(--paper); box-shadow: 8px 8px 0 rgb(32 41 35 / .2); text-align: center; }
+.saving-card span:last-child { color: var(--muted); font-size: 14px; }
+.saving-spinner { width: 24px; height: 24px; border: 3px solid var(--line); border-top-color: var(--red); border-radius: 50%; animation: saving-spin .8s linear infinite; }
+@keyframes saving-spin { to { transform: rotate(360deg); } }
 /* Current authenticated editor block contract, styled to match the redesign. */
 .editor-canvas { max-width: 500px; box-shadow: var(--lift); }
 .poster-block { position: absolute; display: grid; place-items: center; overflow: hidden; padding: 1.2cqw; border: 1.5px dashed transparent; cursor: grab; text-align: center; touch-action: none; }

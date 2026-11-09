@@ -20,7 +20,7 @@ Feature: Time capsules
     And I fill in "Message" with "This should not be created."
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
-    Then I see "You can create up to 5 capsules."
+    Then I see "You can only create up to 5 capsules."
 
   Scenario: Create a future capsule
     When I visit FutureMe

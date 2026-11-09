@@ -14,6 +14,7 @@ const addMessageButton = document.querySelector("#add-message-block");
 const makeTitleBlockButton = document.querySelector("#make-title-block");
 const restoreTitleBlockButton = document.querySelector("#restore-title-block");
 const sealButton = document.querySelector("#seal-capsule");
+const savingOverlay = document.querySelector("#saving-overlay");
 const editingCapsuleId = new URLSearchParams(location.search).get("id");
 const posterPreview = document.querySelector("#poster-preview");
 let selectedBlockId = "message";
@@ -519,6 +520,11 @@ function showValidationErrors(errors) {
   formErrors.textContent = Object.values(errors).flat().join(", ");
 }
 
+function setSaving(saving) {
+  savingOverlay.hidden = !saving;
+  sealButton.disabled = saving;
+}
+
 async function createCapsule() {
   formErrors.textContent = "";
   const unlockAt = unlockAtInput.value;
@@ -532,6 +538,7 @@ async function createCapsule() {
     formErrors.textContent = missingFields.join(", ");
     return;
   }
+  setSaving(true);
   const session = await window.futuremeSession;
   if (!session.user) { location.assign("/login"); return; }
 
@@ -542,6 +549,7 @@ async function createCapsule() {
     videoSignedIds = await uploadMedia(session, videoFiles, "video");
   } catch (error) {
     formErrors.textContent = error.message;
+    setSaving(false);
     return;
   }
 
@@ -565,6 +573,7 @@ async function createCapsule() {
   if (!response.ok) {
     const responseBody = await response.json();
     showValidationErrors(responseBody.errors || { base: [responseBody.error || "Couldn't save this capsule."] });
+    setSaving(false);
     return;
   }
 
@@ -695,6 +704,7 @@ restoreTitleBlockButton.addEventListener("click", restoreTitleBlock);
 sealButton.addEventListener("click", () => {
   createCapsule().catch((error) => {
     console.error(error);
+    setSaving(false);
     formErrors.textContent = error.message || "Couldn't seal this capsule. Please refresh and try again.";
   });
 });

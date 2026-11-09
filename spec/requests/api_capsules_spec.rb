@@ -31,7 +31,7 @@ RSpec.describe 'Capsules API', type: :request do
     }.not_to change(Capsule, :count)
 
     expect(response).to have_http_status(:unprocessable_entity)
-    expect(response_body.dig('errors', 'base')).to include('You can create up to 5 capsules.')
+    expect(response_body.dig('errors', 'base')).to include('You can only create up to 5 capsules.')
   end
 
   it 'creates a locked capsule without exposing its message' do

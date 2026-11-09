@@ -15,7 +15,7 @@ class Api::CapsulesController < ApplicationController
 
   def create
     if current_user.capsules.count >= 5
-      return render json: { errors: { base: ["You can create up to 5 capsules."] } }, status: :unprocessable_entity
+      return render json: { errors: { base: ["You can only create up to 5 capsules."] } }, status: :unprocessable_entity
     end
 
     submitted_data = capsule_params

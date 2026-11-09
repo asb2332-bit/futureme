@@ -8,10 +8,13 @@
   <link rel="stylesheet" href="/auth.css">
   <script src="/auth.js?v=frontend-port-1" defer></script>
   <script src="/postal.js?v=frontend-port-1" defer></script>
-  <script src="/create.js?v=frontend-port-1" defer></script>
+  <script src="/create.js?v=seal-loading-2" defer></script>
 </head>
 <body>
   <div class="stripe" aria-hidden="true"></div>
+  <div id="saving-overlay" class="saving-overlay" hidden role="status" aria-live="polite">
+    <div class="saving-card"><span class="saving-spinner" aria-hidden="true"></span><strong>Sealing your capsule…</strong><span>Uploading your memories securely.</span></div>
+  </div>
   <main class="app">
     <header class="site-nav">
       <a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
