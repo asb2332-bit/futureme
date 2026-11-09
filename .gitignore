@@ -28,8 +28,8 @@
 .env.*
 !.env.example
 
-# Submission-only text files
-*.txt
+# Submission-only text README
+README.txt
 
 # Editor and OS files
 /.byebug_history
