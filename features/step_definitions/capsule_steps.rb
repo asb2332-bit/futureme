@@ -2,8 +2,9 @@ def retry_stale_browser_node
   attempts = 0
   begin
     yield
-  rescue Selenium::WebDriver::Error::UnknownError => error
-    raise unless error.message.include?('Node with given id does not belong to the document') && (attempts += 1) < 3
+  rescue Selenium::WebDriver::Error::WebDriverError => error
+    stale_node = error.message.include?('Node with given id does not belong to the document') || error.message.include?('stale element')
+    raise unless stale_node && (attempts += 1) < 3
 
     sleep 0.1
     retry
@@ -19,19 +20,22 @@ When('I visit the new capsule page') do
 end
 
 When('I fill in {string} with {string}') do |field, value|
-  if field == 'Title' || field == 'Message' || field.start_with?('Message block')
-    text_block = find("[aria-label='#{field}']")
-    page.execute_script("arguments[0].textContent = arguments[1]; arguments[0].dispatchEvent(new Event('input', { bubbles: true }))", text_block, value)
-  else
-    fill_in field, with: value
+  retry_stale_browser_node do
+    if field == 'Title' || field == 'Message' || field.start_with?('Message block')
+      text_block = find("[aria-label='#{field}']")
+      page.execute_script("arguments[0].textContent = arguments[1]; arguments[0].dispatchEvent(new Event('input', { bubbles: true }))", text_block, value)
+    else
+      fill_in field, with: value
+    end
   end
 end
 
 When('I fill in {string} with a date one day from now') do |field|
-  input = find_field(field)
-  value = 1.day.from_now.strftime('%Y-%m-%dT%H:%M')
-
-  page.execute_script('arguments[0].value = arguments[1]', input, value)
+  retry_stale_browser_node do
+    input = find_field(field)
+    value = 1.day.from_now.strftime('%Y-%m-%dT%H:%M')
+    page.execute_script('arguments[0].value = arguments[1]', input, value)
+  end
 end
 
 When('I create the capsule') do
