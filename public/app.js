@@ -9,6 +9,7 @@ let refreshTimer;
 let allCapsules = [];
 let capsuleQuery = "";
 let capsuleStatus = "all";
+let capsulesLoadState = "loading";
 
 function isLocked(capsule) {
   return time(capsule.unlock_at) > Date.now();
@@ -79,6 +80,12 @@ function setStatusFilter(status) {
 }
 
 function renderCapsules() {
+  if (capsulesLoadState === "error") {
+    resultCount.textContent = "Capsules unavailable";
+    capsulesContainer.innerHTML = `<p class="loading">Couldn't load your capsules. Refresh to try again.</p>`;
+    return;
+  }
+
   if (allCapsules.length === 0) {
     resultCount.textContent = "0 capsules";
     capsulesContainer.innerHTML = emptyStateHTML();
@@ -133,10 +140,11 @@ async function loadCapsules() {
     const response = await fetch(capsulesUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     allCapsules = await response.json();
+    capsulesLoadState = "success";
     renderCapsules();
   } catch (error) {
-    resultCount.textContent = "Capsules unavailable";
-    capsulesContainer.innerHTML = `<p class="loading">Couldn't load your capsules. Refresh to try again.</p>`;
+    capsulesLoadState = "error";
+    renderCapsules();
   }
 }
 

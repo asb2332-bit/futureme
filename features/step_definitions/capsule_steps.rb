@@ -36,6 +36,11 @@ Then('the email delivery option is unavailable') do
   expect(page).to have_field('Email a private link', disabled: true)
 end
 
+Then('keyboard focus is on {string}') do |text|
+  heading = find('h2', text: text, exact_text: true)
+  expect(page.evaluate_script('document.activeElement.id')).to eq(heading[:id])
+end
+
 When('I fill in {string} with a date one day from now') do |field|
   input = find_field(field)
   value = 1.day.from_now.strftime('%Y-%m-%dT%H:%M')
@@ -86,6 +91,31 @@ end
 
 When('I clear capsule search') do
   click_button 'Clear search'
+end
+
+Given('the capsule API is unavailable') do
+  browser = page.driver.browser
+  result = browser.execute_cdp(
+    'Page.addScriptToEvaluateOnNewDocument',
+    source: <<~JAVASCRIPT
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (...args) => {
+        const target = String(args[0]);
+        if (target.includes('/api/capsules')) return Promise.reject(new TypeError('offline for feature test'));
+        return originalFetch(...args);
+      };
+    JAVASCRIPT
+  )
+  @fetch_override_id = result['identifier']
+end
+
+After do
+  next unless @fetch_override_id
+
+  page.driver.browser.execute_cdp(
+    'Page.removeScriptToEvaluateOnNewDocument',
+    identifier: @fetch_override_id
+  )
 end
 
 Given('a capsule titled {string} unlocks tomorrow with the message {string}') do |title, message|

@@ -58,7 +58,7 @@ const design = {
   sealed_blocks: []
 };
 
-function showStep(stepName) {
+function showStep(stepName, moveFocus = false) {
   if (!["write", "design", "deliver"].includes(stepName)) return;
 
   currentStep = stepName;
@@ -69,6 +69,7 @@ function showStep(stepName) {
     else tab.removeAttribute("aria-current");
   });
   updateReview();
+  if (moveFocus) document.querySelector(`#step-${stepName} h2`).focus();
 }
 
 function wordCount(text) {
@@ -564,9 +565,9 @@ unlockAtInput.addEventListener("input", () => {
   clearFieldError(unlockAtField, unlockError);
   updateReview();
 });
-stepTabs.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.showStep)));
-nextStepButtons.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.nextStep)));
-backStepButtons.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.backStep)));
+stepTabs.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.showStep, true)));
+nextStepButtons.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.nextStep, true)));
+backStepButtons.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.backStep, true)));
 addTextButton.addEventListener("click", addTextBlock);
 removeButton.addEventListener("click", removeSelectedBlock);
 photoInput.addEventListener("change", () => uploadFromInput(photoInput));

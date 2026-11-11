@@ -23,8 +23,10 @@ Feature: Time capsules
     And I fill in "Message" with "Remember how hopeful today felt."
     And I continue to "Design"
     Then I see "Make it yours"
+    And keyboard focus is on "Make it yours."
     When I return to "Write"
-    Then the "Title" field contains "A letter for next spring"
+    Then keyboard focus is on "Start with the words."
+    And the "Title" field contains "A letter for next spring"
     And the "Message" field contains "Remember how hopeful today felt."
     When I continue to "Design"
     And I continue to "Deliver"
@@ -140,6 +142,14 @@ Feature: Time capsules
     When I clear capsule search
     Then I see "Birthday wishes"
     And I do not see "No capsules match"
+
+  Scenario: Keep loading failures distinct from an empty collection
+    Given the capsule API is unavailable
+    When I visit FutureMe
+    Then I see "Couldn't load your capsules"
+    When I search capsules for "birthday"
+    Then I see "Couldn't load your capsules"
+    And I do not see "No capsules yet"
 
   Scenario: Empty home page
     When I visit FutureMe
