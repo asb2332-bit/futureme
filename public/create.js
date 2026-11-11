@@ -19,6 +19,22 @@ const audioInput = document.querySelector("#audio-upload");
 const uploadError = document.querySelector("#upload-error");
 const uploadStatus = document.querySelector("#upload-status");
 const uploadHelp = uploadStatus.textContent;
+const titleInput = document.querySelector("#capsule-title");
+const messageInput = document.querySelector("#capsule-message");
+const titleField = document.querySelector("#title-field");
+const messageField = document.querySelector("#message-field");
+const titleError = document.querySelector("#title-error");
+const messageError = document.querySelector("#message-error");
+const unlockError = document.querySelector("#unlock-error");
+const titleCount = document.querySelector("#title-count");
+const messageCount = document.querySelector("#message-count");
+const reviewTitle = document.querySelector("#review-title");
+const reviewDate = document.querySelector("#review-date");
+const reviewContents = document.querySelector("#review-contents");
+const stepPanels = document.querySelectorAll("[data-step]");
+const stepTabs = document.querySelectorAll("[data-show-step]");
+const nextStepButtons = document.querySelectorAll("[data-next-step]");
+const backStepButtons = document.querySelectorAll("[data-back-step]");
 const placeholders = { title: "Your title", message: "Your sealed message", note: "New text" };
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 // Local previews of uploaded files, keyed by signed id. Only the signed id is sent to the server.
@@ -26,6 +42,7 @@ const mediaPreviews = {};
 let selectedBlockId = "message";
 let titleText = "";
 let messageText = "";
+let currentStep = "write";
 
 const themePresets = {
   sage: { background_color: "#E3E7DF", accent_color: "#202923" },
@@ -40,6 +57,53 @@ const design = {
   icon_block: { x: 82, y: 8, width: 10, height: 12, rotation: 0 },
   sealed_blocks: []
 };
+
+function showStep(stepName) {
+  if (!["write", "design", "deliver"].includes(stepName)) return;
+
+  currentStep = stepName;
+  stepPanels.forEach((panel) => { panel.hidden = panel.dataset.step !== stepName; });
+  stepTabs.forEach((tab) => {
+    const active = tab.dataset.showStep === stepName;
+    if (active) tab.setAttribute("aria-current", "step");
+    else tab.removeAttribute("aria-current");
+  });
+  updateReview();
+}
+
+function wordCount(text) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  return words.length;
+}
+
+function updateWritingMeta() {
+  titleCount.textContent = `${titleText.length} / 120`;
+  const count = wordCount(messageText);
+  messageCount.textContent = `${count} ${count === 1 ? "word" : "words"}`;
+}
+
+function updateReview() {
+  reviewTitle.textContent = titleText.trim() || "Untitled capsule";
+  if (unlockAtInput.value) {
+    const date = new Date(unlockAtInput.value);
+    reviewDate.textContent = Number.isNaN(date.getTime())
+      ? "Choose an unlock date"
+      : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  } else {
+    reviewDate.textContent = "Choose an unlock date";
+  }
+
+  const extras = design.sealed_blocks.length;
+  reviewContents.textContent = extras === 0
+    ? "Message only"
+    : `Message + ${extras} ${extras === 1 ? "extra" : "extras"}`;
+}
+
+function clearFieldError(field, message) {
+  field.classList.remove("err");
+  message.hidden = true;
+  message.textContent = "";
+}
 
 function blockFor(id) {
   if (id === "title") return design.title_block;
@@ -95,6 +159,7 @@ function renderLayers() {
   const selectedSealed = design.sealed_blocks.find((block) => block.id === selectedBlockId);
   removeButton.hidden = !selectedSealed;
   if (selectedSealed) removeButton.textContent = `Remove ${blockLabel(selectedBlockId)}`;
+  updateReview();
 }
 
 function removeSelectedBlock() {
@@ -277,9 +342,18 @@ function addPosterBlock(id, text, block, editable) {
     element.setAttribute("aria-label", blockLabel(id));
     element.addEventListener("input", () => {
       element.dataset.placeholder = "false";
-      if (id === "title") titleText = element.textContent;
-      else if (id === "message") messageText = element.textContent;
+      if (id === "title") {
+        titleText = element.textContent;
+        titleInput.value = titleText;
+        clearFieldError(titleField, titleError);
+      } else if (id === "message") {
+        messageText = element.textContent;
+        messageInput.value = messageText;
+        clearFieldError(messageField, messageError);
+      }
       else block.text = element.textContent;
+      updateWritingMeta();
+      updateReview();
     });
     element.addEventListener("blur", () => {
       element.dataset.editing = "false";
@@ -380,7 +454,24 @@ function showValidationErrors(errors) {
     item.textContent = message;
     return item;
   }));
-  unlockAtField.classList.toggle("err", Boolean(errors.unlock_at));
+  const firstError = (name) => Array.isArray(errors[name]) ? errors[name][0] : errors[name];
+  const setError = (field, message, text) => {
+    field.classList.toggle("err", Boolean(text));
+    message.textContent = text || "";
+    message.hidden = !text;
+  };
+
+  setError(titleField, titleError, firstError("title"));
+  setError(messageField, messageError, firstError("message"));
+  setError(unlockAtField, unlockError, firstError("unlock_at"));
+
+  if (errors.title || errors.message) {
+    showStep("write");
+    (errors.title ? titleInput : messageInput).focus();
+  } else if (errors.unlock_at) {
+    showStep("deliver");
+    unlockAtInput.focus();
+  }
 }
 
 function syncThemeControls() {
@@ -416,12 +507,15 @@ function setUnlockMonthsFromNow(months) {
   date.setMonth(date.getMonth() + months);
   date.setSeconds(0, 0);
   unlockAtInput.value = toLocalInputValue(date);
-  unlockAtField.classList.remove("err");
+  clearFieldError(unlockAtField, unlockError);
+  updateReview();
 }
 
 async function createCapsule() {
   formErrors.replaceChildren();
-  unlockAtField.classList.remove("err");
+  clearFieldError(titleField, titleError);
+  clearFieldError(messageField, messageError);
+  clearFieldError(unlockAtField, unlockError);
   const unlockAt = unlockAtInput.value;
   const capsule = {
     title: titleText,
@@ -452,6 +546,27 @@ accentInput.addEventListener("input", () => { design.theme.accent_color = accent
 fontInput.addEventListener("change", () => { design.theme.font = fontInput.value; renderPoster(); });
 iconInput.addEventListener("input", () => { design.theme.icon = iconInput.value; renderPoster(); });
 quickDateButtons.forEach((button) => button.addEventListener("click", () => setUnlockMonthsFromNow(Number(button.dataset.plusMonths))));
+titleInput.addEventListener("input", () => {
+  titleText = titleInput.value;
+  clearFieldError(titleField, titleError);
+  updateWritingMeta();
+  updateReview();
+  renderPoster();
+});
+messageInput.addEventListener("input", () => {
+  messageText = messageInput.value;
+  clearFieldError(messageField, messageError);
+  updateWritingMeta();
+  updateReview();
+  renderPoster();
+});
+unlockAtInput.addEventListener("input", () => {
+  clearFieldError(unlockAtField, unlockError);
+  updateReview();
+});
+stepTabs.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.showStep)));
+nextStepButtons.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.nextStep)));
+backStepButtons.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.backStep)));
 addTextButton.addEventListener("click", addTextBlock);
 removeButton.addEventListener("click", removeSelectedBlock);
 photoInput.addEventListener("change", () => uploadFromInput(photoInput));
@@ -472,3 +587,5 @@ sealButton.addEventListener("click", createCapsule);
 
 renderPoster();
 renderLayers();
+updateWritingMeta();
+showStep(currentStep);

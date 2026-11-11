@@ -3,83 +3,203 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Write, design, and seal a digital time capsule for a future day.">
   <title>Create a capsule · FutureMe</title>
+  <link rel="preload" href="/fonts/young-serif-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/app.css">
   <script src="/postal.js" defer></script>
   <script src="/create.js" defer></script>
 </head>
 <body>
   <div class="stripe" aria-hidden="true"></div>
-  <main class="app">
-    <header class="site-nav">
+  <main class="app create-app" id="main-content">
+    <header class="site-nav create-nav">
       <a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
       <a class="back" href="/">Cancel</a>
     </header>
 
-    <div class="desk">
-      <div class="stage" id="stage">
-        <div id="poster-preview" class="poster" aria-label="Capsule poster canvas"></div>
-        <p class="hint">Drag to move · <kbd>double-click</kbd> text to write · drop photos or audio here</p>
+    <section class="create-intro" aria-labelledby="create-title">
+      <div>
+        <p class="eyebrow">New time capsule</p>
+        <h1 id="create-title">Create something worth reopening.</h1>
       </div>
+      <p>Write the memory first, make it yours, then choose the day it returns.</p>
+    </section>
 
-      <aside class="side" aria-label="Capsule settings">
-        <section>
-          <h2><span>01</span>Stationery</h2>
-          <div class="swatches" role="group" aria-label="Quick themes">
-            <button type="button" data-swatch="sage" aria-label="Sage swatch" aria-pressed="true" style="background:#E3E7DF;color:#202923">Aa</button>
-            <button type="button" data-swatch="sunset" aria-label="Sunset swatch" aria-pressed="false" style="background:#FFD0B5;color:#6F2540">Aa</button>
-            <button type="button" data-swatch="night" aria-label="Night swatch" aria-pressed="false" style="background:#202923;color:#F5E8C8">Aa</button>
+    <nav class="create-steps" aria-label="Capsule creation steps">
+      <button type="button" class="step-tab" data-show-step="write" aria-label="Write" aria-current="step">
+        <span class="step-number">01</span><span><strong>Write</strong><small>Your message</small></span>
+      </button>
+      <button type="button" class="step-tab" data-show-step="design" aria-label="Design">
+        <span class="step-number">02</span><span><strong>Design</strong><small>Make it yours</small></span>
+      </button>
+      <button type="button" class="step-tab" data-show-step="deliver" aria-label="Deliver">
+        <span class="step-number">03</span><span><strong>Deliver</strong><small>Choose the day</small></span>
+      </button>
+    </nav>
+
+    <div class="create-workspace">
+      <section class="creator-panel" aria-label="Capsule details">
+        <ul class="errors" id="form-errors" role="alert" aria-live="assertive"></ul>
+
+        <section class="flow-panel" id="step-write" data-step="write" aria-labelledby="write-heading">
+          <div class="flow-heading">
+            <p class="eyebrow">Step 1 of 3</p>
+            <h2 id="write-heading">Start with the words.</h2>
+            <p>The design can change later. First, capture what you do not want to forget.</p>
           </div>
-          <label class="fld">Theme
-            <select id="theme-preset">
-              <option value="sage">Sage</option>
-              <option value="sunset">Sunset</option>
-              <option value="night">Night</option>
-              <option value="custom" hidden>Custom</option>
-            </select>
-          </label>
-          <div class="two">
-            <label class="fld">Background<input id="background-color" type="color" value="#E3E7DF"></label>
-            <label class="fld">Accent<input id="accent-color" type="color" value="#202923"></label>
+
+          <div class="form-stack">
+            <label class="fld" id="title-field" for="capsule-title">Title
+              <input id="capsule-title" aria-label="Title" type="text" maxlength="120" placeholder="A note for graduation day" autocomplete="off">
+              <span class="field-meta"><span>Shown on the sealed envelope</span><span id="title-count">0 / 120</span></span>
+              <span class="msg" id="title-error" hidden></span>
+            </label>
+            <label class="fld" id="message-field" for="capsule-message">Message
+              <textarea id="capsule-message" aria-label="Message" rows="9" placeholder="Write to the person who will open this..."></textarea>
+              <span class="field-meta"><span>Hidden until the unlock date</span><span id="message-count">0 words</span></span>
+              <span class="msg" id="message-error" hidden></span>
+            </label>
           </div>
-          <div class="two">
-            <label class="fld">Font
-              <select id="poster-font">
-                <option value="sans">Sans</option>
-                <option value="serif">Serif</option>
-                <option value="mono">Mono</option>
-                <option value="display">Display</option>
+
+          <div class="privacy-note">
+            <span aria-hidden="true">✦</span>
+            <p><strong>Only the title is visible while sealed.</strong> Your message and everything you add next stay private.</p>
+          </div>
+
+          <div class="step-actions end">
+            <span class="draft-state" id="draft-state" aria-live="polite">Saved in this tab</span>
+            <button type="button" class="btn primary" data-next-step="design">Next: Design <span aria-hidden="true">→</span></button>
+          </div>
+        </section>
+
+        <section class="flow-panel" id="step-design" data-step="design" aria-labelledby="design-heading" hidden>
+          <div class="flow-heading">
+            <p class="eyebrow">Step 2 of 3</p>
+            <h2 id="design-heading">Make it yours.</h2>
+            <p>Choose a starting style, then add memories or arrange the poster directly.</p>
+          </div>
+
+          <section class="control-group" aria-labelledby="stationery-heading">
+            <div class="group-heading">
+              <h3 id="stationery-heading">Stationery</h3>
+              <span class="type">Optional</span>
+            </div>
+            <div class="swatches" role="group" aria-label="Quick themes">
+              <button type="button" data-swatch="sage" aria-label="Sage swatch" aria-pressed="true" style="background:#E3E7DF;color:#202923">Aa</button>
+              <button type="button" data-swatch="sunset" aria-label="Sunset swatch" aria-pressed="false" style="background:#FFD0B5;color:#6F2540">Aa</button>
+              <button type="button" data-swatch="night" aria-label="Night swatch" aria-pressed="false" style="background:#202923;color:#F5E8C8">Aa</button>
+            </div>
+            <label class="fld">Theme
+              <select id="theme-preset">
+                <option value="sage">Sage</option>
+                <option value="sunset">Sunset</option>
+                <option value="night">Night</option>
+                <option value="custom" hidden>Custom</option>
               </select>
             </label>
-            <label class="fld">Icon<input id="poster-icon" value="⏳" maxlength="2"></label>
+            <div class="two">
+              <label class="fld">Background<input id="background-color" type="color" value="#E3E7DF"></label>
+              <label class="fld">Accent<input id="accent-color" type="color" value="#202923"></label>
+            </div>
+            <div class="two">
+              <label class="fld">Font
+                <select id="poster-font">
+                  <option value="sans">Sans</option>
+                  <option value="serif">Serif</option>
+                  <option value="mono">Mono</option>
+                  <option value="display">Display</option>
+                </select>
+              </label>
+              <label class="fld">Icon<input id="poster-icon" value="⏳" maxlength="2"></label>
+            </div>
+          </section>
+
+          <section class="control-group" aria-labelledby="contents-heading">
+            <div class="group-heading">
+              <h3 id="contents-heading">Add to the memory</h3>
+              <span class="type">Kept sealed</span>
+            </div>
+            <div class="uploads">
+              <button type="button" class="btn sm quiet" id="add-text-block">Add text</button>
+              <label class="btn sm quiet" for="photo-upload">Add photo<input class="sr-file" id="photo-upload" name="photo" type="file" accept="image/jpeg,image/png,image/gif,image/webp"></label>
+              <label class="btn sm quiet" for="audio-upload">Add audio<input class="sr-file" id="audio-upload" name="audio" type="file" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/webm,audio/ogg,.m4a,.aac"></label>
+            </div>
+            <p class="upmsg" id="upload-error" role="alert" hidden></p>
+            <p class="help" id="upload-status" aria-live="polite">Photos or audio up to 25 MB. You can also drop a file on the poster.</p>
+            <ul class="layers" id="layers" aria-label="Poster elements"></ul>
+            <button type="button" class="rm" id="remove-block" hidden></button>
+          </section>
+
+          <div class="step-actions">
+            <button type="button" class="btn quiet" data-back-step="write"><span aria-hidden="true">←</span> Back to Write</button>
+            <button type="button" class="btn primary" data-next-step="deliver">Next: Deliver <span aria-hidden="true">→</span></button>
           </div>
         </section>
 
-        <section>
-          <h2><span>02</span>Contents</h2>
-          <ul class="layers" id="layers" aria-label="Elements"></ul>
-          <button type="button" class="rm" id="remove-block" hidden></button>
-          <div class="uploads">
-            <button type="button" class="btn sm quiet" id="add-text-block">Add text</button>
-            <label class="btn sm quiet" for="photo-upload">Add photo<input class="sr-file" id="photo-upload" name="photo" type="file" accept="image/jpeg,image/png,image/gif,image/webp"></label>
-            <label class="btn sm quiet" for="audio-upload">Add audio<input class="sr-file" id="audio-upload" name="audio" type="file" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/webm,audio/ogg,.m4a,.aac"></label>
+        <section class="flow-panel" id="step-deliver" data-step="deliver" aria-labelledby="deliver-heading" hidden>
+          <div class="flow-heading">
+            <p class="eyebrow">Step 3 of 3</p>
+            <h2 id="deliver-heading">Choose the day.</h2>
+            <p>Pick when the seal can be broken. You can come back any time before then to watch the countdown.</p>
           </div>
-          <p class="upmsg" id="upload-error" role="alert" hidden></p>
-          <p class="help" id="upload-status" aria-live="polite">Photos: JPG, PNG, GIF, WebP. Audio: MP3, M4A, AAC, WAV, WebM, OGG. Up to 25 MB each. You can also drop a file on the poster.</p>
-        </section>
 
-        <section>
-          <h2><span>03</span>Delivery</h2>
-          <label class="fld" id="unlock-at-field">Unlock at<input id="unlock-at" type="datetime-local" name="unlock_at"></label>
-          <div class="quick" role="group" aria-label="Unlock shortcuts">
-            <button type="button" data-plus-months="1">+1 month</button>
-            <button type="button" data-plus-months="12">+1 year</button>
-            <button type="button" data-plus-months="60">+5 years</button>
+          <section class="control-group delivery-date" aria-labelledby="date-heading">
+            <h3 id="date-heading">When should it open?</h3>
+            <label class="fld" id="unlock-at-field" for="unlock-at">Unlock at
+              <input id="unlock-at" type="datetime-local" name="unlock_at">
+              <span class="msg" id="unlock-error" hidden></span>
+            </label>
+            <div class="quick" role="group" aria-label="Unlock shortcuts">
+              <button type="button" data-plus-months="1">In 1 month</button>
+              <button type="button" data-plus-months="12">In 1 year</button>
+              <button type="button" data-plus-months="60">In 5 years</button>
+            </div>
+          </section>
+
+          <section class="control-group email-preview" aria-labelledby="email-heading">
+            <div class="group-heading">
+              <h3 id="email-heading">Send it to someone</h3>
+              <span class="soon">Coming soon</span>
+            </div>
+            <label class="choice-disabled" for="email-delivery">
+              <input id="email-delivery" type="checkbox" disabled>
+              <span><strong>Email a private link</strong><small>Send the sealed capsule after it is created. No account required.</small></span>
+            </label>
+            <label class="fld muted-field" for="recipient-email">Recipient email
+              <input id="recipient-email" type="email" placeholder="friend@example.com" disabled>
+            </label>
+          </section>
+
+          <section class="seal-review" aria-labelledby="review-heading">
+            <div class="group-heading">
+              <h3 id="review-heading">Before you seal it</h3>
+              <span class="type">Review</span>
+            </div>
+            <dl class="review-list">
+              <div><dt>Envelope</dt><dd id="review-title">Untitled capsule</dd></div>
+              <div><dt>Opens</dt><dd id="review-date">Choose an unlock date</dd></div>
+              <div><dt>Inside</dt><dd id="review-contents">Message only</dd></div>
+            </dl>
+            <p class="seal-warning"><strong>Sealing is final.</strong> You will not be able to change the message or design afterward.</p>
+            <button type="button" class="btn seal" id="seal-capsule"><span class="dot" aria-hidden="true">FM</span>Seal the capsule</button>
+          </section>
+
+          <div class="step-actions start">
+            <button type="button" class="btn quiet" data-back-step="design"><span aria-hidden="true">←</span> Back to Design</button>
           </div>
-          <p class="help">Until then, people only see the title and stamp. The message, extra text, photos and voice notes stay sealed.</p>
-          <ul class="errors" id="form-errors" role="alert"></ul>
-          <button type="button" class="btn seal" id="seal-capsule"><span class="dot" aria-hidden="true">FM</span>Seal the capsule</button>
         </section>
+      </section>
+
+      <aside class="preview-column" aria-label="Live capsule preview">
+        <div class="preview-heading">
+          <div><p class="eyebrow">Live preview</p><h2>Your poster</h2></div>
+          <span class="preview-status"><span aria-hidden="true"></span> Sealed contents</span>
+        </div>
+        <div class="stage" id="stage">
+          <div id="poster-preview" class="poster" aria-label="Capsule poster canvas"></div>
+          <p class="hint"><strong>Design step:</strong> drag to move · double-click text to edit · drop photos or audio</p>
+        </div>
       </aside>
     </div>
   </main>

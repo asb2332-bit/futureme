@@ -8,12 +8,32 @@ When('I visit the new capsule page') do
 end
 
 When('I fill in {string} with {string}') do |field, value|
-  if field == 'Title' || field == 'Message' || field.start_with?('Text block')
+  if field.start_with?('Text block')
     text_block = find("[aria-label='#{field}']")
     page.execute_script("arguments[0].textContent = arguments[1]; arguments[0].dispatchEvent(new Event('input', { bubbles: true }))", text_block, value)
   else
     fill_in field, with: value
   end
+end
+
+When('I continue to {string}') do |step|
+  click_button "Next: #{step}"
+end
+
+When('I return to {string}') do |step|
+  click_button "Back to #{step}"
+end
+
+When('I open the {string} step') do |step|
+  click_button step
+end
+
+Then('the {string} field contains {string}') do |field, value|
+  expect(page).to have_field(field, with: value)
+end
+
+Then('the email delivery option is unavailable') do
+  expect(page).to have_field('Email a private link', disabled: true)
 end
 
 When('I fill in {string} with a date one day from now') do |field|

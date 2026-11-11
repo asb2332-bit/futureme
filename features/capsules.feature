@@ -8,20 +8,52 @@ Feature: Time capsules
     And I visit the new capsule page
     And I fill in "Title" with "Graduation day"
     And I fill in "Message" with "I am proud of how far you have come."
+    And I continue to "Design"
+    And I continue to "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then I see "Graduation day"
     And I see "This capsule is locked"
 
+  Scenario: Use the guided create flow
+    When I visit FutureMe
+    And I visit the new capsule page
+    Then I see "Start with the words"
+    When I fill in "Title" with "A letter for next spring"
+    And I fill in "Message" with "Remember how hopeful today felt."
+    And I continue to "Design"
+    Then I see "Make it yours"
+    When I return to "Write"
+    Then the "Title" field contains "A letter for next spring"
+    And the "Message" field contains "Remember how hopeful today felt."
+    When I continue to "Design"
+    And I continue to "Deliver"
+    And I fill in "Unlock at" with a date one day from now
+    And I create the capsule
+    Then I see "A letter for next spring"
+    And I see "This capsule is locked"
+
+  Scenario: See the future email delivery option
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I open the "Deliver" step
+    Then I see "Send it to someone"
+    And I see "Coming soon"
+    And the email delivery option is unavailable
+
   Scenario: Create a customized poster capsule
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue to "Design"
     And I choose "Night" from "Theme"
     And I fill in "Icon" with "✦"
     And I add a text block
     And I fill in "Text block 1" with "Private poster note"
+    And I return to "Write"
     And I fill in "Title" with "My custom poster"
     And I fill in "Message" with "A message for later"
+    And I continue to "Design"
+    And I continue to "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then I see "My custom poster"
@@ -60,6 +92,7 @@ Feature: Time capsules
   Scenario: Reject an invalid capsule
     When I visit FutureMe
     And I visit the new capsule page
+    And I open the "Deliver" step
     And I create the capsule
     Then I see "Title can't be blank"
     And I see "Message can't be blank"
@@ -85,6 +118,8 @@ Feature: Time capsules
     And I visit the new capsule page
     And I fill in "Title" with "Too late"
     And I fill in "Message" with "Oops"
+    And I continue to "Design"
+    And I continue to "Deliver"
     And I fill in "Unlock at" with a date one day ago
     And I create the capsule
     Then I see "Unlock at must be in the future"
@@ -97,6 +132,7 @@ Feature: Time capsules
   Scenario: Add a photo and a voice note
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue to "Design"
     And I attach "grad.jpg" with "Add photo"
     And I attach "voice_note.m4a" with "Add audio"
     Then I see "Photo 1"
@@ -120,5 +156,6 @@ Feature: Time capsules
   Scenario: Reject an unsupported file
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue to "Design"
     And I attach "setup.exe" with "Add photo"
     Then I see "File type not supported"
