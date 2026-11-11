@@ -87,7 +87,7 @@ Then('the capsule loading error is cleared') do
 end
 
 Then('{int} capsule list requests have completed') do |count|
-  expect(page).to have_css('#capsules[aria-busy="false"]')
+  expect(page).to have_css('#capsules[aria-busy="false"]', visible: :all)
   expect(page.evaluate_script('window.capsuleLoadingTest.requests')).to eq(count)
 end
 
