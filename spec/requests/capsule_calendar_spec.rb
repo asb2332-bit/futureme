@@ -1,6 +1,8 @@
 require 'rails_helper'
 
 RSpec.describe 'Capsule calendar reminders', type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:user) { User.create!(email_address: 'owner@example.com', password: 'a-secure-password') }
   before { post login_path, params: { email_address: user.email_address, password: 'a-secure-password' } }
 
@@ -22,6 +24,15 @@ RSpec.describe 'Capsule calendar reminders', type: :request do
 
   def calendar_uid
     calendar_lines.find { |line| line.start_with?('UID:') }
+  end
+
+  def expect_calendar_error(status)
+    expect(response).to have_http_status(status)
+    expect(response.media_type).to eq('application/json')
+    expect(JSON.parse(response.body).fetch('error')).to be_present
+    expect(response.headers['Content-Disposition']).to be_nil
+    expect(response.headers.fetch('Cache-Control')).to include('private', 'no-store')
+    expect(response.body).not_to include('BEGIN:VCALENDAR')
   end
 
   it 'downloads a private calendar attachment for the correct unlock time' do
@@ -55,9 +66,74 @@ RSpec.describe 'Capsule calendar reminders', type: :request do
 
       get calendar_api_capsule_path(capsule)
 
-      expect(response).to have_http_status(:ok)
+      if locked
+        expect(response).to have_http_status(:ok)
+        expect(calendar_lines.join("\n")).to include('Graduation wishes')
+      else
+        expect_calendar_error(:unprocessable_entity)
+        expect(response.body).not_to include(capsule.title)
+      end
       expect(response.body).not_to include('Private main message', 'Private poster note', 'sealed_blocks', '#202923', '✦')
-      expect(calendar_lines.join("\n")).to include('Graduation wishes')
+    end
+  end
+
+  [0, 15, 60, 1440, 10080].each do |minutes|
+    it "downloads the supported #{minutes}-minute reminder" do
+      get calendar_api_capsule_path(capsule), params: { remind_before: minutes.to_s, private_title: 'false' }
+
+      expect(response).to have_http_status(:ok)
+      expect(calendar_lines).to include("TRIGGER:#{minutes.zero? ? 'PT0S' : "-PT#{minutes}M"}")
+      expect(calendar_lines).to include("SUMMARY:Open your capsule: #{capsule.title}")
+    end
+  end
+
+  it 'exports a generic calendar title without changing the capsule' do
+    get calendar_api_capsule_path(capsule), params: { private_title: 'true', remind_before: '60' }
+
+    expect(response).to have_http_status(:ok)
+    expect(calendar_lines).to include('SUMMARY:Open your time capsule', 'DESCRIPTION:Your time capsule unlocks soon.')
+    expect(response.body).not_to include(capsule.title, capsule.message, 'Private poster note')
+    expect(capsule.reload.title).to eq('Graduation wishes')
+  end
+
+  ['', '-15', '1', '15.0', ' 15', "15\nBEGIN:VEVENT", ['15'], { minutes: '15' }].each do |value|
+    it "rejects malformed reminder time #{value.inspect}" do
+      get calendar_api_capsule_path(capsule), params: { remind_before: value }
+
+      expect_calendar_error(:unprocessable_entity)
+    end
+  end
+
+  ['', 'TRUE', '1', ['true'], { value: 'true' }].each do |value|
+    it "rejects malformed title privacy #{value.inspect}" do
+      get calendar_api_capsule_path(capsule), params: { private_title: value }
+
+      expect_calendar_error(:unprocessable_entity)
+    end
+  end
+
+  [0, 15, 60, 1440, 10080].each do |minutes|
+    it "rejects an alert that has reached its #{minutes}-minute reminder time" do
+      freeze_time do
+        capsule.update!(unlock_at: Time.current + minutes.minutes)
+
+        get calendar_api_capsule_path(capsule), params: { remind_before: minutes.to_s }
+
+        expect_calendar_error(:unprocessable_entity)
+        expect(JSON.parse(response.body).fetch('error')).to include('already passed')
+        expect(response.body).not_to include(capsule.title, capsule.message)
+      end
+    end
+  end
+
+  it 'allows an alert whose scheduled time is still in the future' do
+    freeze_time do
+      capsule.update!(unlock_at: Time.current + 15.minutes + 1.second)
+
+      get calendar_api_capsule_path(capsule), params: { remind_before: '15' }
+
+      expect(response).to have_http_status(:ok)
+      expect(calendar_lines).to include('TRIGGER:-PT15M')
     end
   end
 
@@ -93,8 +169,7 @@ RSpec.describe 'Capsule calendar reminders', type: :request do
 
     get calendar_api_capsule_path(capsule_id)
 
-    expect(response).to have_http_status(:unauthorized)
-    expect(response.headers['Content-Disposition']).to be_nil
+    expect_calendar_error(:unauthorized)
     expect(response.body).not_to include('BEGIN:VCALENDAR', capsule.title)
   end
 
@@ -102,21 +177,15 @@ RSpec.describe 'Capsule calendar reminders', type: :request do
     other_user = User.create!(email_address: 'another@example.com', password: 'a-secure-password')
     other_capsule = other_user.capsules.create!(title: 'Another private title', message: 'Another secret', unlock_at: 1.day.from_now)
 
-    allow(Rails.application).to receive(:env_config).and_return(
-      Rails.application.env_config.merge('action_dispatch.show_detailed_exceptions' => false)
-    )
+    get calendar_api_capsule_path(other_capsule), params: { private_title: 'true', remind_before: 'invalid' }
 
-    get calendar_api_capsule_path(other_capsule)
-
-    expect(response).to have_http_status(:not_found)
-    expect(response.headers['Content-Disposition']).to be_nil
+    expect_calendar_error(:not_found)
     expect(response.body).not_to include('BEGIN:VCALENDAR', other_capsule.title, other_capsule.message)
   end
 
   it 'returns not found for a capsule that does not exist' do
     get calendar_api_capsule_path(-1)
 
-    expect(response).to have_http_status(:not_found)
-    expect(response.headers['Content-Disposition']).to be_nil
+    expect_calendar_error(:not_found)
   end
 end
