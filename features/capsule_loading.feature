@@ -77,3 +77,65 @@ Feature: Recover from capsule loading failures
     Then I see "Log in to see your capsules."
     And the capsule search controls are hidden
     And 0 capsule list requests have completed
+
+  Scenario: Refresh edited capsules when returning to the library
+    Given a capsule titled "Original memory" unlocked yesterday with the message "A private memory"
+    And the browser clock and capsule requests are tracked
+    When I visit FutureMe
+    Then I see "Original memory"
+    When I hide the library page
+    And the capsule titled "Original memory" is renamed to "Updated memory"
+    And the countdown updates 20 times without advancing the clock
+    Then 1 capsule list requests have completed
+    And the capsule library is concealed
+    When I return to the library page
+    Then I see "Updated memory"
+    And I do not see "Original memory"
+    And 2 capsule list requests have completed
+
+  Scenario: Discard saved filters and old capsules when the account changes
+    Given a capsule titled "First account memory" unlocked yesterday with the message "A private memory"
+    And the browser clock and capsule requests are tracked
+    When I visit FutureMe
+    And I fill in "Search capsules" with "First account"
+    And I choose "Unlocked" from "Status"
+    And I hide the library page
+    And another library account signs in
+    Then the capsule library is concealed
+    When I return to the library page
+    Then I see "other-library@example.com"
+    And I see "Second account memory"
+    And I do not see "First account memory"
+    And the capsule controls show search "" with status "All capsules" and sort "Newest first"
+    And I see "Showing 1 of 1 capsule"
+
+  Scenario: Reject a late response from a page that was hidden
+    Given a capsule titled "Earlier memory" unlocked yesterday with the message "A private memory"
+    And capsule list request 2 is delayed
+    When I visit FutureMe
+    Then I see "Earlier memory"
+    When I hide the library page
+    And I return to the library page
+    And I wait for the delayed capsule response
+    And I hide the library page
+    And the capsule titled "Earlier memory" is renamed to "Latest memory"
+    And I return to the library page
+    Then I see "Latest memory"
+    When I release the delayed capsule response
+    Then I see "Latest memory"
+    And I do not see "Earlier memory"
+    And 3 capsule list requests have completed
+
+  Scenario: Restore account navigation when a signed-out visitor signs in elsewhere
+    When I log out
+    And the browser clock and capsule requests are tracked
+    And I visit FutureMe
+    Then I see "Log in to see your capsules."
+    And the capsule search controls are hidden
+    When I hide the library page
+    And another library account signs in
+    And I return to the library page
+    Then I see "other-library@example.com"
+    And I see "Log out"
+    And I see "Second account memory"
+    And I see "Showing 1 of 1 capsule"
