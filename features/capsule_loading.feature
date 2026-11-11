@@ -72,6 +72,7 @@ Feature: Recover from capsule loading failures
 
   Scenario: A signed-out visitor sees a login prompt without loading the library
     When I log out
+    Then I reach the signed-out login page
     And the browser clock and capsule requests are tracked
     And I visit FutureMe
     Then I see "Log in to see your capsules."
@@ -128,6 +129,7 @@ Feature: Recover from capsule loading failures
 
   Scenario: Restore account navigation when a signed-out visitor signs in elsewhere
     When I log out
+    Then I reach the signed-out login page
     And the browser clock and capsule requests are tracked
     And I visit FutureMe
     Then I see "Log in to see your capsules."
