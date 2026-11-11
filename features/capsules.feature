@@ -35,13 +35,21 @@ Feature: Time capsules
     Then I see "A letter for next spring"
     And I see "This capsule is locked"
 
-  Scenario: See the future email delivery option
+  Scenario: Manage multiple email recipients
     When I visit FutureMe
     And I visit the new capsule page
     And I open the "Deliver" step
     Then I see "Send it to someone"
     And I see "Coming soon"
-    And the email delivery option is unavailable
+    When I add email recipient "ana@example.com"
+    And I add email recipient "sam@example.com"
+    Then I see "ana@example.com"
+    And I see "sam@example.com"
+    And I see "2 recipients"
+    When I remove email recipient "ana@example.com"
+    Then I do not see "ana@example.com"
+    And I see "sam@example.com"
+    And I see "1 recipient"
 
   Scenario: Create a customized poster capsule
     When I visit FutureMe

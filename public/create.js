@@ -31,6 +31,13 @@ const messageCount = document.querySelector("#message-count");
 const reviewTitle = document.querySelector("#review-title");
 const reviewDate = document.querySelector("#review-date");
 const reviewContents = document.querySelector("#review-contents");
+const reviewRecipients = document.querySelector("#review-recipients");
+const recipientInput = document.querySelector("#recipient-email");
+const recipientField = document.querySelector(".recipient-field");
+const recipientError = document.querySelector("#recipient-error");
+const addRecipientButton = document.querySelector("#add-recipient");
+const recipientList = document.querySelector("#recipient-list");
+const recipientCount = document.querySelector("#recipient-count");
 const stepPanels = document.querySelectorAll("[data-step]");
 const stepTabs = document.querySelectorAll("[data-show-step]");
 const nextStepButtons = document.querySelectorAll("[data-next-step]");
@@ -43,6 +50,7 @@ let selectedBlockId = "message";
 let titleText = "";
 let messageText = "";
 let currentStep = "write";
+const emailRecipients = [];
 
 const themePresets = {
   sage: { background_color: "#E3E7DF", accent_color: "#202923" },
@@ -98,6 +106,89 @@ function updateReview() {
   reviewContents.textContent = extras === 0
     ? "Message only"
     : `Message + ${extras} ${extras === 1 ? "extra" : "extras"}`;
+  reviewRecipients.textContent = emailRecipients.length === 0
+    ? "No email recipients"
+    : `${emailRecipients.length} ${emailRecipients.length === 1 ? "recipient" : "recipients"}`;
+}
+
+function clearRecipientError() {
+  recipientField.classList.remove("err");
+  recipientInput.removeAttribute("aria-invalid");
+  recipientError.hidden = true;
+  recipientError.textContent = "";
+}
+
+function showRecipientError(message) {
+  recipientField.classList.add("err");
+  recipientInput.setAttribute("aria-invalid", "true");
+  recipientError.textContent = message;
+  recipientError.hidden = false;
+}
+
+function removeRecipient(email) {
+  const index = emailRecipients.indexOf(email);
+  if (index === -1) return;
+
+  emailRecipients.splice(index, 1);
+  renderRecipients();
+  recipientInput.focus();
+}
+
+function renderRecipients() {
+  const items = emailRecipients.map((email) => {
+    const item = document.createElement("li");
+    item.className = "recipient-chip";
+
+    const address = document.createElement("span");
+    address.textContent = email;
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Remove";
+    remove.setAttribute("aria-label", `Remove ${email}`);
+    remove.addEventListener("click", () => removeRecipient(email));
+
+    item.append(address, remove);
+    return item;
+  });
+
+  if (items.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "recipient-empty";
+    empty.textContent = "No recipients added yet.";
+    items.push(empty);
+  }
+
+  recipientList.replaceChildren(...items);
+  recipientCount.textContent = `${emailRecipients.length} ${emailRecipients.length === 1 ? "recipient" : "recipients"}`;
+  updateReview();
+}
+
+function addRecipient() {
+  const email = recipientInput.value.trim().toLowerCase();
+  recipientInput.value = email;
+
+  if (!email) {
+    showRecipientError("Enter an email address.");
+    recipientInput.focus();
+    return;
+  }
+  if (!recipientInput.checkValidity()) {
+    showRecipientError("Enter a valid email address.");
+    recipientInput.focus();
+    return;
+  }
+  if (emailRecipients.includes(email)) {
+    showRecipientError("That recipient is already on the list.");
+    recipientInput.focus();
+    return;
+  }
+
+  emailRecipients.push(email);
+  recipientInput.value = "";
+  clearRecipientError();
+  renderRecipients();
+  recipientInput.focus();
 }
 
 function clearFieldError(field, message) {
@@ -565,6 +656,13 @@ unlockAtInput.addEventListener("input", () => {
   clearFieldError(unlockAtField, unlockError);
   updateReview();
 });
+recipientInput.addEventListener("input", clearRecipientError);
+recipientInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  addRecipient();
+});
+addRecipientButton.addEventListener("click", addRecipient);
 stepTabs.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.showStep, true)));
 nextStepButtons.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.nextStep, true)));
 backStepButtons.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.backStep, true)));
@@ -588,5 +686,6 @@ sealButton.addEventListener("click", createCapsule);
 
 renderPoster();
 renderLayers();
+renderRecipients();
 updateWritingMeta();
 showStep(currentStep);

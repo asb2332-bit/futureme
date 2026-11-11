@@ -162,13 +162,21 @@
               <h3 id="email-heading">Send it to someone</h3>
               <span class="soon">Coming soon</span>
             </div>
-            <label class="choice-disabled" for="email-delivery">
-              <input id="email-delivery" type="checkbox" disabled>
-              <span><strong>Email a private link</strong><small>Send the sealed capsule after it is created. No account required.</small></span>
-            </label>
-            <label class="fld muted-field" for="recipient-email">Recipient email
-              <input id="recipient-email" type="email" placeholder="friend@example.com" disabled>
-            </label>
+            <p class="recipient-help" id="recipient-help">Add everyone who should receive the private link after the capsule is sealed. No account required.</p>
+            <div class="recipient-composer">
+              <label class="fld recipient-field" for="recipient-email">Recipient email
+                <span class="recipient-entry">
+                  <input id="recipient-email" type="email" placeholder="friend@example.com" autocomplete="email" aria-describedby="recipient-help recipient-error">
+                  <button type="button" class="btn recipient-add" id="add-recipient">Add recipient</button>
+                </span>
+                <span class="msg" id="recipient-error" role="alert" hidden></span>
+              </label>
+              <div class="recipient-summary">
+                <span id="recipient-count" aria-live="polite">0 recipients</span>
+                <span>Added for this capsule</span>
+              </div>
+              <ul class="recipient-list" id="recipient-list" aria-label="Email recipients"></ul>
+            </div>
           </section>
 
           <section class="seal-review" aria-labelledby="review-heading">
@@ -180,6 +188,7 @@
               <div><dt>Envelope</dt><dd id="review-title">Untitled capsule</dd></div>
               <div><dt>Opens</dt><dd id="review-date">Choose an unlock date</dd></div>
               <div><dt>Inside</dt><dd id="review-contents">Message only</dd></div>
+              <div><dt>Recipients</dt><dd id="review-recipients">No email recipients</dd></div>
             </dl>
             <p class="seal-warning"><strong>Sealing is final.</strong> You will not be able to change the message or design afterward.</p>
             <button type="button" class="btn seal" id="seal-capsule"><span class="dot" aria-hidden="true">FM</span>Seal the capsule</button>

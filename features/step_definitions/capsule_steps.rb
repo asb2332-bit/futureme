@@ -32,8 +32,13 @@ Then('the {string} field contains {string}') do |field, value|
   expect(page).to have_field(field, with: value)
 end
 
-Then('the email delivery option is unavailable') do
-  expect(page).to have_field('Email a private link', disabled: true)
+When('I add email recipient {string}') do |email|
+  fill_in 'Recipient email', with: email
+  click_button 'Add recipient'
+end
+
+When('I remove email recipient {string}') do |email|
+  find("button[aria-label='Remove #{email}']").click
 end
 
 Then('keyboard focus is on {string}') do |text|
