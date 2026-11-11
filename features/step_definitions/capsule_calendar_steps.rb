@@ -18,8 +18,15 @@ When('I visit the capsule page without an ID') do
 end
 
 When('the capsule titled {string} reaches its unlock time') do |title|
+  expect(page).to have_css('#capsule-poster[aria-busy="false"]')
   Capsule.find_by!(title: title).update!(unlock_at: 1.minute.ago)
-  page.execute_script('const originalNow = Date.now; Date.now = () => originalNow() + 2 * 86400000;')
+  page.execute_script(<<~JS)
+    const originalNow = Date.now.bind(Date);
+    const originalElapsed = performance.now.bind(performance);
+    Date.now = () => originalNow() + 2 * 86400000;
+    performance.now = () => originalElapsed() + 6000;
+    showCountdown(currentCapsule);
+  JS
 end
 
 Then('I eventually see the unlocked message {string}') do |message|
@@ -27,10 +34,13 @@ Then('I eventually see the unlocked message {string}') do |message|
 end
 
 When('the next capsule refresh fails with {string}') do |failure|
+  expect(page).to have_css('#capsule-poster[aria-busy="false"]')
   page.execute_script(<<~JS, failure)
     const failure = arguments[0];
-    const originalFetch = window.fetch;
-    window.fetch = (...args) => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input, ...args) => {
+      const url = new URL(input instanceof Request ? input.url : input, location.href);
+      if (url.pathname !== `/api/capsules/${encodeURIComponent(capsuleId)}`) return originalFetch(input, ...args);
       window.fetch = originalFetch;
       if (failure === "network") {
         return Promise.reject(new TypeError("Network unavailable"));
@@ -155,6 +165,7 @@ When('the server unlocks {string} and the detail retry interval passes') do |tit
 end
 
 When('capsule detail visibility is tracked') do
+  expect(page).to have_css('#capsule-poster[aria-busy="false"]')
   page.execute_script(<<~JS)
     const originalFetch = window.fetch.bind(window);
     const state = { hidden: false, requests: 0, unauthorized: false, delayed: false, release: null };
@@ -196,6 +207,7 @@ Then('{int} foreground capsule request has completed') do |count|
 end
 
 When('the next capsule detail response is delayed') do
+  expect(page).to have_css('#capsule-poster[aria-busy="false"]')
   page.execute_script('window.capsuleVisibilityTest.delayed = true; loadCapsule();')
   page.document.synchronize(errors: [RSpec::Expectations::ExpectationNotMetError]) do
     expect(page.evaluate_script('typeof window.capsuleVisibilityTest.release')).to eq('function')
