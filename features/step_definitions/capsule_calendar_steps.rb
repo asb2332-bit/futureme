@@ -135,6 +135,7 @@ Then('I remain on the capsule titled {string}') do |title|
 end
 
 When('the capsule detail clock runs ahead of the server') do
+  expect(page).to have_css('#capsule-poster[aria-busy="false"]')
   page.execute_script(<<~JS)
     const originalFetch = window.fetch.bind(window);
     const state = { requests: 0, now: Date.now() + 2 * 86400000, monotonic: performance.now() + 6000 };
