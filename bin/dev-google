@@ -6,5 +6,10 @@ abort "Google credentials file not found: #{path}" unless File.file?(path)
 credentials = JSON.parse(File.read(path)).fetch('web')
 ENV['GOOGLE_CLIENT_ID'] = credentials.fetch('client_id')
 ENV['GOOGLE_CLIENT_SECRET'] = credentials.fetch('client_secret')
+picker_key_path = File.expand_path('~/.config/futureme/picker-key')
+if File.file?(picker_key_path)
+  ENV['GOOGLE_PICKER_API_KEY'] ||= File.read(picker_key_path).strip
+  ENV['GOOGLE_CLOUD_PROJECT_NUMBER'] ||= credentials.fetch('client_id').split('-').first
+end
 Dir.chdir(File.expand_path('..', __dir__))
 exec File.join(__dir__, 'rails'), 'server', *ARGV

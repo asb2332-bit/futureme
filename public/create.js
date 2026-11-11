@@ -28,6 +28,8 @@ let videoFiles = [];
 let audioPreviewUrls = [];
 let videoPreviewUrls = [];
 const undoHistory = [];
+const documentFiles = [];
+let savedDocuments = [];
 const maxCapsuleSize = 2 * 1024 * 1024;
 
 const themePresets = {
@@ -542,10 +544,11 @@ async function createCapsule() {
   const session = await window.futuremeSession;
   if (!session.user) { location.assign("/login"); return; }
 
-  let imageSignedIds, audioSignedIds, videoSignedIds;
+  let imageSignedIds, audioSignedIds, videoSignedIds, documentSignedIds;
   try {
     imageSignedIds = await uploadSelectedImages(session);
     audioSignedIds = await uploadMedia(session, audioFiles, "audio");
+    documentSignedIds = await uploadMedia(session, documentFiles, "document");
     videoSignedIds = await uploadMedia(session, videoFiles, "video");
   } catch (error) {
     formErrors.textContent = error.message;
@@ -562,6 +565,7 @@ async function createCapsule() {
     image_signed_ids: imageSignedIds,
     audio_signed_ids: audioSignedIds,
     video_signed_ids: videoSignedIds,
+    document_signed_ids: documentSignedIds,
     design: design
   };
   const response = await fetch(editingCapsuleId ? `/api/capsules/${editingCapsuleId}` : "/api/capsules", {
@@ -591,6 +595,8 @@ async function loadCapsuleForEditing() {
   titleInput.value = titleText;
   messageInput.value = messageText;
   unlockAtInput.value = new Date(capsule.unlock_at).toISOString().slice(0, 16);
+  savedDocuments = capsule.documents || [];
+  renderDocumentList();
   Object.assign(design, capsule.design);
   (design.sealed_blocks || []).forEach((block) => {
     if (Number.isInteger(block.image_index)) imagePreviewUrls[block.id] = capsule.image_urls[block.image_index];
@@ -620,8 +626,30 @@ function showCapsuleLimitError() {
   alert(message);
 }
 
+function renderDocumentList() {
+  const list = document.querySelector("#document-list");
+  list.replaceChildren();
+  for (const doc of [...savedDocuments, ...documentFiles]) {
+    const row = document.createElement("li");
+    row.textContent = doc.name;
+    if (documentFiles.includes(doc)) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "btn sm quiet";
+      remove.textContent = "Remove";
+      remove.setAttribute("aria-label", "Remove " + doc.name);
+      remove.onclick = () => {
+        documentFiles.splice(documentFiles.indexOf(doc), 1);
+        renderDocumentList();
+      };
+      row.append(" ", remove);
+    }
+    list.append(row);
+  }
+}
+
 function exceedsCapsuleLimit(extraFiles = []) {
-  return [...imageFiles, ...audioFiles, ...videoFiles, ...extraFiles].reduce((total, file) => total + file.size, 0) > maxCapsuleSize;
+  return [...imageFiles, ...audioFiles, ...videoFiles, ...documentFiles, ...savedDocuments, ...extraFiles].reduce((total, file) => total + file.size, 0) > maxCapsuleSize;
 }
 
 function addSelectedMedia(input, files, label) {

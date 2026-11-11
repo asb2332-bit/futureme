@@ -21,12 +21,14 @@ class Api::CapsulesController < ApplicationController
     submitted_data = capsule_params
     image_signed_ids = submitted_data.delete(:image_signed_ids)
     audio_signed_ids = signed_ids(submitted_data, :audio)
+    document_ids = signed_ids(submitted_data, :document)
     video_signed_ids = signed_ids(submitted_data, :video)
     remote_image_urls = submitted_data.delete(:remote_image_urls)
     submitted_data[:design] = (submitted_data[:design]&.to_h || {}).merge("remote_image_urls" => remote_image_urls) if remote_image_urls.present?
     @capsule = current_user.capsules.new(submitted_data)
     @capsule.images.attach(image_signed_ids) if image_signed_ids.present?
     @capsule.audio.attach(audio_signed_ids) if audio_signed_ids.any?
+    @capsule.documents.attach(document_ids) if document_ids.any?
     @capsule.video.attach(video_signed_ids) if video_signed_ids.any?
 
     if @capsule.save
@@ -50,9 +52,11 @@ class Api::CapsulesController < ApplicationController
   def update
     submitted_data = capsule_params
     audio_signed_ids = signed_ids(submitted_data, :audio)
+    document_ids = signed_ids(submitted_data, :document)
     video_signed_ids = signed_ids(submitted_data, :video)
     @capsule.assign_attributes(submitted_data.except(:image_signed_ids))
     @capsule.audio.attach(audio_signed_ids) if audio_signed_ids.any?
+    @capsule.documents.attach(document_ids) if document_ids.any?
     @capsule.video.attach(video_signed_ids) if video_signed_ids.any?
 
     if @capsule.save
@@ -80,7 +84,7 @@ class Api::CapsulesController < ApplicationController
     submitted_capsule = params.require(:capsule)
 
     submitted_capsule.permit(:title, :message, :unlock_at, :audio_signed_id, :video_signed_id,
-      image_signed_ids: [], audio_signed_ids: [], video_signed_ids: [], remote_image_urls: [], design: {})
+      image_signed_ids: [], audio_signed_ids: [], video_signed_ids: [], document_signed_ids: [], remote_image_urls: [], design: {})
   end
 
   def signed_ids(data, name)
@@ -110,6 +114,7 @@ class Api::CapsulesController < ApplicationController
       created_at: capsule.created_at,
       locked: !unlocked,
       message: message,
+      documents: include_message ? capsule.documents.blobs.map { |blob| { name: blob.filename.to_s, size: blob.byte_size, url: rails_blob_url(blob, disposition: "attachment") } } : [],
       image_urls: image_urls,
       audio_url: audio_url,
       video_url: video_url,

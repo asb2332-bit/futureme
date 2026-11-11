@@ -195,6 +195,16 @@ async function loadCapsule() {
   creator.textContent = "Created by: You";
   editCapsuleLink.hidden = false;
   editCapsuleLink.href = `/create.html?id=${capsule.id}`;
+  const documents = document.querySelector("#capsule-documents");
+  documents.replaceChildren();
+  for (const doc of capsule.documents || []) {
+    const link = document.createElement("a");
+    link.href = doc.url;
+    link.textContent = doc.name;
+    const row = document.createElement("p");
+    row.append(link);
+    documents.append(row);
+  }
   showPoster(capsule);
   showCountdown(capsule);
 }

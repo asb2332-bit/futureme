@@ -3,6 +3,11 @@ require "uri"
 class Capsule < ApplicationRecord
   MAX_MEDIA_SIZE = 2.megabytes
 
+  DOCUMENT_TYPES = %w[application/pdf application/msword application/vnd.openxmlformats-officedocument.wordprocessingml.document].freeze
+
+  has_many_attached :documents
+  validate :documents_are_valid
+
   belongs_to :user, optional: true
   has_many_attached :images
   has_many_attached :audio
@@ -48,13 +53,19 @@ class Capsule < ApplicationRecord
     end
   end
 
+  def documents_are_valid
+    documents.each do |document|
+      errors.add(:documents, "must be PDF or Word files") unless DOCUMENT_TYPES.include?(document.blob.content_type)
+    end
+  end
+
   def media_total_is_valid
-    total_size = (images.blobs + audio.blobs + video.blobs).sum(&:byte_size)
+    total_size = (images.blobs + audio.blobs + video.blobs + documents.blobs).sum(&:byte_size)
     errors.add(:base, "uploaded media must be 2 MB or smaller in total") if total_size > MAX_MEDIA_SIZE
   end
 
   def media_files_are_valid
-    (images.blobs + audio.blobs + video.blobs).each do |file|
+    (images.blobs + audio.blobs + video.blobs + documents.blobs).each do |file|
       errors.add(:base, "each uploaded file must be 2 MB or smaller") if file.byte_size > MAX_MEDIA_SIZE
     end
   end
