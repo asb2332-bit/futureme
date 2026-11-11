@@ -91,6 +91,12 @@ Then('{int} capsule list requests have completed') do |count|
   expect(page.evaluate_script('window.capsuleLoadingTest.requests')).to eq(count)
 end
 
+Then('I reach the signed-out login page') do
+  expect(page).to have_current_path('/login')
+  expect(page).to have_text('You have logged out.')
+  expect(page).to have_no_button('Log out')
+end
+
 Given('capsule list request {int} is delayed') do |request_number|
   track_capsule_loading(delayed_at: request_number)
 end
