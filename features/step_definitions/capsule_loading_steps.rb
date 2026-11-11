@@ -25,6 +25,7 @@ module CapsuleLoadingSteps
             if (state.requests === delayedAt) {
               return originalFetch(input, ...args).then(response => response.text()).then(body => new Promise(resolve => {
                 state.release = () => resolve(new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } }));
+                document.body.dataset.capsuleListResponsePending = 'true';
               }));
             }
             if (state.requests === failureAt) {
@@ -134,15 +135,14 @@ end
 
 When('I wait for the delayed capsule response') do
   expect(page).to have_css('#capsules[aria-busy="true"]')
-  page.document.synchronize(errors: [RSpec::Expectations::ExpectationNotMetError]) do
-    expect(page.evaluate_script('typeof window.capsuleLoadingTest.release')).to eq('function')
-  end
+  expect(page).to have_css('body[data-capsule-list-response-pending="true"]')
 end
 
 When('I release the delayed capsule response') do
   page.evaluate_async_script(<<~JS)
     const done = arguments[arguments.length - 1];
     window.capsuleLoadingTest.release();
+    document.body.dataset.capsuleListResponsePending = 'false';
     setTimeout(() => done(true), 0);
   JS
 end
