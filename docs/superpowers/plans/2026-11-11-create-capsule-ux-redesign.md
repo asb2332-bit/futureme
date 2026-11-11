@@ -146,4 +146,3 @@ Expected: branch is `ui-redesign` and there are no unrelated changes.
 
 Run: `rtk git diff main...HEAD --stat`
 Expected: only UI, feature-test, and design/plan files are changed.
-

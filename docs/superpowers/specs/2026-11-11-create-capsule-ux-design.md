@@ -47,4 +47,3 @@ The home timeline gains a search field and status filters for All, Sealed, Ready
 - Reuse the existing static HTML, CSS, and vanilla JavaScript stack.
 - Preserve existing capsule creation, upload, poster, and validation behavior.
 - Keep the design direction from `docs/design-notes.pdf`, `docs/ui-prototype.html`, and `docs/poster_design.md`.
-
