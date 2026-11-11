@@ -1,7 +1,8 @@
 class Api::CapsulesController < ApplicationController
+  before_action :set_calendar_cache_control, only: :calendar
   before_action :require_login
 
-  before_action :set_capsule, only: %i[show update destroy]
+  before_action :set_capsule, only: %i[show update destroy calendar]
 
   def index
     capsules = current_user.capsules.order(created_at: :desc)
@@ -47,6 +48,30 @@ class Api::CapsulesController < ApplicationController
     render json: capsule_data
   end
 
+  def calendar
+    remind_before = params.fetch(:remind_before, '0')
+    private_title = params.fetch(:private_title, 'false')
+    unless remind_before.is_a?(String) && CapsuleCalendar::REMINDER_MINUTES.map(&:to_s).include?(remind_before)
+      return render json: { error: 'Choose a supported reminder time.' }, status: :unprocessable_entity
+    end
+    unless %w[true false].include?(private_title)
+      return render json: { error: 'Choose whether to hide the capsule title.' }, status: :unprocessable_entity
+    end
+
+    generated_at = Time.current
+    if @capsule.unlock_at - remind_before.to_i.minutes <= generated_at
+      return render json: { error: 'That reminder time has already passed. Choose a later reminder time.' }, status: :unprocessable_entity
+    end
+
+    capsule_link = URI.join(root_url, "capsule.html?id=#{@capsule.id}").to_s
+    reminder = CapsuleCalendar.new(@capsule, url: capsule_link, generated_at: generated_at,
+      remind_before: remind_before.to_i, private_title: private_title == 'true')
+    send_data reminder.to_ical,
+      type: "text/calendar; charset=utf-8",
+      disposition: "attachment",
+      filename: "futureme-capsule-#{@capsule.id}.ics"
+  end
+
   def update
     submitted_data = capsule_params
     audio_signed_ids = signed_ids(submitted_data, :audio)
@@ -71,9 +96,17 @@ class Api::CapsulesController < ApplicationController
 
   private
 
+  def set_calendar_cache_control
+    response.headers['Cache-Control'] = 'private, no-store'
+  end
+
   def set_capsule
     capsule_id = params[:id]
     @capsule = current_user.capsules.find(capsule_id)
+  rescue ActiveRecord::RecordNotFound
+    raise unless action_name == 'calendar'
+
+    render json: { error: 'Capsule not found.' }, status: :not_found
   end
 
   def capsule_params
