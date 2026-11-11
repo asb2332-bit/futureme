@@ -33,7 +33,35 @@
       <li><span class="n">3</span><b>Open</b><p>Come back on the day and read what you wrote.</p></li>
     </ol>
 
-    <div id="capsules" aria-live="polite"><p class="loading">Fetching your capsules…</p></div>
+    <section class="capsule-library" aria-labelledby="library-heading">
+      <div class="sec-head"><h2 id="library-heading">Your capsules</h2></div>
+      <div id="capsule-controls" class="capsule-controls" hidden>
+        <label class="fld" for="capsule-search">Search capsules
+          <input id="capsule-search" type="search" placeholder="Search by title" aria-controls="capsules">
+        </label>
+        <label class="fld" for="capsule-status">Status
+          <select id="capsule-status" aria-controls="capsules">
+            <option value="all">All capsules</option>
+            <option value="locked">Locked</option>
+            <option value="unlocked">Unlocked</option>
+          </select>
+        </label>
+        <label class="fld" for="capsule-sort">Sort by
+          <select id="capsule-sort" aria-controls="capsules">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="unlock">Unlock date</option>
+          </select>
+        </label>
+        <button id="reset-filters" class="btn quiet" type="button">Reset filters</button>
+      </div>
+      <p id="capsule-summary" class="loading" role="status">Loading capsules…</p>
+      <div id="capsule-load-error" class="capsule-feedback" role="alert" hidden>
+        <p id="capsule-load-error-message"></p>
+        <button id="retry-capsules" class="btn quiet" type="button">Try again</button>
+      </div>
+      <div id="capsules" aria-live="polite" aria-busy="true"></div>
+    </section>
   </main>
 </body>
 </html>

@@ -8,6 +8,8 @@ const deleteCapsuleForm = document.querySelector("#delete-capsule-form");
 const editCapsuleLink = document.querySelector("#edit-capsule");
 const deleteCapsuleToken = document.querySelector("#delete-capsule-token");
 const capsuleVideo = document.querySelector("#capsule-video");
+const calendarReminder = document.querySelector("#calendar-reminder");
+const calendarDownload = document.querySelector("#download-calendar");
 let countdownTimer;
 
 const defaultBlocks = {
@@ -183,20 +185,54 @@ function showCountdown(capsule) {
   updateCountdown();
 }
 
-async function loadCapsule() {
-  const response = await fetch(`/api/capsules/${capsuleId}`);
-
-  if (!response.ok) {
-    poster.textContent = "Capsule not found";
-    return;
+function showCalendarReminder(capsule) {
+  calendarReminder.hidden = !capsule.locked;
+  if (capsule.locked) {
+    calendarDownload.href = `/api/capsules/${encodeURIComponent(capsule.id)}/calendar`;
+  } else {
+    calendarDownload.removeAttribute("href");
   }
+}
 
-  const capsule = await response.json();
-  creator.textContent = "Created by: You";
-  editCapsuleLink.hidden = false;
-  editCapsuleLink.href = `/create.html?id=${capsule.id}`;
-  showPoster(capsule);
-  showCountdown(capsule);
+function showCapsuleError(message) {
+  clearInterval(countdownTimer);
+  poster.textContent = message;
+  creator.textContent = "";
+  unlockTime.textContent = "";
+  capsuleImages.replaceChildren();
+  capsuleAudio.replaceChildren();
+  capsuleVideo.replaceChildren();
+  capsuleAudio.hidden = true;
+  capsuleVideo.hidden = true;
+  editCapsuleLink.hidden = true;
+  editCapsuleLink.removeAttribute("href");
+  deleteCapsuleForm.hidden = true;
+  calendarReminder.hidden = true;
+  calendarDownload.removeAttribute("href");
+}
+
+async function loadCapsule() {
+  calendarReminder.hidden = true;
+  calendarDownload.removeAttribute("href");
+
+  try {
+    const response = await fetch(`/api/capsules/${encodeURIComponent(capsuleId)}`);
+    if (!response.ok) {
+      showCapsuleError(response.status === 404 ? "Capsule not found" : "Couldn't load this capsule. Please refresh.");
+      return;
+    }
+
+    const capsule = await response.json();
+    creator.textContent = "Created by: You";
+    editCapsuleLink.hidden = false;
+    editCapsuleLink.href = `/create.html?id=${capsule.id}`;
+    deleteCapsuleForm.hidden = false;
+    showPoster(capsule);
+    showCalendarReminder(capsule);
+    showCountdown(capsule);
+  } catch {
+    showCapsuleError("Couldn't load this capsule. Please refresh.");
+  }
 }
 
 deleteCapsuleForm.action = `/capsules/${capsuleId}/delete`;
@@ -207,5 +243,5 @@ fetch(`/api/session?form_action=${encodeURIComponent(deleteCapsuleForm.action)}`
 if (capsuleId) {
   loadCapsule();
 } else {
-  poster.textContent = "Capsule not found";
+  showCapsuleError("Capsule not found");
 }
