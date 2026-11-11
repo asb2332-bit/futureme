@@ -37,7 +37,7 @@
       <div class="sec-head"><h2 id="library-heading">Your capsules</h2></div>
       <div id="capsule-controls" class="capsule-controls" hidden>
         <label class="fld" for="capsule-search">Search capsules
-          <input id="capsule-search" type="search" placeholder="Search by title" aria-controls="capsules">
+          <input id="capsule-search" type="search" placeholder="Search title words" maxlength="200" aria-controls="capsules">
         </label>
         <label class="fld" for="capsule-status">Status
           <select id="capsule-status" aria-controls="capsules">
@@ -54,13 +54,24 @@
           </select>
         </label>
         <button id="reset-filters" class="btn quiet" type="button">Reset filters</button>
+        <fieldset class="capsule-date-range">
+          <legend>Unlock date range</legend>
+          <label class="fld" for="capsule-unlock-from">Unlocks from
+            <input id="capsule-unlock-from" type="date" aria-controls="capsules" aria-describedby="capsule-filter-error">
+          </label>
+          <label class="fld" for="capsule-unlock-through">Unlocks through
+            <input id="capsule-unlock-through" type="date" aria-controls="capsules" aria-describedby="capsule-filter-error">
+          </label>
+          <p class="capsule-date-hint">Both dates are included, using your local time zone.</p>
+        </fieldset>
       </div>
-      <p id="capsule-summary" class="loading" role="status">Loading capsules…</p>
+      <p id="capsule-filter-error" class="capsule-filter-error" role="alert" hidden>Choose an end date on or after the start date.</p>
+      <p id="capsule-summary" class="loading" role="status" aria-atomic="true">Loading capsules…</p>
       <div id="capsule-load-error" class="capsule-feedback" role="alert" hidden>
         <p id="capsule-load-error-message"></p>
         <button id="retry-capsules" class="btn quiet" type="button">Try again</button>
       </div>
-      <div id="capsules" aria-live="polite" aria-busy="true"></div>
+      <div id="capsules" aria-busy="true"></div>
     </section>
   </main>
 </body>
