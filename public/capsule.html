@@ -1,4 +1,66 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FutureMe Capsule</title><link rel="stylesheet" href="/app.css"><link rel="stylesheet" href="/auth.css"><script src="/auth.js" defer></script><script src="/capsule.js" defer></script></head>
-<body><div class="stripe" aria-hidden="true"></div><main class="app"><header class="site-nav"><a class="logo" href="/"><span class="mark">FM</span>FutureMe</a><span class="account-nav"><a href="/login">Log in</a></span></header><a class="back" href="/">← All capsules</a><section class="cap-page"><div id="capsule-poster" class="poster editor-canvas" aria-label="Capsule poster"></div><div class="info"><p id="capsule-creator">Created by: You</p><p id="capsule-unlock-time" class="eyebrow"></p><div id="capsule-images" class="capsule-images"></div><div id="capsule-audio" class="capsule-media" hidden></div><div id="capsule-video" class="capsule-media" hidden></div><section id="calendar-reminder" aria-label="Unlock reminder" hidden><a id="download-calendar" class="btn sm" aria-describedby="calendar-reminder-hint">Download calendar reminder</a><p id="calendar-reminder-hint">Open the downloaded file in your calendar app to add an alert for the unlock time.</p></section><a id="edit-capsule" class="btn sm quiet" hidden>Edit capsule</a><form id="delete-capsule-form" method="post" hidden><input id="delete-capsule-token" type="hidden" name="authenticity_token"><button class="btn sm quiet" type="submit">Delete capsule</button></form></div></section></main></body></html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FutureMe Capsule</title>
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/auth.css">
+  <script src="/auth.js" defer></script>
+  <script src="/capsule.js" defer></script>
+</head>
+<body>
+  <div class="stripe" aria-hidden="true"></div>
+  <main class="app">
+    <header class="site-nav">
+      <a class="logo" href="/"><span class="mark">FM</span>FutureMe</a>
+      <span class="account-nav"><a href="/login">Log in</a></span>
+    </header>
+    <a class="back" href="/">← All capsules</a>
+    <p id="capsule-refresh-status" role="status" hidden>Checking your capsule…</p>
+    <div id="capsule-load-error" class="capsule-feedback" role="alert" hidden>
+      <p id="capsule-load-error-message"></p>
+      <button id="retry-capsule" class="btn quiet" type="button">Try again</button>
+      <a id="capsule-login" class="btn" href="/login" hidden>Log in</a>
+    </div>
+    <section class="cap-page">
+      <div id="capsule-poster" class="poster editor-canvas" aria-label="Capsule poster"></div>
+      <div class="info">
+        <p id="capsule-creator">Created by: You</p>
+        <p id="capsule-unlock-time" class="eyebrow"></p>
+        <time id="capsule-unlock-date"></time>
+        <div id="capsule-images" class="capsule-images"></div>
+        <div id="capsule-audio" class="capsule-media" hidden></div>
+        <div id="capsule-video" class="capsule-media" hidden></div>
+        <section id="calendar-reminder" aria-labelledby="calendar-reminder-heading" hidden>
+          <h2 id="calendar-reminder-heading">Remember the moment</h2>
+          <label class="fld" for="calendar-lead-time">Remind me
+            <select id="calendar-lead-time" aria-describedby="calendar-reminder-preview calendar-reminder-notice">
+              <option value="0">At unlock time</option>
+              <option value="15">15 minutes before</option>
+              <option value="60">1 hour before</option>
+              <option value="1440">1 day before</option>
+              <option value="10080">1 week before</option>
+            </select>
+          </label>
+          <label class="calendar-privacy" for="calendar-private-title">
+            <input id="calendar-private-title" type="checkbox">
+            Keep the capsule title out of my calendar
+          </label>
+          <p id="calendar-reminder-preview" role="status"></p>
+          <p id="calendar-reminder-notice" role="status"></p>
+          <a id="download-calendar" class="btn sm" aria-describedby="calendar-reminder-hint calendar-download-error">Download calendar reminder</a>
+          <p id="calendar-download-status" role="status"></p>
+          <p id="calendar-download-error" role="alert"></p>
+          <p id="calendar-reminder-hint">Open the downloaded file in your calendar app to add the alert. Your calendar app controls notifications. If you reschedule, download again and replace the old event. If you delete the capsule, remove its calendar event; downloads do not sync automatically.</p>
+        </section>
+        <a id="edit-capsule" class="btn sm quiet" hidden>Edit capsule</a>
+        <form id="delete-capsule-form" method="post" hidden>
+          <input id="delete-capsule-token" type="hidden" name="authenticity_token">
+          <button class="btn sm quiet" type="submit">Delete capsule</button>
+        </form>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

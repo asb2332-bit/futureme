@@ -10,7 +10,31 @@ const deleteCapsuleToken = document.querySelector("#delete-capsule-token");
 const capsuleVideo = document.querySelector("#capsule-video");
 const calendarReminder = document.querySelector("#calendar-reminder");
 const calendarDownload = document.querySelector("#download-calendar");
+const calendarLeadTime = document.querySelector("#calendar-lead-time");
+const calendarPrivateTitle = document.querySelector("#calendar-private-title");
+const calendarPreview = document.querySelector("#calendar-reminder-preview");
+const calendarNotice = document.querySelector("#calendar-reminder-notice");
+const calendarStatus = document.querySelector("#calendar-download-status");
+const calendarError = document.querySelector("#calendar-download-error");
+const unlockDate = document.querySelector("#capsule-unlock-date");
+const capsuleLoadError = document.querySelector("#capsule-load-error");
+const capsuleLoadErrorMessage = document.querySelector("#capsule-load-error-message");
+const retryCapsule = document.querySelector("#retry-capsule");
+const capsuleLogin = document.querySelector("#capsule-login");
+const capsuleRefreshStatus = document.querySelector("#capsule-refresh-status");
 let countdownTimer;
+let currentCapsule;
+let isCapsuleLoading = false;
+let nextCapsuleRefreshAt = 0;
+let isCalendarDownloading = false;
+let capsuleViewVersion = 0;
+let deleteTokenReady = false;
+let activeCapsuleRequest;
+let activeCalendarRequest;
+let needsCapsuleValidation = false;
+let resumedFromSuspension = false;
+const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "long" });
+const calendarTimeZone = dateFormatter.resolvedOptions().timeZone;
 
 const defaultBlocks = {
   title_block: { x: 8, y: 10, width: 72, height: 16, rotation: 0 },
@@ -165,12 +189,13 @@ function showCountdown(capsule) {
   }
 
   const updateCountdown = () => {
+    if (document.hidden) return;
+    updateCalendarReminder();
     const secondsRemaining = Math.ceil((new Date(capsule.unlock_at).getTime() - Date.now()) / 1000);
 
     if (secondsRemaining <= 0) {
-      clearInterval(countdownTimer);
       unlockTime.textContent = "Opening capsule…";
-      loadCapsule();
+      if (performance.now() >= nextCapsuleRefreshAt) loadCapsule();
       return;
     }
 
@@ -188,17 +213,129 @@ function showCountdown(capsule) {
 function showCalendarReminder(capsule) {
   calendarReminder.hidden = !capsule.locked;
   if (capsule.locked) {
-    calendarDownload.href = `/api/capsules/${encodeURIComponent(capsule.id)}/calendar`;
+    updateCalendarReminder();
   } else {
     calendarDownload.removeAttribute("href");
   }
 }
 
-function showCapsuleError(message) {
+function updateCalendarReminder() {
+  if (!currentCapsule?.locked) return;
+
+  const opensAt = new Date(currentCapsule.unlock_at).getTime();
+  for (const option of calendarLeadTime.options) {
+    option.disabled = Number(option.value) > 0 && opensAt - Number(option.value) * 60_000 <= Date.now();
+  }
+  if (calendarLeadTime.selectedOptions[0].disabled) {
+    calendarLeadTime.value = "0";
+    calendarNotice.textContent = "That alert time has passed. Switched to an alert at unlock.";
+  }
+
+  const minutes = Number(calendarLeadTime.value);
+  const query = new URLSearchParams();
+  if (minutes) query.set("remind_before", String(minutes));
+  if (calendarPrivateTitle.checked) query.set("private_title", "true");
+  calendarDownload.href = `/api/capsules/${encodeURIComponent(currentCapsule.id)}/calendar${query.size ? `?${query}` : ""}`;
+  const alertAt = dateFormatter.format(new Date(opensAt - minutes * 60_000));
+  const preview = `Alert: ${alertAt} (${calendarTimeZone}).${minutes ? " Your capsule stays sealed until its unlock time." : ""}`;
+  if (calendarPreview.textContent !== preview) calendarPreview.textContent = preview;
+}
+
+function clearCalendarFeedback() {
+  calendarStatus.textContent = "";
+  calendarError.textContent = "";
+  calendarNotice.textContent = "";
+  updateCalendarReminder();
+}
+
+async function downloadCalendar(event) {
+  event.preventDefault();
+  if (document.hidden || isCalendarDownloading || !currentCapsule?.locked) return;
+
+  updateCalendarReminder();
+  const downloadId = currentCapsule.id;
+  const downloadVersion = capsuleViewVersion;
+  const request = new AbortController();
+  activeCalendarRequest = request;
+  isCalendarDownloading = true;
+  calendarDownload.setAttribute("aria-disabled", "true");
+  calendarDownload.setAttribute("aria-busy", "true");
+  calendarDownload.textContent = "Preparing reminder…";
+  calendarLeadTime.disabled = true;
+  calendarPrivateTitle.disabled = true;
+  calendarStatus.textContent = "";
+  calendarError.textContent = "";
+
+  try {
+    const response = await fetch(calendarDownload.href, { cache: "no-store", headers: { Accept: "text/calendar" }, signal: request.signal });
+    if (downloadVersion !== capsuleViewVersion || request.signal.aborted) return;
+    if (response.status === 401) {
+      showCapsuleError("Please log in again to see this capsule.", 401);
+      return;
+    }
+    if (response.status === 404) {
+      showCapsuleError("Capsule not found", 404);
+      return;
+    }
+    if (!response.ok) {
+      const problem = await response.json().catch(() => ({}));
+      throw new Error(typeof problem.error === "string" ? problem.error : "Couldn't download your reminder. Please try again.");
+    }
+    if (!response.headers.get("Content-Type")?.toLowerCase().startsWith("text/calendar")) {
+      throw new Error("Couldn't download your reminder. Please try again.");
+    }
+
+    const calendar = await response.blob();
+    if (downloadVersion !== capsuleViewVersion || request.signal.aborted) return;
+    if (!calendar.size) throw new Error("Couldn't download your reminder. Please try again.");
+    const objectUrl = URL.createObjectURL(calendar);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = `futureme-capsule-${downloadId}.ics`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+    calendarStatus.textContent = "Reminder downloaded. Open it in your calendar app to add the alert.";
+  } catch (error) {
+    if (downloadVersion === capsuleViewVersion && !request.signal.aborted && error.name !== "AbortError") {
+      calendarError.textContent = error instanceof TypeError ? "Couldn't download your reminder. Please try again." : error.message;
+    }
+  } finally {
+    if (activeCalendarRequest === request) {
+      resetCalendarDownload();
+      updateCalendarReminder();
+    }
+  }
+}
+
+function resetCalendarDownload() {
+  activeCalendarRequest = null;
+  isCalendarDownloading = false;
+  calendarDownload.removeAttribute("aria-disabled");
+  calendarDownload.removeAttribute("aria-busy");
+  calendarDownload.textContent = "Download calendar reminder";
+  calendarLeadTime.disabled = false;
+  calendarPrivateTitle.disabled = false;
+}
+
+function clearCapsuleView() {
   clearInterval(countdownTimer);
-  poster.textContent = message;
+  capsuleViewVersion += 1;
+  activeCapsuleRequest?.abort();
+  activeCapsuleRequest = null;
+  activeCalendarRequest?.abort();
+  resetCalendarDownload();
+  isCapsuleLoading = false;
+  retryCapsule.disabled = false;
+  poster.setAttribute("aria-busy", "false");
+  currentCapsule = null;
+  poster.replaceChildren();
+  poster.hidden = true;
+  capsuleRefreshStatus.hidden = true;
   creator.textContent = "";
   unlockTime.textContent = "";
+  unlockDate.textContent = "";
   capsuleImages.replaceChildren();
   capsuleAudio.replaceChildren();
   capsuleVideo.replaceChildren();
@@ -209,39 +346,137 @@ function showCapsuleError(message) {
   deleteCapsuleForm.hidden = true;
   calendarReminder.hidden = true;
   calendarDownload.removeAttribute("href");
+  calendarStatus.textContent = "";
+  calendarError.textContent = "";
+  deleteTokenReady = false;
+  deleteCapsuleToken.value = "";
+}
+
+function showCapsuleError(message, status) {
+  clearCapsuleView();
+  capsuleLoadError.hidden = false;
+  capsuleLoadErrorMessage.textContent = message;
+  retryCapsule.hidden = status === 401 || status === 404;
+  capsuleLogin.hidden = status !== 401;
 }
 
 async function loadCapsule() {
-  calendarReminder.hidden = true;
-  calendarDownload.removeAttribute("href");
+  if (!capsuleId || document.hidden || isCapsuleLoading) return;
+  const version = capsuleViewVersion;
+  const request = new AbortController();
+  activeCapsuleRequest = request;
+  isCapsuleLoading = true;
+  retryCapsule.disabled = true;
+  poster.setAttribute("aria-busy", "true");
 
   try {
-    const response = await fetch(`/api/capsules/${encodeURIComponent(capsuleId)}`);
+    const response = await fetch(`/api/capsules/${encodeURIComponent(capsuleId)}`, { cache: "no-store", signal: request.signal });
+    if (version !== capsuleViewVersion) return;
     if (!response.ok) {
-      showCapsuleError(response.status === 404 ? "Capsule not found" : "Couldn't load this capsule. Please refresh.");
+      const message = response.status === 404 ? "Capsule not found" : response.status === 401
+        ? "Please log in again to see this capsule." : "Couldn't load this capsule. Please refresh.";
+      showCapsuleError(message, response.status);
       return;
     }
 
     const capsule = await response.json();
+    if (version !== capsuleViewVersion) return;
+    if (currentCapsule?.locked && !capsule.locked) {
+      activeCalendarRequest?.abort();
+      resetCalendarDownload();
+    }
+    currentCapsule = capsule;
+    capsuleLoadError.hidden = true;
+    capsuleRefreshStatus.hidden = true;
+    poster.hidden = false;
     creator.textContent = "Created by: You";
+    unlockDate.dateTime = capsule.unlock_at;
+    unlockDate.textContent = `${capsule.locked ? "Opens" : "Unlocked"} ${dateFormatter.format(new Date(capsule.unlock_at))} (${calendarTimeZone})`;
     editCapsuleLink.hidden = false;
     editCapsuleLink.href = `/create.html?id=${capsule.id}`;
-    deleteCapsuleForm.hidden = false;
+    deleteCapsuleForm.hidden = !deleteTokenReady;
     showPoster(capsule);
     showCalendarReminder(capsule);
     showCountdown(capsule);
-  } catch {
-    showCapsuleError("Couldn't load this capsule. Please refresh.");
+  } catch (error) {
+    if (version === capsuleViewVersion && error.name !== "AbortError") {
+      showCapsuleError("Couldn't load this capsule. Please refresh.");
+    }
+  } finally {
+    if (activeCapsuleRequest === request) {
+      activeCapsuleRequest = null;
+      isCapsuleLoading = false;
+      nextCapsuleRefreshAt = performance.now() + 5_000;
+      retryCapsule.disabled = false;
+      poster.setAttribute("aria-busy", "false");
+    }
   }
 }
 
+async function loadDeleteToken() {
+  const version = capsuleViewVersion;
+  try {
+    const response = await fetch(`/api/session?form_action=${encodeURIComponent(deleteCapsuleForm.action)}`, { cache: "no-store" });
+    if (version !== capsuleViewVersion) return;
+    if (!response.ok) throw new Error("Unable to load the session");
+    const session = await response.json();
+    if (version !== capsuleViewVersion) return;
+    deleteTokenReady = typeof session.csrf_token === "string" && session.csrf_token.length > 0;
+    deleteCapsuleToken.value = deleteTokenReady ? session.csrf_token : "";
+    deleteCapsuleForm.hidden = !deleteTokenReady || !currentCapsule;
+  } catch {
+    if (version !== capsuleViewVersion) return;
+    deleteTokenReady = false;
+    deleteCapsuleForm.hidden = true;
+  }
+}
+
+function suspendCapsuleView() {
+  clearCapsuleView();
+  capsuleLoadError.hidden = true;
+  needsCapsuleValidation = true;
+  resumedFromSuspension = false;
+}
+
+function resumeCapsuleView() {
+  if (document.hidden || !capsuleId || !needsCapsuleValidation) return;
+  needsCapsuleValidation = false;
+  resumedFromSuspension = true;
+  capsuleRefreshStatus.hidden = false;
+  loadDeleteToken();
+  loadCapsule();
+}
+
+calendarLeadTime.addEventListener("change", clearCalendarFeedback);
+calendarPrivateTitle.addEventListener("change", clearCalendarFeedback);
+calendarDownload.addEventListener("click", downloadCalendar);
+retryCapsule.addEventListener("click", () => {
+  loadDeleteToken();
+  loadCapsule();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) suspendCapsuleView();
+  else resumeCapsuleView();
+});
+window.addEventListener("pagehide", suspendCapsuleView);
+window.addEventListener("pageshow", (event) => {
+  if (!event.persisted) return;
+  if (resumedFromSuspension) {
+    resumedFromSuspension = false;
+    return;
+  }
+  if (!needsCapsuleValidation) suspendCapsuleView();
+  resumeCapsuleView();
+});
+
 deleteCapsuleForm.action = `/capsules/${capsuleId}/delete`;
-fetch(`/api/session?form_action=${encodeURIComponent(deleteCapsuleForm.action)}`, { cache: "no-store" })
-  .then((response) => response.json())
-  .then((session) => { deleteCapsuleToken.value = session.csrf_token; });
 
 if (capsuleId) {
-  loadCapsule();
+  if (document.hidden) suspendCapsuleView();
+  else {
+    loadDeleteToken();
+    loadCapsule();
+  }
 } else {
-  showCapsuleError("Capsule not found");
+  showCapsuleError("Capsule not found", 404);
 }
