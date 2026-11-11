@@ -1,7 +1,7 @@
 class Api::CapsulesController < ApplicationController
   before_action :require_login
 
-  before_action :set_capsule, only: %i[show update destroy]
+  before_action :set_capsule, only: %i[show update destroy calendar]
 
   def index
     capsules = current_user.capsules.order(created_at: :desc)
@@ -45,6 +45,16 @@ class Api::CapsulesController < ApplicationController
     capsule_data = capsule_json(@capsule, include_message: params[:editing] == "true" || @capsule.unlocked?)
 
     render json: capsule_data
+  end
+
+  def calendar
+    capsule_link = URI.join(root_url, "capsule.html?id=#{@capsule.id}").to_s
+    reminder = CapsuleCalendar.new(@capsule, url: capsule_link)
+    send_data reminder.to_ical,
+      type: "text/calendar; charset=utf-8",
+      disposition: "attachment",
+      filename: "futureme-capsule-#{@capsule.id}.ics"
+    response.headers["Cache-Control"] = "private, no-store"
   end
 
   def update
