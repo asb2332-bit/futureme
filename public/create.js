@@ -17,6 +17,7 @@ const sealButton = document.querySelector("#seal-capsule");
 const savingOverlay = document.querySelector("#saving-overlay");
 const editingCapsuleId = new URLSearchParams(location.search).get("id");
 const posterPreview = document.querySelector("#poster-preview");
+let originalUnlockValue = null;
 let selectedBlockId = "message";
 let titleText = "";
 let messageText = "";
@@ -525,6 +526,12 @@ function setSaving(saving) {
   sealButton.disabled = saving;
 }
 
+function localDateTimeValue(value) {
+  const date = new Date(value);
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${String(date.getFullYear()).padStart(4, "0")}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 async function createCapsule() {
   formErrors.textContent = "";
   const unlockAt = unlockAtInput.value;
@@ -558,12 +565,13 @@ async function createCapsule() {
   const capsule = {
     title: titleText,
     message: capsuleMessage,
-    unlock_at: unlockAt ? new Date(unlockAt).toISOString() : "",
     image_signed_ids: imageSignedIds,
     audio_signed_ids: audioSignedIds,
     video_signed_ids: videoSignedIds,
     design: design
   };
+  if (!editingCapsuleId || unlockAt !== originalUnlockValue) capsule.unlock_at = new Date(unlockAt).toISOString();
+
   const response = await fetch(editingCapsuleId ? `/api/capsules/${editingCapsuleId}` : "/api/capsules", {
     method: editingCapsuleId ? "PATCH" : "POST",
     headers: { "Content-Type": "application/json", "X-CSRF-Token": session.csrf_token },
@@ -590,7 +598,8 @@ async function loadCapsuleForEditing() {
   messageText = capsule.message || "";
   titleInput.value = titleText;
   messageInput.value = messageText;
-  unlockAtInput.value = new Date(capsule.unlock_at).toISOString().slice(0, 16);
+  originalUnlockValue = localDateTimeValue(capsule.unlock_at);
+  unlockAtInput.value = originalUnlockValue;
   Object.assign(design, capsule.design);
   (design.sealed_blocks || []).forEach((block) => {
     if (Number.isInteger(block.image_index)) imagePreviewUrls[block.id] = capsule.image_urls[block.image_index];
@@ -637,7 +646,7 @@ function addSelectedMedia(input, files, label) {
     return false;
   }
   files.push(...addedFiles);
-  input.value = ""; // Allows selecting the same file again.
+  input.value = "";
   return addedFiles;
 }
 
