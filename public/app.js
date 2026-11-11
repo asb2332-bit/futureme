@@ -1,8 +1,14 @@
 const capsulesContainer = document.querySelector("#capsules");
 const heroEnvelope = document.querySelector("#hero-envelope");
+const capsuleSearch = document.querySelector("#capsule-search");
+const statusButtons = document.querySelectorAll("[data-capsule-status]");
+const resultCount = document.querySelector("#capsule-result-count");
 const capsulesUrl = "/api/capsules";
 const { esc, plural, time } = Postal;
 let refreshTimer;
+let allCapsules = [];
+let capsuleQuery = "";
+let capsuleStatus = "all";
 
 function isLocked(capsule) {
   return time(capsule.unlock_at) > Date.now();
@@ -45,6 +51,52 @@ function emptyStateHTML() {
     <a class="btn primary" href="/create.html">Create a capsule</a></div>`;
 }
 
+function noResultsHTML() {
+  return `<div class="empty no-results"><span class="no-results-mark" aria-hidden="true">⌕</span><h3>No capsules match</h3>
+    <p>Try another title or clear the current search and status filter.</p>
+    <button type="button" class="btn quiet" id="clear-capsule-search">Clear search</button></div>`;
+}
+
+function statusFor(capsule) {
+  if (isLocked(capsule)) return "sealed";
+  if (isReady(capsule)) return "ready";
+  return "opened";
+}
+
+function filteredCapsules() {
+  return allCapsules.filter((capsule) => {
+    const matchesQuery = capsule.title.toLocaleLowerCase().includes(capsuleQuery);
+    const matchesStatus = capsuleStatus === "all" || statusFor(capsule) === capsuleStatus;
+    return matchesQuery && matchesStatus;
+  });
+}
+
+function setStatusFilter(status) {
+  capsuleStatus = status;
+  statusButtons.forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.capsuleStatus === status));
+  });
+}
+
+function renderCapsules() {
+  if (allCapsules.length === 0) {
+    resultCount.textContent = "0 capsules";
+    capsulesContainer.innerHTML = emptyStateHTML();
+    return;
+  }
+
+  const matches = filteredCapsules();
+  resultCount.textContent = `${plural(matches.length, "capsule")} found`;
+  if (matches.length === 0) {
+    capsulesContainer.innerHTML = noResultsHTML();
+  } else {
+    showCapsules(matches);
+  }
+
+  const sealed = allCapsules.filter(isLocked).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
+  scheduleRefresh(sealed);
+}
+
 // When the next sealed capsule unlocks, re-fetch so it moves to "Ready to open".
 function scheduleRefresh(sealed) {
   clearTimeout(refreshTimer);
@@ -55,11 +107,6 @@ function scheduleRefresh(sealed) {
 }
 
 function showCapsules(capsuleList) {
-  if (capsuleList.length === 0) {
-    capsulesContainer.innerHTML = emptyStateHTML();
-    return;
-  }
-
   const sealed = capsuleList.filter(isLocked).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
   const ready = capsuleList.filter(isReady).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
   const opened = capsuleList.filter((c) => !isLocked(c) && c.opened)
@@ -79,18 +126,38 @@ function showCapsules(capsuleList) {
   }
 
   capsulesContainer.innerHTML = html;
-  scheduleRefresh(sealed);
 }
 
 async function loadCapsules() {
   try {
     const response = await fetch(capsulesUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    showCapsules(await response.json());
+    allCapsules = await response.json();
+    renderCapsules();
   } catch (error) {
+    resultCount.textContent = "Capsules unavailable";
     capsulesContainer.innerHTML = `<p class="loading">Couldn't load your capsules. Refresh to try again.</p>`;
   }
 }
+
+capsuleSearch.addEventListener("input", () => {
+  capsuleQuery = capsuleSearch.value.trim().toLocaleLowerCase();
+  renderCapsules();
+});
+
+statusButtons.forEach((button) => button.addEventListener("click", () => {
+  setStatusFilter(button.dataset.capsuleStatus);
+  renderCapsules();
+}));
+
+capsulesContainer.addEventListener("click", (event) => {
+  if (!event.target.closest("#clear-capsule-search")) return;
+  capsuleSearch.value = "";
+  capsuleQuery = "";
+  setStatusFilter("all");
+  renderCapsules();
+  capsuleSearch.focus();
+});
 
 showHero();
 loadCapsules();

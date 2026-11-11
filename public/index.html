@@ -33,7 +33,33 @@
       <li><span class="n">3</span><b>Open</b><p>Come back on the day and read what you wrote.</p></li>
     </ol>
 
-    <div id="capsules" aria-live="polite"><p class="loading">Fetching your capsules…</p></div>
+    <section class="capsule-library" aria-labelledby="library-heading">
+      <div class="library-heading">
+        <div>
+          <p class="eyebrow">Your archive</p>
+          <h2 id="library-heading">Your capsules</h2>
+        </div>
+        <p class="result-count" id="capsule-result-count" aria-live="polite">Fetching your capsules…</p>
+      </div>
+
+      <div class="discovery-tools" aria-label="Find capsules">
+        <label class="capsule-search" for="capsule-search">
+          <span>Search capsules</span>
+          <span class="search-input"><span aria-hidden="true">⌕</span><input id="capsule-search" type="search" placeholder="Search by title" autocomplete="off"></span>
+        </label>
+        <div class="status-filter" role="group" aria-label="Filter capsules by status">
+          <span>Status</span>
+          <div>
+            <button type="button" data-capsule-status="all" aria-pressed="true">All</button>
+            <button type="button" data-capsule-status="sealed" aria-pressed="false">Sealed</button>
+            <button type="button" data-capsule-status="ready" aria-pressed="false">Ready</button>
+            <button type="button" data-capsule-status="opened" aria-pressed="false">Opened</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="capsules" aria-live="polite"><p class="loading">Fetching your capsules…</p></div>
+    </section>
   </main>
 </body>
 </html>

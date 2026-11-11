@@ -76,6 +76,18 @@ When('I open {string}') do |title|
   click_link title
 end
 
+When('I search capsules for {string}') do |query|
+  fill_in 'Search capsules', with: query
+end
+
+When('I filter capsules by {string}') do |status|
+  click_button status
+end
+
+When('I clear capsule search') do
+  click_button 'Clear search'
+end
+
 Given('a capsule titled {string} unlocks tomorrow with the message {string}') do |title, message|
   Capsule.create!(title: title, message: message, unlock_at: 1.day.from_now)
 end

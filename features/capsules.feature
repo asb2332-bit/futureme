@@ -109,6 +109,38 @@ Feature: Time capsules
     And I see "Sealed"
     And I see "Unlocked"
 
+  Scenario: Search capsules by title
+    Given a capsule titled "Birthday wishes" unlocks tomorrow with the message "Happy birthday!"
+    And a capsule titled "Summer letter" unlocks tomorrow with the message "Hi."
+    When I visit FutureMe
+    And I search capsules for "  BIRTHDAY  "
+    Then I see "Birthday wishes"
+    And I do not see "Summer letter"
+    And I see "1 capsule found"
+
+  Scenario: Filter capsules by status
+    Given a capsule titled "Birthday wishes" unlocks tomorrow with the message "Happy birthday!"
+    And a capsule titled "Summer letter" unlocked yesterday with the message "Hi."
+    And a capsule titled "A note from last year" was opened yesterday with the message "Keep going."
+    When I visit FutureMe
+    And I filter capsules by "Ready"
+    Then I see "Summer letter"
+    And I do not see "Birthday wishes"
+    And I do not see "A note from last year"
+    When I filter capsules by "Opened"
+    Then I see "A note from last year"
+    And I do not see "Summer letter"
+    And I see "1 capsule found"
+
+  Scenario: No capsule matches a search
+    Given a capsule titled "Birthday wishes" unlocks tomorrow with the message "Happy birthday!"
+    When I visit FutureMe
+    And I search capsules for "ocean"
+    Then I see "No capsules match"
+    When I clear capsule search
+    Then I see "Birthday wishes"
+    And I do not see "No capsules match"
+
   Scenario: Empty home page
     When I visit FutureMe
     Then I see "No capsules yet"
