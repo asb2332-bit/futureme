@@ -102,6 +102,10 @@ RSpec.describe 'Capsule calendar reminders', type: :request do
     other_user = User.create!(email_address: 'another@example.com', password: 'a-secure-password')
     other_capsule = other_user.capsules.create!(title: 'Another private title', message: 'Another secret', unlock_at: 1.day.from_now)
 
+    allow(Rails.application).to receive(:env_config).and_return(
+      Rails.application.env_config.merge('action_dispatch.show_detailed_exceptions' => false)
+    )
+
     get calendar_api_capsule_path(other_capsule)
 
     expect(response).to have_http_status(:not_found)
