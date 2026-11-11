@@ -2,16 +2,33 @@ require 'digest'
 require 'time'
 
 class CapsuleCalendar
-  def initialize(capsule, url:, generated_at: Time.current)
+  REMINDER_MINUTES = [0, 15, 60, 1440, 10080].freeze
+
+  def initialize(capsule, url:, generated_at: Time.current, remind_before: 0, private_title: false)
+    unless remind_before.is_a?(Integer) && REMINDER_MINUTES.include?(remind_before)
+      raise ArgumentError, 'Unsupported reminder time'
+    end
+    unless private_title.equal?(true) || private_title.equal?(false)
+      raise ArgumentError, 'Private title must be true or false'
+    end
+
     @capsule = capsule
     @url = clean_text(url).delete("\n\t")
     @generated_at = generated_at
+    @remind_before = remind_before
+    @private_title = private_title
   end
 
   def to_ical
     unlock_at = @capsule.unlock_at.to_time.getutc
-    summary = escape_text("Open your capsule: #{@capsule.title}")
-    description = escape_text("Your time capsule is ready to open.\n#{@url}")
+    title = @private_title ? nil : @capsule.title
+    summary = escape_text(@private_title ? 'Open your time capsule' : "Open your capsule: #{title}")
+    description = escape_text("Return to FutureMe when your time capsule unlocks.\n#{@url}")
+    alarm_description = if @remind_before.zero?
+      summary
+    else
+      escape_text(@private_title ? 'Your time capsule unlocks soon.' : "Your capsule unlocks soon: #{title}")
+    end
 
     lines = [
       'BEGIN:VCALENDAR',
@@ -21,6 +38,7 @@ class CapsuleCalendar
       'BEGIN:VEVENT',
       "UID:#{uid}",
       "DTSTAMP:#{format_time(@generated_at)}",
+      "LAST-MODIFIED:#{format_time(@capsule.updated_at)}",
       "DTSTART:#{format_time(unlock_at)}",
       "DTEND:#{format_time(unlock_at + 900)}",
       "SUMMARY:#{summary}",
@@ -30,8 +48,8 @@ class CapsuleCalendar
       'TRANSP:TRANSPARENT',
       'BEGIN:VALARM',
       'ACTION:DISPLAY',
-      'TRIGGER:PT0S',
-      "DESCRIPTION:#{summary}",
+      "TRIGGER:#{@remind_before.zero? ? 'PT0S' : "-PT#{@remind_before}M"}",
+      "DESCRIPTION:#{alarm_description}",
       'END:VALARM',
       'END:VEVENT',
       'END:VCALENDAR'
