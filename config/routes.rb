@@ -15,7 +15,9 @@ Rails.application.routes.draw do
   namespace :api do
     resource :session, only: :show
     resources :uploads, only: :create
-    resources :capsules, only: %i[index create show update destroy]
+    resources :capsules, only: %i[index create show update destroy] do
+      get :calendar, on: :member
+    end
   end
 
   root to: redirect("/index.html")
