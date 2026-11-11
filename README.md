@@ -18,6 +18,12 @@ FutureMe is a digital time-capsule app. Signed-in users can design a capsule wit
 | Sammy | sn3136 |
 | Yiyao | yz5137 |
 
+## Search and filter
+
+On the home page, search your capsule titles, filter by locked or unlocked status, and sort by creation time or unlock date; reset the controls to see your full library again.
+
+Search only uses titles from your account and never searches sealed messages or poster notes.
+
 ## Requirements
 
 - Ruby 3.3.8
@@ -60,6 +66,10 @@ Stop the local database with:
 ```sh
 docker compose down
 ```
+
+## Calendar reminders
+
+Open a locked capsule and choose **Download calendar reminder**, then import the `.ics` file into your calendar app to add an alert at the unlock time and a link back to the capsule. Calendar downloads require your account and never include the private message or media; your calendar app controls alert delivery.
 
 ## Run tests
 
