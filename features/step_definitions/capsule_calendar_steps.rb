@@ -180,7 +180,10 @@ When('capsule detail visibility is tracked') do
       if (!state.delayed) return response;
       state.delayed = false;
       const body = await response.text();
-      return new Promise(resolve => { state.release = () => resolve(new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } })); });
+      return new Promise(resolve => {
+        state.release = () => resolve(new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        document.body.dataset.capsuleResponsePending = 'true';
+      });
     };
   JS
 end
@@ -209,15 +212,15 @@ end
 When('the next capsule detail response is delayed') do
   expect(page).to have_css('#capsule-poster[aria-busy="false"]')
   page.execute_script('window.capsuleVisibilityTest.delayed = true; loadCapsule();')
-  page.document.synchronize(errors: [RSpec::Expectations::ExpectationNotMetError]) do
-    expect(page.evaluate_script('typeof window.capsuleVisibilityTest.release')).to eq('function')
-  end
+  expect(page).to have_css('body[data-capsule-response-pending="true"]')
+  expect(page).to have_css('#capsule-poster[aria-busy="true"]')
 end
 
 When('I release the delayed capsule detail response') do
   page.evaluate_async_script(<<~JS)
     const done = arguments[arguments.length - 1];
     window.capsuleVisibilityTest.release();
+    document.body.dataset.capsuleResponsePending = 'false';
     setTimeout(() => done(true), 0);
   JS
 end
