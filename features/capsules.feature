@@ -18,6 +18,7 @@ Feature: Time capsules
     And I visit the new capsule page
     And I fill in "Title" with "Sixth capsule"
     And I fill in "Message" with "This should not be created."
+    And I click "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then I see "You can only create up to 5 capsules."
@@ -27,6 +28,7 @@ Feature: Time capsules
     And I visit the new capsule page
     And I fill in "Title" with "Graduation day"
     And I fill in "Message" with "I am proud of how far you have come."
+    And I click "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then I see "Graduation day"
@@ -35,11 +37,14 @@ Feature: Time capsules
   Scenario: Create a customized poster capsule
     When I visit FutureMe
     And I visit the new capsule page
+    And I click "Next: Design"
     And I choose "Night" from "Theme"
+    And I click "Write"
     And I add a message block
     And I fill in "Message block 1" with "Private poster note"
     And I fill in "Title" with "My custom poster"
     And I fill in "Message" with "A message for later"
+    And I click "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then I see "My custom poster"
@@ -53,6 +58,7 @@ Feature: Time capsules
     And I fill in "Message block 1" with "A better title"
     And I click "Make selected message title"
     And I fill in "Message" with "A message for later"
+    And I click "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then the capsule title is "A better title"
@@ -63,6 +69,7 @@ Feature: Time capsules
     And I fill in "Title" with "Message blocks work"
     And I add a message block
     And I fill in "Message block 1" with "This is the message"
+    And I click "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then the capsule titled "Message blocks work" has message "This is the message"
@@ -74,6 +81,7 @@ Feature: Time capsules
     And I press Enter in "Image URL"
     And I fill in "Title" with "My image capsule"
     And I fill in "Message" with "A message for later"
+    And I click "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then I see "My image capsule"
@@ -85,6 +93,7 @@ Feature: Time capsules
     And I attach an image file
     And I fill in "Title" with "My uploaded image capsule"
     And I fill in "Message" with "A message for later"
+    And I click "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then I see "My uploaded image capsule"
@@ -97,6 +106,7 @@ Feature: Time capsules
     Then I can play the selected audio
     And I fill in "Title" with "My audio capsule"
     And I fill in "Message" with "A message for later"
+    And I click "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then the audio is sealed
@@ -112,6 +122,7 @@ Feature: Time capsules
     And I see two selected video previews
     And I fill in "Title" with "My media capsule"
     And I fill in "Message" with "A message for later"
+    And I click "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then the repeated media files are sealed
@@ -124,6 +135,7 @@ Feature: Time capsules
     And I delete the selected image
     And I fill in "Title" with "No image capsule"
     And I fill in "Message" with "A message for later"
+    And I click "Deliver"
     And I fill in "Unlock at" with a date one day from now
     And I create the capsule
     Then no image is sealed
@@ -133,6 +145,7 @@ Feature: Time capsules
     When I visit FutureMe
     And I open "Keep this message"
     And I edit the capsule
+    And I click "Deliver"
     And I save the capsule changes
     Then the capsule titled "Keep this message" has message "Do not erase this."
 
@@ -154,6 +167,7 @@ Feature: Time capsules
   Scenario: Reject an invalid capsule
     When I visit FutureMe
     And I visit the new capsule page
+    And I click "Deliver"
     And I create the capsule
     Then I see "Title can't be blank"
     And I see "Message can't be blank"

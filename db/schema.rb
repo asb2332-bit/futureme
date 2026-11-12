@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_11_04_213756) do
+ActiveRecord::Schema[7.1].define(version: 2026_11_12_121000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -42,14 +42,24 @@ ActiveRecord::Schema[7.1].define(version: 2026_11_04_213756) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "capsule_editors", force: :cascade do |t|
+    t.bigint "capsule_id", null: false
+    t.bigint "user_id", null: false
+    t.index ["capsule_id", "user_id"], name: "index_capsule_editors_on_capsule_id_and_user_id", unique: true
+    t.index ["capsule_id"], name: "index_capsule_editors_on_capsule_id"
+    t.index ["user_id"], name: "index_capsule_editors_on_user_id"
+  end
+
   create_table "capsules", force: :cascade do |t|
     t.string "title", null: false
     t.text "message", null: false
-    t.datetime "unlock_at", null: false
+    t.datetime "unlock_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.jsonb "design", default: {}, null: false
     t.bigint "user_id"
+    t.integer "lock_version", default: 0, null: false
+    t.boolean "draft", default: false, null: false
     t.index ["user_id"], name: "index_capsules_on_user_id"
   end
 
@@ -67,5 +77,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_11_04_213756) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "capsule_editors", "capsules", on_delete: :cascade
+  add_foreign_key "capsule_editors", "users", on_delete: :cascade
   add_foreign_key "capsules", "users"
 end

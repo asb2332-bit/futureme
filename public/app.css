@@ -270,3 +270,9 @@ body { margin: 0; }
   color: #72241e;
   overflow-wrap: anywhere;
 }
+
+.create-steps { display: flex; gap: .5rem; margin: 1rem 0; }
+.step-tab { flex: 1; border: 1px solid currentColor; border-radius: .5rem; background: transparent; padding: .55rem; cursor: pointer; }
+.step-tab[aria-current="step"] { background: #202923; color: white; }
+.step-tab small, .step-number { display: none; }
+.side [hidden] { display: none; }

@@ -23,9 +23,11 @@ function showCapsules(capsules) {
     capsulesContainer.innerHTML = `<div class="empty"><div class="wax">FM</div><h3>No capsules yet</h3><p>Seal your first message and it will wait here.</p><a class="btn primary" href="/create.html">Create a capsule</a></div>`;
     return;
   }
+  const drafts = capsules.filter(capsule => capsule.draft);
+  capsules = capsules.filter(capsule => !capsule.draft);
   const sealed = capsules.filter(isLocked).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
   const opened = capsules.filter((capsule) => !isLocked(capsule)).sort((a, b) => time(b.unlock_at) - time(a.unlock_at));
-  let html = "";
+  let html = drafts.length ? `<h2>Drafts</h2><ul>${drafts.map(c => `<li><a href="/create.html?id=${encodeURIComponent(c.id)}">${esc(c.title)}</a> · ${c.owner ? "Your draft" : "Shared with you"}</li>`).join("")}</ul>` : "";
   if (sealed.length) html += `<div class="sec-head"><h2>Opening soon</h2><span class="eyebrow">${plural(sealed.length, "sealed capsule")}</span></div><ol class="timeline">${sealed.map(envelopeHTML).join("")}<li><a class="newenv" href="/create.html">+ Seal another capsule</a></li></ol>`;
   if (opened.length) html += `<div class="sec-head"><h2>Opened</h2></div><ol class="timeline opened">${opened.map(envelopeHTML).join("")}</ol>`;
   capsulesContainer.innerHTML = html;

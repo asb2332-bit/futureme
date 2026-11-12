@@ -8,12 +8,15 @@ class Capsule < ApplicationRecord
   has_many_attached :documents
   validate :documents_are_valid
 
+  has_many :capsule_editors, dependent: :destroy
+  has_many :editors, through: :capsule_editors, source: :user
   belongs_to :user, optional: true
   has_many_attached :images
   has_many_attached :audio
   has_many_attached :video
-  validates :title, :message, :unlock_at, presence: true
-  validate :unlock_at_is_in_the_future, on: :create
+  validates :title, presence: true
+  validates :message, :unlock_at, presence: true, unless: :draft?
+  validate :unlock_at_is_in_the_future, if: -> { !draft? && (new_record? || draft_changed?) }
   validate :images_are_valid
   validate :audio_is_valid
   validate :video_is_valid
@@ -22,7 +25,7 @@ class Capsule < ApplicationRecord
   validate :remote_image_urls_use_https
 
   def unlocked?
-    unlock_at <= Time.current
+    unlock_at.present? && unlock_at <= Time.current
   end
 
   def locked?

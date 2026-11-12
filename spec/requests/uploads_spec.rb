@@ -11,22 +11,11 @@ RSpec.describe 'Uploads API', type: :request do
     expect(response).to have_http_status(:unauthorized)
   end
 
-  it 'keeps a PDF attached through sealing and exposes it when the capsule opens' do
+  it 'rejects PDF attachments' do
     post login_path, params: { email_address: user.email_address, password: 'a-secure-password' }
-    pdf = Rack::Test::UploadedFile.new(StringIO.new("%PDF-1.4 sample"), 'application/pdf', original_filename: 'notes.pdf')
-    post api_uploads_path, params: { document: pdf }
-    expect(response).to have_http_status(:created)
-    signed_id = response.parsed_body.fetch('signed_id')
-    post api_capsules_path, params: { capsule: { title: 'Later', message: 'Notes', unlock_at: 1.minute.from_now,
-      document_signed_ids: [signed_id] } }, as: :json
-    expect(response).to have_http_status(:created)
-    expect(response.parsed_body.fetch('documents')).to be_empty
-    capsule = Capsule.find(response.parsed_body.fetch('id'))
-    travel_to(2.minutes.from_now) do
-      get api_capsule_path(capsule)
-      expect(response.parsed_body.fetch('documents').first).to include('name' => 'notes.pdf')
-      expect(capsule.documents.first.download).to start_with('%PDF')
-    end
+    pdf = Rack::Test::UploadedFile.new(StringIO.new("%PDF-1.4"), 'application/pdf', original_filename: 'notes.pdf')
+    expect { post api_uploads_path, params: { document: pdf } }.not_to change(ActiveStorage::Blob, :count)
+    expect(response).to have_http_status(:unprocessable_entity)
   end
 
   it 'uploads audio and returns its signed ID' do

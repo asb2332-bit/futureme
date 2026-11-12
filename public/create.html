@@ -21,20 +21,33 @@
       <a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
       <div class="nav-actions"><span class="account-nav"><a href="/login">Log in</a></span></div>
     </header>
+    <nav class="create-steps" aria-label="Capsule creation steps">
+      <button type="button" class="step-tab" data-show-step="write" aria-label="Write" aria-current="step">
+        <span class="step-number">01</span><span><strong>Write</strong><small>Your message</small></span>
+      </button>
+      <button type="button" class="step-tab" data-show-step="design" aria-label="Design">
+        <span class="step-number">02</span><span><strong>Design</strong><small>Make it yours</small></span>
+      </button>
+      <button type="button" class="step-tab" data-show-step="deliver" aria-label="Deliver">
+        <span class="step-number">03</span><span><strong>Deliver</strong><small>Choose the day</small></span>
+      </button>
+    </nav>
+
     <div class="desk">
       <div class="stage">
         <div id="poster-preview" class="poster editor-canvas" aria-label="Capsule poster canvas" tabindex="0"></div>
         <p class="hint">Drag to move · double-click text to write · use the handles to resize or rotate</p>
       </div>
       <aside class="side" aria-label="Capsule settings">
-        <section>
-          <h2><span>01</span>Stationery</h2>
+        <section data-step="design" hidden>
+          <h2><span>02</span>Stationery</h2>
           <label class="fld">Theme<select id="theme-preset"><option value="sage">Sage</option><option value="sunset">Sunset</option><option value="night">Night</option></select></label>
           <div class="two"><label class="fld">Background<input id="background-color" type="color" value="#E3E7DF"></label><label class="fld">Accent<input id="accent-color" type="color" value="#202923"></label></div>
           <label class="fld">Font<select id="poster-font"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option><option value="display">Display</option></select></label>
+          <button class="btn quiet" data-show-step="deliver">Next: Deliver →</button>
         </section>
-        <section>
-          <h2><span>02</span>Contents</h2>
+        <section data-step="write">
+          <h2><span>01</span>Contents</h2>
           <label class="fld">Title<input id="title-input" type="text" placeholder="Your title"></label>
           <label class="fld">Message<input id="message-input" type="text" placeholder="Your sealed message"></label>
           <div class="uploads">
@@ -50,13 +63,16 @@
           <p id="drive-error" role="alert"></p>
           <ul id="document-list" aria-label="Attached documents"></ul>
           <label class="fld">Image URL<input id="remote-image-url" type="url" placeholder="https://… (press Enter)"></label>
+          <button class="btn quiet" data-show-step="design">Next: Design →</button>
         </section>
-        <section>
+        <section data-step="deliver" hidden>
           <h2><span>03</span>Delivery</h2>
+          <label class="fld" id="editor-field">Co-editors (FutureMe account emails, separated by commas)<input id="editor-emails" type="text" autocomplete="off"></label>
+          <button class="btn quiet" id="save-draft" type="button">Save draft for editing</button>
           <label class="fld">Unlock at<input id="unlock-at" type="datetime-local"></label>
-          <p id="form-errors" class="errors" role="alert"></p>
           <button id="seal-capsule" class="btn seal" type="button"><span class="dot" aria-hidden="true">FM</span>Seal the capsule</button>
         </section>
+        <p id="form-errors" class="errors" role="alert"></p>
       </aside>
     </div>
   </main>

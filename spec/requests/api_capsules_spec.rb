@@ -21,6 +21,21 @@ RSpec.describe 'Capsules API', type: :request do
     expect(response_body.map { |capsule| capsule.fetch('title') }).to contain_exactly('First', 'Second')
   end
 
+  it 'lets an invited editor contribute to a draft and rejects stale saves' do
+    editor = User.create!(email_address: 'editor@example.com', password: 'a-secure-password')
+    post api_capsules_path, params: { capsule: { draft: true, title: 'Team', message: '', editor_emails: [editor.email_address] } }, as: :json
+    expect(response).to have_http_status(:created)
+    path = api_capsule_path(response_body.fetch('id'))
+    version = response_body.fetch('lock_version')
+    post login_path, params: { email_address: editor.email_address, password: 'a-secure-password' }
+    get api_capsules_path
+    expect(response_body.first.fetch('title')).to eq('Team')
+    patch path, params: { capsule: { message: 'My contribution', lock_version: version } }, as: :json
+    expect(response).to have_http_status(:ok)
+    patch path, params: { capsule: { message: 'Stale', lock_version: version } }, as: :json
+    expect(response).to have_http_status(:conflict)
+  end
+
   it 'rejects a sixth capsule for the signed-in user' do
     5.times do |index|
       user.capsules.create!(title: "Capsule #{index}", message: "Message #{index}", unlock_at: 1.day.from_now)

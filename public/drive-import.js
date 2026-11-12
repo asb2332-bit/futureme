@@ -62,28 +62,18 @@
     if (!doc.id) throw new Error("Google Drive didn’t return a file. Please select it again.");
     const type = (doc.mimeType || "").split("/")[0];
     const input = { image: imageInput, video: videoInput, audio: audioInput }[type];
-    const googleDoc = doc.mimeType === "application/vnd.google-apps.document";
-    const documentTypes = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-    if (!input && !googleDoc && !documentTypes.includes(doc.mimeType)) {
-      throw new Error(doc.name + " is an unsupported file type. Choose a Google Doc, Word file, PDF, photo, audio file, or video.");
-    }
+    if (!input) throw new Error(doc.name + " is unsupported. Attach an image, audio file, or video.");
     const endpoint = "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(doc.id);
     const headers = { Authorization: "Bearer " + token };
     if (doc.resourceKey) headers["X-Goog-Drive-Resource-Keys"] = doc.id + "/" + doc.resourceKey;
-    if (!googleDoc) {
+    {
       const metadata = await driveRequest(endpoint + "?fields=size&supportsAllDrives=true", headers);
       const size = Number((await metadata.json()).size);
       checkSize(doc.name, size);
     }
-    const response = await driveRequest(endpoint + (googleDoc ? "/export?mimeType=application%2Fpdf" : "?alt=media&supportsAllDrives=true"), headers);
-    const file = new File([await response.blob()], googleDoc ? doc.name + ".pdf" : doc.name, { type: googleDoc ? "application/pdf" : doc.mimeType });
+    const response = await driveRequest(endpoint + "?alt=media&supportsAllDrives=true", headers);
+    const file = new File([await response.blob()], doc.name, { type: doc.mimeType });
     checkSize(file.name, file.size);
-    if (!input) {
-      documentFiles.push(file);
-      renderDocumentList();
-      finish("Attached " + file.name);
-      return;
-    }
     const selection = new DataTransfer();
     selection.items.add(file);
     input.files = selection.files;

@@ -193,6 +193,7 @@ async function loadCapsule() {
 
   const capsule = await response.json();
   creator.textContent = "Created by: You";
+  deleteCapsuleForm.hidden = !capsule.owner;
   editCapsuleLink.hidden = false;
   editCapsuleLink.href = `/create.html?id=${capsule.id}`;
   const documents = document.querySelector("#capsule-documents");

@@ -28,7 +28,9 @@ let videoFiles = [];
 let audioPreviewUrls = [];
 let videoPreviewUrls = [];
 const undoHistory = [];
-const documentFiles = [];
+let capsuleVersion;
+let existingImageCount = 0;
+let canManageEditors = true;
 let savedDocuments = [];
 const maxCapsuleSize = 2 * 1024 * 1024;
 
@@ -527,15 +529,15 @@ function setSaving(saving) {
   sealButton.disabled = saving;
 }
 
-async function createCapsule() {
+async function createCapsule(draft = false) {
   formErrors.textContent = "";
   const unlockAt = unlockAtInput.value;
   const messageBlocks = design.sealed_blocks.filter((block) => block.text).map((block) => String(block.text).trim()).filter(Boolean);
   const capsuleMessage = String(messageText || "").trim() || messageBlocks.join("\n");
   const missingFields = [];
   if (!String(titleText || "").trim()) missingFields.push("Title can't be blank");
-  if (!capsuleMessage) missingFields.push("Message can't be blank");
-  if (!unlockAt) missingFields.push("Unlock at can't be blank");
+  if (!draft && !capsuleMessage) missingFields.push("Message can't be blank");
+  if (!draft && !unlockAt) missingFields.push("Unlock at can't be blank");
   if (missingFields.length) {
     formErrors.textContent = missingFields.join(", ");
     return;
@@ -544,11 +546,10 @@ async function createCapsule() {
   const session = await window.futuremeSession;
   if (!session.user) { location.assign("/login"); return; }
 
-  let imageSignedIds, audioSignedIds, videoSignedIds, documentSignedIds;
+  let imageSignedIds, audioSignedIds, videoSignedIds;
   try {
     imageSignedIds = await uploadSelectedImages(session);
     audioSignedIds = await uploadMedia(session, audioFiles, "audio");
-    documentSignedIds = await uploadMedia(session, documentFiles, "document");
     videoSignedIds = await uploadMedia(session, videoFiles, "video");
   } catch (error) {
     formErrors.textContent = error.message;
@@ -560,12 +561,14 @@ async function createCapsule() {
 
   const capsule = {
     title: titleText,
+    draft,
     message: capsuleMessage,
     unlock_at: unlockAt ? new Date(unlockAt).toISOString() : "",
     image_signed_ids: imageSignedIds,
     audio_signed_ids: audioSignedIds,
     video_signed_ids: videoSignedIds,
-    document_signed_ids: documentSignedIds,
+    lock_version: capsuleVersion,
+    ...(canManageEditors ? {editor_emails: document.querySelector("#editor-emails").value.split(",").map(email => email.trim()).filter(Boolean)} : {}),
     design: design
   };
   const response = await fetch(editingCapsuleId ? `/api/capsules/${editingCapsuleId}` : "/api/capsules", {
@@ -582,7 +585,7 @@ async function createCapsule() {
   }
 
   const createdCapsule = await response.json();
-  window.location.href = `/capsule.html?id=${createdCapsule.id}`;
+  window.location.href = draft ? "/" : `/capsule.html?id=${createdCapsule.id}`;
 }
 
 async function loadCapsuleForEditing() {
@@ -594,16 +597,22 @@ async function loadCapsuleForEditing() {
   messageText = capsule.message || "";
   titleInput.value = titleText;
   messageInput.value = messageText;
-  unlockAtInput.value = new Date(capsule.unlock_at).toISOString().slice(0, 16);
+  if (capsule.unlock_at) unlockAtInput.value = new Date(capsule.unlock_at).toISOString().slice(0, 16);
+  capsuleVersion = capsule.lock_version;
+  canManageEditors = capsule.owner;
+  document.querySelector("#editor-field").hidden = !canManageEditors;
+  document.querySelector("#editor-emails").value = (capsule.editor_emails || []).join(", ");
   savedDocuments = capsule.documents || [];
   renderDocumentList();
   Object.assign(design, capsule.design);
   (design.sealed_blocks || []).forEach((block) => {
     if (Number.isInteger(block.image_index)) imagePreviewUrls[block.id] = capsule.image_urls[block.image_index];
   });
+  existingImageCount = capsule.image_urls.length;
+  document.querySelector("#save-draft").hidden = !capsule.draft;
   audioPreviewUrls = capsule.audio_url || [];
   videoPreviewUrls = capsule.video_url || [];
-  sealButton.textContent = "Save changes";
+  sealButton.textContent = capsule.draft ? "Seal the capsule" : "Save changes";
   renderPoster();
 }
 
@@ -629,27 +638,15 @@ function showCapsuleLimitError() {
 function renderDocumentList() {
   const list = document.querySelector("#document-list");
   list.replaceChildren();
-  for (const doc of [...savedDocuments, ...documentFiles]) {
+  for (const doc of [...savedDocuments]) {
     const row = document.createElement("li");
     row.textContent = doc.name;
-    if (documentFiles.includes(doc)) {
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "btn sm quiet";
-      remove.textContent = "Remove";
-      remove.setAttribute("aria-label", "Remove " + doc.name);
-      remove.onclick = () => {
-        documentFiles.splice(documentFiles.indexOf(doc), 1);
-        renderDocumentList();
-      };
-      row.append(" ", remove);
-    }
     list.append(row);
   }
 }
 
 function exceedsCapsuleLimit(extraFiles = []) {
-  return [...imageFiles, ...audioFiles, ...videoFiles, ...documentFiles, ...savedDocuments, ...extraFiles].reduce((total, file) => total + file.size, 0) > maxCapsuleSize;
+  return [...imageFiles, ...audioFiles, ...videoFiles, ...savedDocuments, ...extraFiles].reduce((total, file) => total + file.size, 0) > maxCapsuleSize;
 }
 
 function addSelectedMedia(input, files, label) {
@@ -672,19 +669,24 @@ function addSelectedMedia(input, files, label) {
 videoInput.addEventListener("change", () => {
   const addedFiles = addSelectedMedia(videoInput, videoFiles, "Video");
   if (!addedFiles) return;
-  const firstIndex = videoFiles.length - addedFiles.length;
+  const firstIndex = videoPreviewUrls.length;
   videoPreviewUrls.push(...addedFiles.map((file) => URL.createObjectURL(file)));
   addMediaBlocks("video", firstIndex, addedFiles.length);
 });
 audioInput.addEventListener("change", () => {
   const addedFiles = addSelectedMedia(audioInput, audioFiles, "Audio");
   if (!addedFiles) return;
-  const firstIndex = audioFiles.length - addedFiles.length;
+  const firstIndex = audioPreviewUrls.length;
   audioPreviewUrls.push(...addedFiles.map((file) => URL.createObjectURL(file)));
   addMediaBlocks("audio", firstIndex, addedFiles.length);
 });
 imageInput.addEventListener("change", () => {
   const addedFiles = Array.from(imageInput.files);
+  if (addedFiles.some(file => !file.type.startsWith("image/"))) {
+    formErrors.textContent = "Unsupported file type. Choose an image.";
+    imageInput.value = "";
+    return;
+  }
   if (addedFiles.some((file) => file.size > maxCapsuleSize)) {
     formErrors.textContent = "Each file must be 2 MB or smaller.";
     imageInput.value = "";
@@ -695,7 +697,7 @@ imageInput.addEventListener("change", () => {
     imageInput.value = "";
     return;
   }
-  const firstIndex = imageFiles.length;
+  const firstIndex = existingImageCount + imageFiles.length;
   imageFiles.push(...addedFiles);
   const files = new DataTransfer();
   imageFiles.forEach((file) => files.items.add(file));
@@ -729,6 +731,7 @@ remoteImageUrlInput.addEventListener("keydown", (event) => {
 addMessageButton.addEventListener("click", addMessageBlock);
 makeTitleBlockButton.addEventListener("click", makeSelectedTextTitle);
 restoreTitleBlockButton.addEventListener("click", restoreTitleBlock);
+document.querySelector("#save-draft").addEventListener("click", () => createCapsule(true).catch(error => { setSaving(false); formErrors.textContent = error.message; }));
 sealButton.addEventListener("click", () => {
   createCapsule().catch((error) => {
     console.error(error);
@@ -739,3 +742,14 @@ sealButton.addEventListener("click", () => {
 
 renderPoster();
 loadCapsuleForEditing();
+
+document.querySelectorAll("[data-show-step]").forEach(button => {
+  button.addEventListener("click", () => {
+    const step = button.dataset.showStep;
+    document.querySelectorAll("[data-step]").forEach(panel => { panel.hidden = panel.dataset.step !== step; });
+    document.querySelectorAll(".step-tab").forEach(tab => {
+      if (tab.dataset.showStep === step) tab.setAttribute("aria-current", "step");
+      else tab.removeAttribute("aria-current");
+    });
+  });
+});
