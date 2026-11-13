@@ -210,7 +210,7 @@ a { color: inherit; }
 .presence-copy { display: flex; min-width: 0; flex-direction: column; }
 .presence-copy strong { font-size: 13px; }
 .presence-copy span { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.presence-invite { margin-left: auto; padding: 6px 10px; border: 1px solid var(--blue); border-radius: var(--radius); background: transparent; color: var(--blue); font-size: 12px; font-weight: 700; cursor: pointer; }
+.presence-invite { min-height: 44px; margin-left: auto; padding: 6px 10px; border: 1px solid var(--blue); border-radius: var(--radius); background: transparent; color: var(--blue); font-size: 12px; font-weight: 700; cursor: pointer; }
 .presence-invite:hover { background: #eef2f8; }
 .create-workspace { display: grid; grid-template-columns: minmax(380px, 440px) minmax(0, 1fr); gap: clamp(22px, 4vw, 44px); align-items: start; }
 .creator-panel { overflow: hidden; background: var(--paper); border-radius: 8px; box-shadow: var(--lift); }
@@ -260,7 +260,7 @@ a { color: inherit; }
 .member-count { color: var(--muted); font-family: var(--f-type); font-size: 11px; }
 .collaborator-list { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 0; list-style: none; }
 .collaborator-member { grid-template-columns: auto minmax(0, 1fr) auto auto; padding: 10px; border: 1px solid var(--rule); }
-.collaborator-remove { padding: 4px; border: 0; background: transparent; color: var(--blue); font-size: 11px; font-weight: 700; cursor: pointer; }
+.collaborator-remove { min-width: 44px; min-height: 44px; padding: 4px; border: 0; background: transparent; color: var(--blue); font-size: 11px; font-weight: 700; cursor: pointer; }
 .collaborator-remove:hover { color: var(--red); }
 .collaborator-empty { display: flex; flex-direction: column; gap: 2px; padding: 13px; border: 1px dashed var(--rule); color: var(--muted); font-size: 12px; }
 .collaborator-empty strong { color: var(--ink); font-size: 13px; }
@@ -298,7 +298,7 @@ a { color: inherit; }
 .stage .pb.remote-selected { box-shadow: inset 0 0 0 2px var(--remote-color); }
 .remote-selection-frame { position: absolute; z-index: 2; border: 2px solid var(--remote-color); pointer-events: none; }
 .remote-selection-label { position: absolute; top: -24px; right: 0; max-width: min(260px, 92%); overflow: hidden; padding: 4px 7px; border-radius: 3px 3px 0 0; background: var(--remote-color); color: #fff; font-family: var(--f-type); font-size: 10px; font-weight: 700; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
-.remote-cursor { position: absolute; z-index: 2; top: 45%; left: 68%; display: flex; align-items: flex-start; color: var(--remote-color); pointer-events: none; animation: remote-cursor-settle .7s cubic-bezier(.2,.8,.2,1) both; }
+.remote-cursor { position: absolute; z-index: 2; top: 45%; left: 50%; display: flex; align-items: flex-start; color: var(--remote-color); pointer-events: none; animation: remote-cursor-settle .7s cubic-bezier(.2,.8,.2,1) both; }
 .remote-cursor-pointer { font-size: 16px; line-height: 1; transform: rotate(-35deg); text-shadow: 0 1px 0 #fff; }
 .remote-cursor-label { max-width: 180px; overflow: hidden; margin: 10px 0 0 -2px; padding: 4px 7px; border-radius: 3px; background: var(--remote-color); color: #fff; font-family: var(--f-type); font-size: 10px; font-weight: 700; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .layers button { flex-wrap: wrap; gap: 4px 8px; }
@@ -367,7 +367,8 @@ a { color: inherit; }
   .create-intro { grid-template-columns: 1fr; gap: 12px; }
   .create-intro h1 { font-size: 38px; }
   .create-intro > p { padding-bottom: 0; }
-  .step-tab { grid-template-columns: 1fr; gap: 1px; padding-inline: 10px; }
+  .step-tab { grid-template-columns: 1fr; gap: 1px; padding-inline: 5px; }
+  .step-tab strong { overflow: hidden; font-size: 12px; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
   .step-tab small { display: none; }
   .step-number { font-size: 11px; }
   .flow-panel { gap: 21px; padding: 22px 18px 24px; }
@@ -380,6 +381,7 @@ a { color: inherit; }
   .collaborator-entry { grid-template-columns: 1fr; }
   .collaborator-entry .collaborator-add { width: 100%; }
   .collaborator-member { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .collaborator-identity strong { overflow: visible; overflow-wrap: anywhere; white-space: normal; }
   .collaborator-member .member-status { grid-column: 2; }
   .collaborator-remove { grid-column: 3; grid-row: 1 / span 2; }
   .uploads { grid-template-columns: 1fr; }

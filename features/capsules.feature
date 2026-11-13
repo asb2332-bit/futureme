@@ -68,6 +68,8 @@ Feature: Time capsules
     And the current creation step is "Write"
     When I fill in "Title" with "A shared graduation letter"
     And I open the "Collaborate" step
+    Then keyboard focus is on "Create it together."
+    And I see "You · Owner"
     And I open the "Write" step
     Then the "Title" field contains "A shared graduation letter"
 

@@ -254,7 +254,6 @@ def create_capsule_with_photo(title)
   }
 
   capsule = @account.capsules.create!(title: title, message: 'Look how far you came.', unlock_at: 1.day.from_now, design: design)
-  capsule.images.attach(photo)
   capsule
 end
 

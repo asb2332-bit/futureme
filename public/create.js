@@ -303,11 +303,11 @@ function blockLabel(id) {
   if (id === "icon") return "Icon";
   const block = blockFor(id); const type = block?.type || "text";
   const sameType = design.sealed_blocks.filter((other) => (other.type || "text") === type);
-  const name = type === "image" ? "Photo" : type === "audio" ? "Voice note" : type === "video" ? "Video" : "Text block";
+  const name = ["image", "remote_image"].includes(type) ? "Photo" : type === "audio" ? "Voice note" : type === "video" ? "Video" : "Text block";
   return `${name} ${sameType.indexOf(block) + 1}`;
 }
 
-function isMediaBlock(block) { return ["image", "audio", "video"].includes(block?.type); }
+function isMediaBlock(block) { return ["image", "remote_image", "audio", "video"].includes(block?.type); }
 
 function renderLayers() {
   const remoteEditor = activeCollaborator();
@@ -414,7 +414,7 @@ function blockKind(id) { return ["title", "message", "icon"].includes(id) ? id :
 function fillMediaBlock(element, block) {
   const previewUrl = block.image_url || mediaPreviews[block.media_id] || "";
   element.setAttribute("aria-label", blockLabel(block.id));
-  if (block.type === "image") {
+  if (["image", "remote_image"].includes(block.type)) {
     element.className = "pb photo"; const image = document.createElement("img"); image.src = previewUrl;
     image.alt = blockLabel(block.id); image.draggable = false;
     image.addEventListener("load", () => { if (!block.aspect_ratio && image.naturalHeight) block.aspect_ratio = image.naturalWidth / image.naturalHeight; });
@@ -555,9 +555,9 @@ function addRemoteImage() {
   const url = remoteImageUrlInput.value.trim(); if (!url) return;
   try { if (new URL(url).protocol !== "https:") throw new Error(); }
   catch { showUploadError("Image URL must use HTTPS."); return; }
-  saveUndoState(); const count = design.sealed_blocks.filter((block) => block.type === "image").length;
+  saveUndoState(); const count = design.sealed_blocks.filter((block) => ["image", "remote_image"].includes(block.type)).length;
   const id = `image-${Date.now()}-${count}`;
-  design.sealed_blocks.push({ id, type: "image", image_url: url, x: 25, y: 48, width: 50, height: 30, rotation: 0 });
+  design.sealed_blocks.push({ id, type: "remote_image", image_url: url, x: 25, y: 48, width: 50, height: 30, rotation: 0 });
   remoteImageUrlInput.value = ""; selectedBlockId = id; showUploadError(""); renderPoster(); renderLayers();
 }
 
