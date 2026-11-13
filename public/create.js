@@ -38,12 +38,26 @@ const reviewTitle = document.querySelector("#review-title");
 const reviewDate = document.querySelector("#review-date");
 const reviewContents = document.querySelector("#review-contents");
 const reviewRecipients = document.querySelector("#review-recipients");
+const reviewCollaborators = document.querySelector("#review-collaborators");
+const reviewCollaboratorList = document.querySelector("#review-collaborator-list");
 const recipientInput = document.querySelector("#recipient-email");
 const recipientField = document.querySelector(".recipient-field");
 const recipientError = document.querySelector("#recipient-error");
 const addRecipientButton = document.querySelector("#add-recipient");
 const recipientList = document.querySelector("#recipient-list");
 const recipientCount = document.querySelector("#recipient-count");
+const collaboratorInput = document.querySelector("#collaborator-email");
+const collaboratorField = document.querySelector(".collaborator-field");
+const collaboratorError = document.querySelector("#collaborator-error");
+const addCollaboratorButton = document.querySelector("#add-collaborator");
+const collaboratorList = document.querySelector("#collaborator-list");
+const collaboratorCount = document.querySelector("#collaborator-count");
+const presenceAvatars = document.querySelector("#presence-avatars");
+const presenceCount = document.querySelector("#presence-count");
+const presenceActivity = document.querySelector("#presence-activity");
+const openCollaborateButton = document.querySelector("#open-collaborate");
+const ownerEmail = document.querySelector("#owner-email");
+const ownerAvatar = document.querySelector("#owner-avatar");
 const stepPanels = document.querySelectorAll("[data-step]");
 const stepTabs = document.querySelectorAll("[data-show-step]");
 const nextStepButtons = document.querySelectorAll("[data-next-step]");
@@ -53,11 +67,14 @@ const placeholders = { title: "Your title", message: "Your sealed message", note
 const MAX_CAPSULE_BYTES = 2 * 1024 * 1024;
 const mediaPreviews = {};
 const emailRecipients = [];
+const collaborators = [];
 const undoHistory = [];
 let selectedBlockId = "message";
 let titleText = "";
 let messageText = "";
-let currentStep = "write";
+let currentStep = editingCapsuleId ? "write" : "collaborate";
+let activeCollaboratorEmail = null;
+let currentUserEmail = "You";
 let saving = false;
 let pendingUploads = Promise.resolve();
 
@@ -77,7 +94,7 @@ const design = {
 };
 
 function showStep(stepName, moveFocus = false) {
-  if (!["write", "design", "deliver"].includes(stepName)) return;
+  if (!["collaborate", "write", "design", "deliver"].includes(stepName)) return;
   currentStep = stepName;
   stepPanels.forEach((panel) => { panel.hidden = panel.dataset.step !== stepName; });
   stepTabs.forEach((tab) => {
@@ -106,6 +123,91 @@ function updateReview() {
   const extras = design.sealed_blocks.length;
   reviewContents.textContent = extras === 0 ? "Message only" : `Message + ${extras} ${extras === 1 ? "extra" : "extras"}`;
   reviewRecipients.textContent = emailRecipients.length === 0 ? "No email recipients" : `${emailRecipients.length} ${emailRecipients.length === 1 ? "recipient" : "recipients"}`;
+  reviewCollaborators.textContent = collaborators.length === 0 ? "No collaborators" : `${collaborators.length} ${collaborators.length === 1 ? "collaborator" : "collaborators"}`;
+  reviewCollaboratorList.replaceChildren(...collaborators.map((collaborator) => {
+    const item = document.createElement("li");
+    item.textContent = `${collaborator.email} (${collaborator.status === "active" ? "Active" : "Invited"})`;
+    return item;
+  }));
+}
+
+const collaboratorColors = ["#6f56a5", "#167f78", "#b85c2b"];
+
+function initialsFor(email) {
+  const name = String(email || "").split("@")[0];
+  const parts = name.split(/[._-]+/).filter(Boolean);
+  return (parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : name.slice(0, 2)).toUpperCase() || "FM";
+}
+
+function clearCollaboratorError() {
+  collaboratorField.classList.remove("err"); collaboratorInput.removeAttribute("aria-invalid");
+  collaboratorError.hidden = true; collaboratorError.textContent = "";
+}
+
+function showCollaboratorError(message) {
+  collaboratorField.classList.add("err"); collaboratorInput.setAttribute("aria-invalid", "true");
+  collaboratorError.textContent = message; collaboratorError.hidden = false; collaboratorInput.focus();
+}
+
+function removeCollaborator(email) {
+  const index = collaborators.findIndex((collaborator) => collaborator.email === email);
+  if (index === -1) return;
+  collaborators.splice(index, 1);
+  if (activeCollaboratorEmail === email) activeCollaboratorEmail = null;
+  renderCollaborators(); collaboratorInput.focus();
+}
+
+function collaboratorAvatar(collaborator, className = "") {
+  const avatar = document.createElement("span");
+  avatar.className = `collaborator-avatar ${className}`.trim();
+  avatar.style.setProperty("--collaborator-color", collaborator.color);
+  avatar.textContent = collaborator.initials;
+  avatar.title = collaborator.email;
+  return avatar;
+}
+
+function renderPresence() {
+  const owner = document.createElement("span"); owner.className = "collaborator-avatar is-owner"; owner.textContent = initialsFor(currentUserEmail);
+  owner.title = currentUserEmail === "You" ? "You" : `${currentUserEmail} (you)`;
+  const active = collaborators.filter((collaborator) => collaborator.status === "active");
+  presenceAvatars.replaceChildren(owner, ...active.map((collaborator) => collaboratorAvatar(collaborator)));
+  const peopleHere = 1 + active.length;
+  presenceCount.textContent = peopleHere === 1 ? "Working solo" : `${peopleHere} people here`;
+  presenceActivity.textContent = active.length === 0 ? "Only you are in this draft" : `${active[0].email} is editing with you`;
+}
+
+function renderCollaborators() {
+  const items = collaborators.map((collaborator) => {
+    const item = document.createElement("li"); item.className = "collaborator-member";
+    const identity = document.createElement("span"); identity.className = "collaborator-identity";
+    const email = document.createElement("strong"); email.textContent = collaborator.email;
+    const detail = document.createElement("small"); detail.textContent = "Can edit this capsule";
+    identity.append(email, detail);
+    const status = document.createElement("span"); status.className = `member-status ${collaborator.status}`;
+    status.textContent = collaborator.status === "active" ? "Active" : "Invited";
+    const remove = document.createElement("button"); remove.type = "button"; remove.className = "collaborator-remove"; remove.textContent = "Remove";
+    remove.setAttribute("aria-label", `Remove collaborator ${collaborator.email}`);
+    remove.addEventListener("click", () => removeCollaborator(collaborator.email));
+    item.append(collaboratorAvatar(collaborator), identity, status, remove); return item;
+  });
+  if (items.length === 0) {
+    const empty = document.createElement("li"); empty.className = "collaborator-empty";
+    empty.innerHTML = "<strong>No one else yet.</strong><span>You can keep going and invite people later.</span>"; items.push(empty);
+  }
+  collaboratorList.replaceChildren(...items);
+  collaboratorCount.textContent = collaborators.length === 0 ? "Just you" : `${collaborators.length + 1} people`;
+  renderPresence(); updateReview();
+}
+
+function addCollaborator() {
+  const email = collaboratorInput.value.trim().toLowerCase(); collaboratorInput.value = email;
+  if (!email) return showCollaboratorError("Enter an email address.");
+  if (!collaboratorInput.checkValidity()) return showCollaboratorError("Enter a valid email address.");
+  if (email === currentUserEmail || collaborators.some((collaborator) => collaborator.email === email)) return showCollaboratorError("That collaborator is already on the list.");
+  const status = activeCollaboratorEmail ? "invited" : "active";
+  collaborators.push({ email, initials: initialsFor(email), color: collaboratorColors[collaborators.length % collaboratorColors.length], status });
+  if (status === "active") activeCollaboratorEmail = email;
+  collaboratorInput.value = ""; clearCollaboratorError(); renderCollaborators(); collaboratorInput.focus();
 }
 
 function clearRecipientError() {
@@ -544,6 +646,10 @@ unlockAtInput.addEventListener("input", () => { clearFieldError(unlockAtField, u
 recipientInput.addEventListener("input", clearRecipientError);
 recipientInput.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); addRecipient(); } });
 addRecipientButton.addEventListener("click", addRecipient);
+collaboratorInput.addEventListener("input", clearCollaboratorError);
+collaboratorInput.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); addCollaborator(); } });
+addCollaboratorButton.addEventListener("click", addCollaborator);
+openCollaborateButton.addEventListener("click", () => showStep("collaborate", true));
 stepTabs.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.showStep, true)));
 nextStepButtons.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.nextStep, true)));
 backStepButtons.forEach((button) => button.addEventListener("click", () => showStep(button.dataset.backStep, true)));
@@ -569,5 +675,10 @@ window.addEventListener("keydown", (event) => {
 });
 sealButton.addEventListener("click", createCapsule);
 
-renderPoster(); renderLayers(); renderRecipients(); updateWritingMeta(); showStep(currentStep);
+renderPoster(); renderLayers(); renderRecipients(); renderCollaborators(); updateWritingMeta(); showStep(currentStep);
+window.futuremeSession.then((session) => {
+  if (!session.user?.email_address) return;
+  currentUserEmail = session.user.email_address;
+  ownerEmail.textContent = currentUserEmail; ownerAvatar.textContent = initialsFor(currentUserEmail); renderPresence();
+}).catch(() => {});
 loadCapsuleForEditing().catch((error) => { console.error(error); showValidationErrors({ base: [error.message || "Couldn't load this capsule."] }); });

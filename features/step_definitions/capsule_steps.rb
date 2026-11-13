@@ -49,6 +49,23 @@ When('I open the {string} step') do |step|
   click_button step
 end
 
+When('I continue alone') do
+  click_button 'Continue alone'
+end
+
+When('I add collaborator {string}') do |email|
+  fill_in 'Collaborator email', with: email
+  click_button 'Add collaborator'
+end
+
+When('I remove collaborator {string}') do |email|
+  find("button[aria-label='Remove collaborator #{email}']").click
+end
+
+Then('the current creation step is {string}') do |step|
+  expect(find('.step-tab[aria-current="step"]')).to have_text(step)
+end
+
 Then('the {string} field contains {string}') do |field, value|
   expect(page).to have_field(field, with: value)
 end

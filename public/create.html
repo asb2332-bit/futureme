@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/auth.css">
   <script src="/auth.js?v=frontend-port-1" defer></script>
   <script src="/postal.js?v=frontend-port-1" defer></script>
-  <script src="/create.js?v=guided-auth-1" defer></script>
+  <script src="/create.js?v=collaboration-ui-1" defer></script>
 </head>
 <body>
   <div class="stripe" aria-hidden="true"></div>
@@ -31,28 +31,86 @@
         <p class="eyebrow">New time capsule</p>
         <h1 id="create-title">Create something worth reopening.</h1>
       </div>
-      <p>Write the memory first, make it yours, then choose the day it returns.</p>
+      <p>Invite the people shaping this memory, write it together, then choose the day it returns.</p>
     </section>
 
     <nav class="create-steps" aria-label="Capsule creation steps">
-      <button type="button" class="step-tab" data-show-step="write" aria-label="Write" aria-current="step">
-        <span class="step-number">01</span><span><strong>Write</strong><small>Your message</small></span>
+      <button type="button" class="step-tab" data-show-step="collaborate" aria-label="Collaborate" aria-current="step">
+        <span class="step-number">01</span><span><strong>Collaborate</strong><small>Invite your people</small></span>
+      </button>
+      <button type="button" class="step-tab" data-show-step="write" aria-label="Write">
+        <span class="step-number">02</span><span><strong>Write</strong><small>Your message</small></span>
       </button>
       <button type="button" class="step-tab" data-show-step="design" aria-label="Design">
-        <span class="step-number">02</span><span><strong>Design</strong><small>Make it yours</small></span>
+        <span class="step-number">03</span><span><strong>Design</strong><small>Make it yours</small></span>
       </button>
       <button type="button" class="step-tab" data-show-step="deliver" aria-label="Deliver">
-        <span class="step-number">03</span><span><strong>Deliver</strong><small>Choose the day</small></span>
+        <span class="step-number">04</span><span><strong>Deliver</strong><small>Choose the day</small></span>
       </button>
     </nav>
+
+    <section class="collaboration-presence" aria-label="Capsule collaborators">
+      <div class="presence-avatars" id="presence-avatars" aria-hidden="true"></div>
+      <div class="presence-copy">
+        <strong id="presence-count" aria-live="polite">Working solo</strong>
+        <span id="presence-activity">Only you are in this draft</span>
+      </div>
+      <button type="button" class="presence-invite" id="open-collaborate">Invite</button>
+    </section>
 
     <div class="create-workspace">
       <section class="creator-panel" aria-label="Capsule details">
         <ul class="errors" id="form-errors" role="alert" aria-live="assertive"></ul>
 
-        <section class="flow-panel" id="step-write" data-step="write" aria-labelledby="write-heading">
+        <section class="flow-panel" id="step-collaborate" data-step="collaborate" aria-labelledby="collaborate-heading">
           <div class="flow-heading">
-            <p class="eyebrow">Step 1 of 3</p>
+            <p class="eyebrow">Step 1 of 4 · Optional</p>
+            <h2 id="collaborate-heading" tabindex="-1">Create it together.</h2>
+            <p>Invite collaborators now or come back later. Everyone you add can shape the words and design before the capsule is sealed.</p>
+          </div>
+
+          <section class="collaborator-owner" aria-label="Capsule owner">
+            <span class="collaborator-avatar is-owner" id="owner-avatar" aria-hidden="true">ME</span>
+            <span class="collaborator-identity"><strong id="owner-email">Your account</strong><small>You · Owner</small></span>
+            <span class="member-status active">Here now</span>
+          </section>
+
+          <section class="collaborator-composer" aria-labelledby="invite-heading">
+            <div class="group-heading">
+              <h3 id="invite-heading">Invite a collaborator</h3>
+              <span class="type">Can edit</span>
+            </div>
+            <p id="collaborator-help">Use the email connected to their FutureMe account.</p>
+            <label class="fld collaborator-field" for="collaborator-email">Collaborator email
+              <span class="collaborator-entry">
+                <input id="collaborator-email" type="email" placeholder="friend@example.com" autocomplete="email" aria-describedby="collaborator-help collaborator-error">
+                <button type="button" class="btn collaborator-add" id="add-collaborator">Add collaborator</button>
+              </span>
+              <span class="msg" id="collaborator-error" role="alert" hidden></span>
+            </label>
+          </section>
+
+          <section class="collaborator-roster" aria-labelledby="roster-heading">
+            <div class="group-heading">
+              <h3 id="roster-heading">People on this capsule</h3>
+              <span class="member-count" id="collaborator-count" aria-live="polite">Just you</span>
+            </div>
+            <ul class="collaborator-list" id="collaborator-list" aria-label="Collaborators"></ul>
+          </section>
+
+          <div class="collaboration-disclosure">
+            <span aria-hidden="true">i</span>
+            <p><strong>UI preview.</strong> Invitations and shared changes are previewed locally and are not sent or saved yet.</p>
+          </div>
+
+          <div class="step-actions end">
+            <button type="button" class="btn primary" data-next-step="write">Continue alone <span aria-hidden="true">→</span></button>
+          </div>
+        </section>
+
+        <section class="flow-panel" id="step-write" data-step="write" aria-labelledby="write-heading" hidden>
+          <div class="flow-heading">
+            <p class="eyebrow">Step 2 of 4</p>
             <h2 id="write-heading" tabindex="-1">Start with the words.</h2>
             <p>The design can change later. First, capture what you do not want to forget.</p>
           </div>
@@ -77,13 +135,14 @@
 
           <div class="step-actions end">
             <span class="draft-state" id="draft-state">Kept while you move between steps</span>
+            <button type="button" class="btn quiet" data-back-step="collaborate"><span aria-hidden="true">←</span> Collaborators</button>
             <button type="button" class="btn primary" data-next-step="design">Next: Design <span aria-hidden="true">→</span></button>
           </div>
         </section>
 
         <section class="flow-panel" id="step-design" data-step="design" aria-labelledby="design-heading" hidden>
           <div class="flow-heading">
-            <p class="eyebrow">Step 2 of 3</p>
+            <p class="eyebrow">Step 3 of 4</p>
             <h2 id="design-heading" tabindex="-1">Make it yours.</h2>
             <p>Choose a starting style, then add memories or arrange the poster directly.</p>
           </div>
@@ -153,7 +212,7 @@
 
         <section class="flow-panel" id="step-deliver" data-step="deliver" aria-labelledby="deliver-heading" hidden>
           <div class="flow-heading">
-            <p class="eyebrow">Step 3 of 3</p>
+            <p class="eyebrow">Step 4 of 4</p>
             <h2 id="deliver-heading" tabindex="-1">Choose the day.</h2>
             <p>Pick when the seal can be broken. You can come back any time before then to watch the countdown.</p>
           </div>
@@ -203,8 +262,10 @@
               <div><dt>Opens</dt><dd id="review-date">Choose an unlock date</dd></div>
               <div><dt>Inside</dt><dd id="review-contents">Message only</dd></div>
               <div><dt>Recipients</dt><dd id="review-recipients">No email recipients</dd></div>
+              <div><dt>Collaborators</dt><dd id="review-collaborators">No collaborators</dd></div>
             </dl>
-            <p class="seal-warning"><strong>Sealing is final.</strong> You will not be able to change the message or design afterward.</p>
+            <ul class="review-collaborator-list" id="review-collaborator-list" aria-label="Collaborators in this capsule"></ul>
+            <p class="seal-warning"><strong>Sealing is final.</strong> Editing ends for everyone, and the message and design cannot be changed afterward.</p>
             <button type="button" class="btn seal" id="seal-capsule"><span class="dot" aria-hidden="true">FM</span>Seal the capsule</button>
           </section>
 

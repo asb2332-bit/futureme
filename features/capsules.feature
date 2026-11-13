@@ -54,6 +54,53 @@ Feature: Time capsules
     Then I see "A letter for next spring"
     And I see "This capsule is locked"
 
+  Scenario: Collaborate before writing
+    When I visit FutureMe
+    And I visit the new capsule page
+    Then I see "Create it together"
+    And the current creation step is "Collaborate"
+    And I see "Invitations and shared changes are previewed locally"
+    When I continue alone
+    Then keyboard focus is on "Start with the words."
+    And the current creation step is "Write"
+    When I fill in "Title" with "A shared graduation letter"
+    And I open the "Collaborate" step
+    And I open the "Write" step
+    Then the "Title" field contains "A shared graduation letter"
+
+  Scenario: Manage capsule collaborators
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I add collaborator "sam@example.com"
+    Then I see "sam@example.com"
+    And I see "Active"
+    And I see "2 people here"
+    When I add collaborator "ana@example.com"
+    Then I see "ana@example.com"
+    And I see "Invited"
+    When I open the "Deliver" step
+    Then I see "sam@example.com (Active)"
+    And I see "ana@example.com (Invited)"
+    When I add email recipient "recipient@example.com"
+    Then I see "1 recipient"
+    And I see "2 collaborators"
+    When I open the "Collaborate" step
+    And I remove collaborator "ana@example.com"
+    Then I do not see "ana@example.com"
+    And I see "sam@example.com"
+
+  Scenario: Validate collaborator email
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I add collaborator ""
+    Then I see "Enter an email address."
+    When I add collaborator "not-an-email"
+    Then I see "Enter a valid email address."
+    When I add collaborator " ANA@example.com "
+    Then I see "ana@example.com"
+    When I add collaborator "ana@example.com"
+    Then I see "That collaborator is already on the list."
+
   Scenario: Manage multiple email recipients
     When I visit FutureMe
     And I visit the new capsule page
