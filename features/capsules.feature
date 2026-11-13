@@ -16,6 +16,7 @@ Feature: Time capsules
     Given I already have 5 capsules
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I fill in "Title" with "Sixth capsule"
     And I fill in "Message" with "This should not be created."
     And I fill in "Unlock at" with a date one day from now
@@ -25,6 +26,7 @@ Feature: Time capsules
   Scenario: Create a future capsule
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I fill in "Title" with "Graduation day"
     And I fill in "Message" with "I am proud of how far you have come."
     And I continue to "Design"
@@ -37,6 +39,7 @@ Feature: Time capsules
   Scenario: Use the guided create flow
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     Then I see "Start with the words"
     When I fill in "Title" with "A letter for next spring"
     And I fill in "Message" with "Remember how hopeful today felt."
@@ -101,6 +104,35 @@ Feature: Time capsules
     When I add collaborator "ana@example.com"
     Then I see "That collaborator is already on the list."
 
+  Scenario: Show live collaborator presence
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I add collaborator "sam@example.com"
+    And I add collaborator "ana@example.com"
+    And I open the "Write" step
+    Then I see "sam@example.com is writing · Write"
+    And I see "sam@example.com is writing"
+    And I do not see "ana@example.com is writing"
+    When I continue to "Design"
+    Then I see "sam@example.com is arranging the poster · Design"
+    And I see "sam@example.com cursor"
+    And I see "sam@example.com is editing Message"
+    And I see "SA editing"
+
+  Scenario: Return to solo presence
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I add collaborator "sam@example.com"
+    And I add collaborator "ana@example.com"
+    And I remove collaborator "sam@example.com"
+    Then I see "Working solo"
+    And I see "Only you are in this draft"
+    And I do not see "sam@example.com is writing"
+    When I open the "Design" step
+    Then I do not see "sam@example.com cursor"
+    When I continue to "Deliver"
+    Then I see "ana@example.com (Invited)"
+
   Scenario: Manage multiple email recipients
     When I visit FutureMe
     And I visit the new capsule page
@@ -120,6 +152,7 @@ Feature: Time capsules
   Scenario: Create a customized poster capsule
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I continue to "Design"
     And I choose "Night" from "Theme"
     And I fill in "Icon" with "✦"
@@ -139,6 +172,7 @@ Feature: Time capsules
   Scenario: Make a text block the title
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I add a message block
     And I fill in "Message block 1" with "A better title"
     And I click "Make selected message title"
@@ -150,6 +184,7 @@ Feature: Time capsules
   Scenario: Create a capsule with an added message block
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I fill in "Title" with "Message blocks work"
     And I add a message block
     And I fill in "Message block 1" with "This is the message"
@@ -160,6 +195,7 @@ Feature: Time capsules
   Scenario: Create a capsule with a linked image
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I fill in "Image URL" with "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee"
     And I press Enter in "Image URL"
     And I fill in "Title" with "My image capsule"
@@ -172,6 +208,7 @@ Feature: Time capsules
   Scenario: Create a capsule with an uploaded image
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I attach an image file
     And I fill in "Title" with "My uploaded image capsule"
     And I fill in "Message" with "A message for later"
@@ -183,6 +220,7 @@ Feature: Time capsules
   Scenario: Create a capsule with audio
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I attach an audio file
     Then I can play the selected audio
     And I fill in "Title" with "My audio capsule"
@@ -194,6 +232,7 @@ Feature: Time capsules
   Scenario: Create a capsule with repeated audio and video files
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I attach an audio file
     And I attach an audio file
     And I attach a video file
@@ -209,6 +248,7 @@ Feature: Time capsules
   Scenario: Remove a linked image before sealing
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I fill in "Image URL" with "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee"
     And I press Enter in "Image URL"
     And I delete the selected image
@@ -322,6 +362,7 @@ Feature: Time capsules
   Scenario: Reject an unlock time in the past
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I fill in "Title" with "Too late"
     And I fill in "Message" with "Oops"
     And I continue to "Design"
@@ -338,6 +379,7 @@ Feature: Time capsules
   Scenario: Add a photo and a voice note
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I continue to "Design"
     And I attach "grad.jpg" with "Add photo"
     And I attach "voice_note.m4a" with "Add audio"
@@ -362,6 +404,7 @@ Feature: Time capsules
   Scenario: Reject an unsupported file
     When I visit FutureMe
     And I visit the new capsule page
+    And I continue alone
     And I continue to "Design"
     And I attach "setup.exe" with "Add photo"
     Then I see "File type not supported"

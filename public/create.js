@@ -34,6 +34,8 @@ const messageError = document.querySelector("#message-error");
 const unlockError = document.querySelector("#unlock-error");
 const titleCount = document.querySelector("#title-count");
 const messageCount = document.querySelector("#message-count");
+const titleActivity = document.querySelector("#title-activity");
+const messageActivity = document.querySelector("#message-activity");
 const reviewTitle = document.querySelector("#review-title");
 const reviewDate = document.querySelector("#review-date");
 const reviewContents = document.querySelector("#review-contents");
@@ -103,6 +105,7 @@ function showStep(stepName, moveFocus = false) {
     else tab.removeAttribute("aria-current");
   });
   updateReview();
+  renderPresence(); renderPoster(); renderLayers();
   if (moveFocus) document.querySelector(`#step-${stepName} h2`).focus();
 }
 
@@ -132,6 +135,10 @@ function updateReview() {
 }
 
 const collaboratorColors = ["#6f56a5", "#167f78", "#b85c2b"];
+
+function activeCollaborator() {
+  return collaborators.find((collaborator) => collaborator.email === activeCollaboratorEmail && collaborator.status === "active") || null;
+}
 
 function initialsFor(email) {
   const name = String(email || "").split("@")[0];
@@ -173,7 +180,20 @@ function renderPresence() {
   presenceAvatars.replaceChildren(owner, ...active.map((collaborator) => collaboratorAvatar(collaborator)));
   const peopleHere = 1 + active.length;
   presenceCount.textContent = peopleHere === 1 ? "Working solo" : `${peopleHere} people here`;
-  presenceActivity.textContent = active.length === 0 ? "Only you are in this draft" : `${active[0].email} is editing with you`;
+  const collaborator = activeCollaborator();
+  const activityByStep = {
+    collaborate: `${collaborator?.email} joined this capsule · Collaborate`,
+    write: `${collaborator?.email} is writing · Write`,
+    design: `${collaborator?.email} is arranging the poster · Design`,
+    deliver: `${collaborator?.email} is reviewing details · Deliver`
+  };
+  presenceActivity.textContent = collaborator ? activityByStep[currentStep] : "Only you are in this draft";
+  titleActivity.hidden = true; titleActivity.textContent = ""; titleField.classList.remove("remote-active");
+  messageActivity.hidden = !(collaborator && currentStep === "write");
+  messageActivity.textContent = collaborator && currentStep === "write" ? `${collaborator.email} is writing` : "";
+  messageField.classList.toggle("remote-active", Boolean(collaborator && currentStep === "write"));
+  if (collaborator) messageField.style.setProperty("--remote-color", collaborator.color);
+  else messageField.style.removeProperty("--remote-color");
 }
 
 function renderCollaborators() {
@@ -196,7 +216,7 @@ function renderCollaborators() {
   }
   collaboratorList.replaceChildren(...items);
   collaboratorCount.textContent = collaborators.length === 0 ? "Just you" : `${collaborators.length + 1} people`;
-  renderPresence(); updateReview();
+  renderPresence(); updateReview(); renderPoster(); renderLayers();
 }
 
 function addCollaborator() {
@@ -290,6 +310,7 @@ function blockLabel(id) {
 function isMediaBlock(block) { return ["image", "audio", "video"].includes(block?.type); }
 
 function renderLayers() {
+  const remoteEditor = activeCollaborator();
   const layers = [];
   if (!design.hidden_blocks.includes("title")) layers.push(["title", false]);
   layers.push(["message", true], ["icon", false]);
@@ -298,7 +319,13 @@ function renderLayers() {
     const item = document.createElement("li"); const button = document.createElement("button");
     button.type = "button"; button.setAttribute("aria-pressed", String(selectedBlockId === id)); button.textContent = blockLabel(id);
     const note = document.createElement("small"); note.innerHTML = sealed ? `${Postal.lockSvg}sealed` : "on envelope";
-    button.append(note); button.addEventListener("click", () => selectBlock(id)); item.append(button); return item;
+    button.append(note);
+    if (remoteEditor && currentStep === "design" && id === "message") {
+      const activity = document.createElement("small"); activity.className = "remote-layer-activity";
+      activity.style.setProperty("--remote-color", remoteEditor.color); activity.textContent = `${remoteEditor.initials} editing`;
+      button.append(activity);
+    }
+    button.addEventListener("click", () => selectBlock(id)); item.append(button); return item;
   }));
   const selectedSealed = design.sealed_blocks.find((block) => block.id === selectedBlockId);
   removeButton.hidden = !selectedSealed;
@@ -410,6 +437,11 @@ function addPosterBlock(id, text, block, editable) {
   if (selectedBlockId === id) { element.classList.add("selected"); addSelectionHandles(element, id); }
   element.style.left = `${block.x}%`; element.style.top = `${block.y}%`; element.style.width = `${block.width}%`;
   element.style.height = `${block.height}%`; element.style.transform = `rotate(${block.rotation}deg)`;
+  const remoteEditor = activeCollaborator();
+  if (remoteEditor && currentStep === "design" && id === "message") {
+    element.classList.add("remote-selected"); element.dataset.remoteEditor = remoteEditor.email;
+    element.style.setProperty("--remote-color", remoteEditor.color);
+  }
   if (editable) {
     element.contentEditable = "false"; element.setAttribute("aria-label", blockLabel(id));
     element.addEventListener("input", () => {
@@ -428,6 +460,24 @@ function addPosterBlock(id, text, block, editable) {
     startDragging(event, id);
   });
   posterPreview.append(element);
+  if (remoteEditor && currentStep === "design" && id === "message") {
+    const frame = document.createElement("span"); frame.className = "remote-selection-frame"; frame.setAttribute("aria-hidden", "true");
+    frame.style.left = `${block.x}%`; frame.style.top = `${block.y}%`; frame.style.width = `${block.width}%`; frame.style.height = `${block.height}%`;
+    frame.style.transform = `rotate(${block.rotation}deg)`; frame.style.setProperty("--remote-color", remoteEditor.color);
+    const label = document.createElement("span"); label.className = "remote-selection-label";
+    label.textContent = `${remoteEditor.email} is editing Message`; frame.append(label); posterPreview.append(frame);
+  }
+}
+
+function renderRemoteCursor() {
+  const collaborator = activeCollaborator();
+  if (!collaborator || currentStep !== "design") return;
+  const cursor = document.createElement("span"); cursor.className = "remote-cursor"; cursor.setAttribute("aria-hidden", "true");
+  cursor.style.setProperty("--remote-color", collaborator.color);
+  const pointer = document.createElement("span"); pointer.className = "remote-cursor-pointer"; pointer.textContent = "◆";
+  const label = document.createElement("span"); label.className = "remote-cursor-label"; label.textContent = `${collaborator.email} cursor`;
+  cursor.append(pointer, label);
+  posterPreview.append(cursor);
 }
 
 function renderPoster() {
@@ -438,6 +488,7 @@ function renderPoster() {
   addPosterBlock("icon", theme.icon || "⏳", design.icon_block, false);
   addPosterBlock("message", messageText, design.message_block, true);
   design.sealed_blocks.forEach((block) => addPosterBlock(block.id, isMediaBlock(block) ? null : (block.text === placeholders.note ? "" : block.text), block, !isMediaBlock(block)));
+  renderRemoteCursor();
 }
 
 function showUploadError(message) {

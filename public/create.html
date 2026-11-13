@@ -116,12 +116,14 @@
           </div>
 
           <div class="form-stack">
-            <label class="fld" id="title-field" for="capsule-title">Title
+            <label class="fld" id="title-field" for="capsule-title">
+              <span class="field-label-row"><span>Title</span><span class="field-activity" id="title-activity" hidden></span></span>
               <input id="capsule-title" aria-label="Title" type="text" maxlength="120" placeholder="A note for graduation day" autocomplete="off">
               <span class="field-meta"><span>Shown on the sealed envelope</span><span id="title-count">0 / 120</span></span>
               <span class="msg" id="title-error" hidden></span>
             </label>
-            <label class="fld" id="message-field" for="capsule-message">Message
+            <label class="fld" id="message-field" for="capsule-message">
+              <span class="field-label-row"><span>Message</span><span class="field-activity" id="message-activity" hidden></span></span>
               <textarea id="capsule-message" aria-label="Message" rows="9" placeholder="Write to the person who will open this..."></textarea>
               <span class="field-meta"><span>Hidden until the unlock date</span><span id="message-count">0 words</span></span>
               <span class="msg" id="message-error" hidden></span>
