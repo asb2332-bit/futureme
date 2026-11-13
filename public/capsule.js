@@ -16,13 +16,11 @@ function showSealedToast(capsule) {
   toast.className = "toast";
   toast.setAttribute("role", "status");
   toast.textContent = `Sealed. Opens ${Postal.formatDay(capsule.unlock_at)}.`;
-  // Drop ?sealed=1 so a reload doesn't show the toast again.
   history.replaceState(null, "", `/capsule.html?id=${encodeURIComponent(capsule.id)}`);
 }
 
 function bigEnvelopeHTML(capsule) {
   const p = Postal.postmarkParts(capsule.unlock_at);
-
   return `<div class="big-env" id="capsule-poster">
       <div class="top">${Postal.postmarkHTML(capsule.created_at, "SEALED", false)}${Postal.stampHTML(capsule)}</div>
       <div class="to">
@@ -34,8 +32,27 @@ function bigEnvelopeHTML(capsule) {
     </div>`;
 }
 
-// Locked: show the envelope only. The poster's message never reaches this page while sealed.
-function showLocked(capsule) {
+function lockedActionsHTML(capsule, csrfToken) {
+  const deleteAction = `/capsules/${encodeURIComponent(capsule.id)}/delete`;
+  return `<div class="owner-actions">
+    <p class="eyebrow">Owned by your account</p>
+    <div class="row">
+      <a class="btn sm quiet" href="/create.html?id=${encodeURIComponent(capsule.id)}">Edit capsule</a>
+      <form class="delete-capsule-form" action="${deleteAction}" method="post">
+        <input type="hidden" name="authenticity_token" value="${esc(csrfToken)}">
+        <button class="btn sm danger" type="submit">Delete capsule</button>
+      </form>
+    </div>
+  </div>`;
+}
+
+function bindLockedActions() {
+  document.querySelector(".delete-capsule-form")?.addEventListener("submit", (event) => {
+    if (!window.confirm("Delete this capsule? This cannot be undone.")) event.preventDefault();
+  });
+}
+
+function showLocked(capsule, csrfToken) {
   view.innerHTML = `${backLink()}
     <section class="cap-page">
       ${bigEnvelopeHTML(capsule)}
@@ -58,16 +75,17 @@ function showLocked(capsule) {
           <button type="button" class="btn sm quiet" id="copy-link">Copy link</button>
           <span id="copied" class="eyebrow" role="status" hidden>Link copied</span>
         </div>
+        ${lockedActionsHTML(capsule, csrfToken)}
       </div>
     </section>`;
 
   startCountdown(capsule);
   document.querySelector("#copy-link").addEventListener("click", copyLink);
+  bindLockedActions();
 }
 
 function startCountdown(capsule) {
   const flap = document.querySelector("#capsule-unlock-time");
-
   const tick = () => {
     const seconds = Math.max(0, Math.floor((time(capsule.unlock_at) - Date.now()) / 1000));
     if (seconds === 0) {
@@ -76,7 +94,12 @@ function startCountdown(capsule) {
       return;
     }
 
-    const values = { d: Math.floor(seconds / 86_400), h: Math.floor((seconds % 86_400) / 3_600), m: Math.floor((seconds % 3_600) / 60), s: seconds % 60 };
+    const values = {
+      d: Math.floor(seconds / 86_400),
+      h: Math.floor((seconds % 86_400) / 3_600),
+      m: Math.floor((seconds % 3_600) / 60),
+      s: seconds % 60
+    };
     flap.querySelectorAll("b").forEach((digit) => {
       const value = values[digit.dataset.unit];
       digit.textContent = digit.dataset.unit === "d" ? value : String(value).padStart(2, "0");
@@ -98,8 +121,6 @@ async function copyLink() {
   copied.hidden = false;
 }
 
-// Ready: the unlock time has passed but nobody has broken the seal yet. The server still
-// withholds the contents; POST /open breaks the seal and returns them.
 function showReady(capsule) {
   view.innerHTML = `${backLink()}
     <section class="cap-page">
@@ -138,8 +159,12 @@ async function breakSeal(capsule) {
   document.querySelector(".big-env").classList.add("breaking");
 
   try {
+    const session = await window.futuremeSession;
     const [response] = await Promise.all([
-      fetch(`/api/capsules/${encodeURIComponent(capsule.id)}/open`, { method: "POST", headers: { Accept: "application/json" } }),
+      fetch(`/api/capsules/${encodeURIComponent(capsule.id)}/open`, {
+        method: "POST",
+        headers: { Accept: "application/json", "X-CSRF-Token": session.csrf_token }
+      }),
       pause(reducedMotion() ? 0 : 650)
     ]);
     const body = await response.json().catch(() => ({}));
@@ -157,12 +182,100 @@ function writtenAgo(capsule) {
   return days === 0 ? "Written today." : `Written ${plural(days, "day")} ago.`;
 }
 
-// Unlocked: the poster slides out of the envelope pocket (CSS skips this under prefers-reduced-motion).
+function isHidden(design, name) {
+  return (design.hidden_blocks || []).includes(name);
+}
+
+function mediaType(block) {
+  if (block.type === "image" || block.type === "audio" || block.type === "video") return block.type;
+  if (block.media_type) return block.media_type;
+  if (block.image_url || Number.isInteger(block.image_index)) return "image";
+  return "text";
+}
+
+function mediaUrl(capsule, block, type) {
+  if (block.url) return block.url;
+  if (type === "image") return block.image_url || capsule.image_urls?.[block.image_index];
+  const urls = type === "audio" ? capsule.audio_url : capsule.video_url;
+  return urls?.[block.media_index];
+}
+
+function mediaBlockHTML(capsule, block, number) {
+  const type = mediaType(block);
+  const src = mediaUrl(capsule, block, type);
+  const style = Postal.blockStyle(block);
+  if (type === "image" && src) {
+    return `<div class="pb photo" style="${style}"><img src="${esc(src)}" alt="Capsule photo ${number}" loading="lazy"></div>`;
+  }
+  if (type === "audio" && src) {
+    return `<div class="pb audio" style="${style}" data-src="${esc(src)}" role="group" aria-label="Voice note ${number}">${Postal.audioPillHTML()}</div>`;
+  }
+  if (type === "video" && src) {
+    return `<div class="pb video" style="${style}"><video src="${esc(src)}" controls playsinline preload="metadata"></video></div>`;
+  }
+  if (type === "text") return `<div class="pb note" style="${style}">${esc(block.text)}</div>`;
+  return "";
+}
+
+function openedPosterHTML(capsule) {
+  const design = capsule.design || {};
+  const theme = Postal.themeOf(design);
+  let html = `<div class="poster" data-font="${esc(theme.font)}" style="${Postal.posterStyle(theme)}">`;
+  if (!isHidden(design, "title")) {
+    html += `<div class="pb title" style="${Postal.blockStyle(Postal.blockOf(design, "title_block"))}">${esc(capsule.title)}</div>`;
+  }
+  if (!isHidden(design, "icon")) {
+    html += `<div class="pb icon" style="${Postal.blockStyle(Postal.blockOf(design, "icon_block"))}">${esc(theme.icon)}</div>`;
+  }
+  if (!isHidden(design, "message")) {
+    html += `<div class="pb message" style="${Postal.blockStyle(Postal.blockOf(design, "message_block"))}">${esc(capsule.message)}</div>`;
+  }
+
+  const blocks = [...(design.sealed_blocks || [])];
+  if (design.audio_block && capsule.audio_url?.[0] && !blocks.some((block) => mediaType(block) === "audio" && block.media_index === 0)) {
+    blocks.push({ ...design.audio_block, type: "audio", media_index: 0 });
+  }
+  if (design.video_block && capsule.video_url?.[0] && !blocks.some((block) => mediaType(block) === "video" && block.media_index === 0)) {
+    blocks.push({ ...design.video_block, type: "video", media_index: 0 });
+  }
+
+  const counts = { image: 0, audio: 0, video: 0 };
+  blocks.forEach((block) => {
+    const type = mediaType(block);
+    if (counts[type] !== undefined) counts[type] += 1;
+    html += mediaBlockHTML(capsule, block, counts[type] || 0);
+  });
+  return `${html}</div>`;
+}
+
+function unplacedMediaHTML(capsule) {
+  const design = capsule.design || {};
+  const placed = { image: new Set(), audio: new Set(), video: new Set() };
+  (design.sealed_blocks || []).forEach((block) => {
+    const type = mediaType(block);
+    const src = mediaUrl(capsule, block, type);
+    if (placed[type] && src) placed[type].add(src);
+  });
+  if (design.audio_block && capsule.audio_url?.[0]) placed.audio.add(capsule.audio_url[0]);
+  if (design.video_block && capsule.video_url?.[0]) placed.video.add(capsule.video_url[0]);
+
+  const images = (capsule.image_urls || []).filter((url) => !placed.image.has(url));
+  const audio = (capsule.audio_url || []).filter((url) => !placed.audio.has(url));
+  const video = (capsule.video_url || []).filter((url) => !placed.video.has(url));
+  if (!images.length && !audio.length && !video.length) return "";
+
+  let html = '<section class="media-archive" aria-label="Capsule attachments"><h3>Also inside</h3>';
+  if (images.length) html += `<div class="capsule-images">${images.map((url, index) => `<img src="${esc(url)}" alt="Capsule photo ${index + 1}" loading="lazy">`).join("")}</div>`;
+  if (audio.length) html += `<div class="capsule-media">${audio.map((url) => `<audio src="${esc(url)}" controls preload="metadata"></audio>`).join("")}</div>`;
+  if (video.length) html += `<div class="capsule-media">${video.map((url) => `<video src="${esc(url)}" controls playsinline preload="metadata"></video>`).join("")}</div>`;
+  return `${html}</section>`;
+}
+
 function showOpened(capsule) {
   view.innerHTML = `${backLink()}
-    <section class="cap-page">
+    <section class="cap-page opened-capsule">
       <div class="opening" id="capsule-poster">
-        ${Postal.posterHTML(capsule)}
+        ${openedPosterHTML(capsule)}
         <div class="pocket" aria-hidden="true"><div class="wax">FM</div></div>
       </div>
       <div class="info">
@@ -174,6 +287,7 @@ function showOpened(capsule) {
           <dt>Opened</dt><dd>${esc(Postal.formatDate(capsule.opened_at || capsule.unlock_at))}</dd>
           <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
         </dl>
+        ${unplacedMediaHTML(capsule)}
         <div class="row"><a class="btn primary" href="/create.html">Seal another</a></div>
       </div>
     </section>`;
@@ -184,7 +298,7 @@ function showNotFound() {
   view.innerHTML = `<section class="rts">
     <span class="rubber">Return to sender</span>
     <h1>Capsule not found</h1>
-    <p>This link doesn't match any capsule. Check it for a typo.</p>
+    <p>This capsule doesn't exist or it doesn't belong to your account.</p>
     <a class="btn primary" href="/">Back to all capsules</a>
   </section>`;
 }
@@ -198,25 +312,43 @@ function showUnreachable() {
   document.querySelector("#reload").addEventListener("click", () => window.location.reload());
 }
 
+async function deleteSession(capsule) {
+  const action = `/capsules/${encodeURIComponent(capsule.id)}/delete`;
+  try {
+    const response = await fetch(`/api/session?form_action=${encodeURIComponent(action)}`, { cache: "no-store" });
+    if (response.ok) return response.json();
+  } catch (error) {
+    // The generic token from the already-loaded session is a safe fallback.
+  }
+  return window.futuremeSession;
+}
+
 async function loadCapsule() {
   clearInterval(countdownTimer);
+  view.innerHTML = '<p class="loading">Opening the mailbox…</p>';
 
-  let capsule;
   try {
+    const session = await window.futuremeSession;
+    if (!session.user) return;
+
     const response = await fetch(`/api/capsules/${encodeURIComponent(capsuleId)}`);
-    // Only a real 404 is "not found"; anything else (5xx, offline) is a connection problem.
     if (response.status === 404) return showNotFound();
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    capsule = await response.json();
-  } catch (error) {
-    return showUnreachable();
-  }
+    const capsule = await response.json();
 
-  document.title = `${capsule.title} · FutureMe`;
-  showSealedToast(capsule);
-  if (capsule.locked) showLocked(capsule);
-  else if (capsule.opened) showOpened(capsule);
-  else showReady(capsule);
+    document.title = `${capsule.title} · FutureMe`;
+    showSealedToast(capsule);
+    if (capsule.locked) {
+      const scopedSession = await deleteSession(capsule);
+      showLocked(capsule, scopedSession.csrf_token);
+    } else if (capsule.opened) {
+      showOpened(capsule);
+    } else {
+      showReady(capsule);
+    }
+  } catch (error) {
+    showUnreachable();
+  }
 }
 
 if (capsuleId) {

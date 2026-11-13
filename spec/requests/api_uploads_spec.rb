@@ -1,6 +1,12 @@
 require 'rails_helper'
 
 RSpec.describe 'Uploads API', type: :request do
+  let(:user) { User.create!(email_address: 'legacy-upload@example.com', password: 'a-secure-password') }
+
+  before do
+    post login_path, params: { email_address: user.email_address, password: 'a-secure-password' }
+  end
+
   def response_body
     JSON.parse(response.body)
   end

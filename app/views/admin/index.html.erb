@@ -1,0 +1,9 @@
+<section class="account-card admin-card">
+  <p class="eyebrow">ADMINISTRATION</p>
+  <h1>Account overview</h1>
+  <p><%= @user_count %> accounts · <%= @capsule_count %> capsules</p>
+  <p>Showing up to 100 accounts. Capsule messages remain private to their owners.</p>
+  <table><thead><tr><th>Email</th><th>Role</th><th>Joined</th></tr></thead>
+    <tbody><% @users.each do |user| %><tr><td><%= user.email_address %></td><td><%= user.role %></td><td><%= user.created_at.to_date %></td></tr><% end %></tbody>
+  </table>
+</section>

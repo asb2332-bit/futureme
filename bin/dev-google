@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+# Load local Google credentials without placing secrets in Git or shell history.
+require 'json'
+path = ENV.fetch('GOOGLE_OAUTH_CREDENTIALS_FILE', File.expand_path('~/.config/futureme/google-oauth.json'))
+abort "Google credentials file not found: #{path}" unless File.file?(path)
+credentials = JSON.parse(File.read(path)).fetch('web')
+ENV['GOOGLE_CLIENT_ID'] = credentials.fetch('client_id')
+ENV['GOOGLE_CLIENT_SECRET'] = credentials.fetch('client_secret')
+Dir.chdir(File.expand_path('..', __dir__))
+exec File.join(__dir__, 'rails'), 'server', *ARGV

@@ -6,15 +6,20 @@
   <title>FutureMe</title>
   <link rel="preload" href="/fonts/young-serif-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/auth.css">
   <script src="/postal.js" defer></script>
+  <script src="/auth.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
   <div class="stripe" aria-hidden="true"></div>
   <main class="app">
-    <header class="site-nav">
+    <header class="site-nav" data-account-controls="false">
       <a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
-      <a class="btn sm primary" href="/create.html">Create a capsule</a>
+      <span class="nav-actions">
+        <a class="btn sm primary" data-create-capsule href="/create.html">Create a capsule</a>
+        <span class="account-nav"></span>
+      </span>
     </header>
 
     <section class="hero">

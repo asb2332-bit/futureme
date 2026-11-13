@@ -1,10 +1,15 @@
 # FutureMe
 
-Preserve the moment. Share the meaning.
+FutureMe is a digital time-capsule app. Signed-in users can design a capsule with text, images, audio, and video; seal it until a future date; and reopen or edit their own capsules later.
 
-FutureMe lets people create digital time capsules containing a message that remains sealed until a chosen future date.
+## Iteration 1 submission
 
-## Team Members
+- **Working SaaS prototype:** <https://calm-shore-09946-2d1c172059b3.herokuapp.com/>
+- **GitHub repository:** <https://github.com/asb2332-bit/futureme>
+- **Cucumber user stories:** [`features/`](features/)
+- **RSpec tests:** [`spec/`](spec/)
+
+## Team members
 
 | Name | UNI |
 | --- | --- |
@@ -15,12 +20,15 @@ FutureMe lets people create digital time capsules containing a message that rema
 
 ## Requirements
 
-- Ruby 3.3.8 (managed by rbenv)
-- Docker Desktop
+- Ruby 3.3.8
+- Bundler
+- Docker Desktop (for local PostgreSQL)
 
 ## Run locally
 
 ```sh
+git clone https://github.com/asb2332-bit/futureme.git
+cd futureme
 docker compose up -d db
 bundle install
 bin/rails db:prepare
@@ -29,42 +37,58 @@ bin/rails server
 
 Open <http://localhost:3000>.
 
-Optional demo data (4 capsules with photos and voice notes, matching the UI prototype):
+Optional demo data (four capsules with photos and voice notes matching the UI prototype):
 
 ```sh
 bin/rails db:seed
 ```
 
-Seeding only creates capsules that don't exist yet (matched by title); it never changes or deletes existing data.
+Seeding only creates capsules that do not exist yet (matched by title); it never changes or deletes existing data.
 
-## Uploaded photos and voice notes
+### Optional local integrations
 
-Photos and voice notes are stored with Active Storage on local disk (no cloud storage):
+Create a local `.env` file for Cloudinary uploads and Google sign-in. Development automatically loads this file; never commit it.
 
-- Development: `storage/` in the repo (git-ignored).
-- Test: `tmp/storage/`, removed after each RSpec run.
-- Docker (`docker compose --profile app up --build`): `/rails/storage` inside the container,
-  backed by the named volume `storage_data`, so uploads survive rebuilds and redeploys.
-  Export `RAILS_MASTER_KEY` (contents of `config/master.key`) or `SECRET_KEY_BASE` first,
-  and keep it the same across deploys: upload ids are signed with it, so a new secret
-  invalidates uploads that haven't been sealed yet. Back up the `storage_data` volume along
-  with the database; `docker compose down -v` deletes it.
+```dotenv
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+```
 
-Uploads that are never sealed into a capsule are left behind. Remove the ones older than a day with:
+Cloudinary persists uploaded media outside the local process. The repository also defines a local Active Storage disk service for development or Docker configurations that select it; in Docker, back up the `storage_data` volume with the database. Upload IDs are signed, so keep `RAILS_MASTER_KEY` or `SECRET_KEY_BASE` stable across deployments.
+
+Google OAuth is optional; email/password accounts work without it. For local Google sign-in, add this authorized redirect URI in Google Cloud Console:
+
+```text
+http://localhost:3000/auth/google_oauth2/callback
+```
+
+Uploads that are never attached to a capsule can be removed after one day with:
 
 ```sh
 bin/rails futureme:purge_unattached_uploads
 ```
 
-## Test
+Stop the local database with:
+
+```sh
+docker compose down
+```
+
+## Run tests
 
 ```sh
 bundle exec rspec
 bundle exec cucumber
 ```
 
-## Stop the database
+The Cucumber stories cover registration/login, authorization, creating and viewing capsules, multiple capsules, custom poster layouts, and image/audio/video media. The RSpec suite covers models and authenticated API behavior.
 
-```sh
-docker compose down
-```
+## Product limits
+
+These limits keep the prototype within the Cloudinary free-tier storage allowance.
+
+- Each account can create up to **5 capsules**.
+- Uploaded image, audio, and video files are limited to **2 MB total per capsule**.

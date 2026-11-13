@@ -50,6 +50,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_11_05_235900) do
     t.datetime "updated_at", null: false
     t.jsonb "design", default: {}, null: false
     t.datetime "opened_at"
+    t.bigint "user_id"
+    t.index ["user_id"], name: "index_capsules_on_user_id"
   end
 
   create_table "users", force: :cascade do |t|
@@ -57,9 +59,14 @@ ActiveRecord::Schema[7.1].define(version: 2026_11_05_235900) do
     t.string "password_digest"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "role", default: "user", null: false
+    t.string "google_uid"
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
+    t.index ["google_uid"], name: "index_users_on_google_uid", unique: true
+    t.check_constraint "role::text = ANY (ARRAY['user'::character varying, 'admin'::character varying]::text[])", name: "users_valid_role"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "capsules", "users"
 end

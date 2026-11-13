@@ -1,6 +1,5 @@
-# Uploaded photos and voice notes. Disk only (no cloud storage).
-# In Docker, /rails/storage is the named volume "storage_data" (see compose.yml),
-# so uploads survive redeploys.
+# Tests use disposable local storage. Development/production can choose either the local
+# service or Cloudinary through their environment configuration.
 test:
   service: Disk
   root: <%= Rails.root.join("tmp/storage") %>
@@ -8,3 +7,13 @@ test:
 local:
   service: Disk
   root: <%= Rails.root.join("storage") %>
+
+cloudinary:
+  service: Cloudinary
+  cloud_name: <%= ENV["CLOUDINARY_CLOUD_NAME"] %>
+  api_key: <%= ENV["CLOUDINARY_API_KEY"] %>
+  api_secret: <%= ENV["CLOUDINARY_API_SECRET"] %>
+  folder: futureme
+  secure: true
+  type: authenticated
+  sign_url: true

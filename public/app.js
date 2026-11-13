@@ -80,6 +80,14 @@ function setStatusFilter(status) {
 }
 
 function renderCapsules() {
+  if (capsulesLoadState === "signed-out") {
+    resultCount.textContent = "Log in to view your archive";
+    capsulesContainer.innerHTML = `<div class="empty"><div class="wax">FM</div><h3>Your archive is waiting</h3>
+      <p>Log in to see the capsules that belong to your account.</p>
+      <a class="btn primary" href="/login">Log in</a></div>`;
+    return;
+  }
+
   if (capsulesLoadState === "error") {
     resultCount.textContent = "Capsules unavailable";
     capsulesContainer.innerHTML = `<p class="loading">Couldn't load your capsules. Refresh to try again.</p>`;
@@ -137,6 +145,15 @@ function showCapsules(capsuleList) {
 
 async function loadCapsules() {
   try {
+    const session = await window.futuremeSession;
+    if (!session.user) {
+      clearTimeout(refreshTimer);
+      allCapsules = [];
+      capsulesLoadState = "signed-out";
+      renderCapsules();
+      return;
+    }
+
     const response = await fetch(capsulesUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     allCapsules = await response.json();

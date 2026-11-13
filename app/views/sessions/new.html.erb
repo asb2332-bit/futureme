@@ -1,0 +1,14 @@
+<section class="account-card">
+  <p class="eyebrow">YOUR MEMORIES, YOUR ACCOUNT</p>
+  <h1>Welcome back.</h1>
+  <p>Log in to create and open your time capsules.</p>
+  <%= form_with url: login_path do |f| %>
+    <%= f.label :email_address, "Email" %>
+    <%= f.email_field :email_address, required: true, autocomplete: "email" %>
+    <%= f.label :password %>
+    <%= f.password_field :password, required: true, autocomplete: "current-password" %>
+    <%= f.submit "Log in", class: "btn primary" %>
+  <% end %>
+  <%= render "shared/google_login" %>
+  <p>New here?</p><%= link_to "Create an account", signup_path, class: "btn quiet" %>
+</section>

@@ -7,15 +7,23 @@
   <title>Create a capsule · FutureMe</title>
   <link rel="preload" href="/fonts/young-serif-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/app.css">
-  <script src="/postal.js" defer></script>
-  <script src="/create.js" defer></script>
+  <link rel="stylesheet" href="/auth.css">
+  <script src="/auth.js?v=frontend-port-1" defer></script>
+  <script src="/postal.js?v=frontend-port-1" defer></script>
+  <script src="/create.js?v=guided-auth-1" defer></script>
 </head>
 <body>
   <div class="stripe" aria-hidden="true"></div>
+  <div id="saving-overlay" class="saving-overlay" hidden role="status" aria-live="polite">
+    <div class="saving-card"><span class="saving-spinner" aria-hidden="true"></span><strong>Sealing your capsule…</strong><span>Uploading your memories securely.</span></div>
+  </div>
   <main class="app create-app" id="main-content">
     <header class="site-nav create-nav">
       <a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
-      <a class="back" href="/">Cancel</a>
+      <div class="nav-actions">
+        <a class="back" href="/">Cancel</a>
+        <span class="account-nav"><a href="/login">Log in</a></span>
+      </div>
     </header>
 
     <section class="create-intro" aria-labelledby="create-title">
@@ -122,11 +130,17 @@
             </div>
             <div class="uploads">
               <button type="button" class="btn sm quiet" id="add-text-block">Add text</button>
-              <label class="btn sm quiet" for="photo-upload">Add photo<input class="sr-file" id="photo-upload" name="photo" type="file" accept="image/jpeg,image/png,image/gif,image/webp"></label>
-              <label class="btn sm quiet" for="audio-upload">Add audio<input class="sr-file" id="audio-upload" name="audio" type="file" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/webm,audio/ogg,.m4a,.aac"></label>
+              <button type="button" class="btn sm quiet" id="make-title-block">Make selected message title</button>
+              <button type="button" class="btn sm quiet" id="restore-title-block" hidden>Restore title</button>
+              <label class="btn sm quiet" for="photo-upload">Add photo<input class="sr-file" id="photo-upload" name="image" type="file" accept="image/*" multiple></label>
+              <label class="btn sm quiet" for="audio-upload">Add audio<input class="sr-file" id="audio-upload" name="audio" type="file" accept="audio/*" multiple></label>
+              <label class="btn sm quiet" for="video-upload">Add videos<input class="sr-file" id="video-upload" name="video" type="file" accept="video/*" multiple></label>
             </div>
+            <label class="fld" for="remote-image-url">Image URL
+              <input id="remote-image-url" type="url" placeholder="https://… (press Enter)">
+            </label>
             <p class="upmsg" id="upload-error" role="alert" hidden></p>
-            <p class="help" id="upload-status" aria-live="polite">Photos or audio up to 25 MB. You can also drop a file on the poster.</p>
+            <p class="help" id="upload-status" aria-live="polite">Images, audio, or video up to 2 MB total. You can also drop files on the poster.</p>
             <ul class="layers" id="layers" aria-label="Poster elements"></ul>
             <button type="button" class="rm" id="remove-block" hidden></button>
           </section>
@@ -206,8 +220,8 @@
           <span class="preview-status"><span aria-hidden="true"></span> Sealed contents</span>
         </div>
         <div class="stage" id="stage">
-          <div id="poster-preview" class="poster" aria-label="Capsule poster canvas"></div>
-          <p class="hint"><strong>Design step:</strong> drag to move · double-click text to edit · drop photos or audio</p>
+          <div id="poster-preview" class="poster editor-canvas" aria-label="Capsule poster canvas" tabindex="0"></div>
+          <p class="hint"><strong>Design step:</strong> drag to move · double-click text to edit · Delete removes a selected extra · drop media</p>
         </div>
       </aside>
     </div>

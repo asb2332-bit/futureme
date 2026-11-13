@@ -28,6 +28,10 @@
 .env.*
 !.env.example
 
+# Local text files
+README.txt
+env.txt
+
 # Editor and OS files
 /.byebug_history
 .DS_Store

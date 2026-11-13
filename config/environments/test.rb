@@ -37,6 +37,7 @@ Rails.application.configure do
 
   # Disable request forgery protection in test environment.
   config.action_controller.allow_forgery_protection = false
+  config.active_storage.service = :test
 
   # Store uploaded files on disk (see config/storage.yml).
   config.active_storage.service = :test

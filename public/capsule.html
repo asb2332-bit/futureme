@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FutureMe Capsule</title>
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/auth.css">
   <script src="/postal.js" defer></script>
+  <script src="/auth.js" defer></script>
   <script src="/capsule.js" defer></script>
 </head>
 <body>
@@ -13,7 +15,10 @@
   <main class="app">
     <header class="site-nav">
       <a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
-      <span id="sealed-toast"></span>
+      <span class="nav-actions">
+        <span id="sealed-toast"></span>
+        <span class="account-nav"><a href="/login">Log in</a></span>
+      </span>
     </header>
     <div id="capsule-view" aria-live="polite"><p class="loading">Opening the mailbox…</p></div>
   </main>

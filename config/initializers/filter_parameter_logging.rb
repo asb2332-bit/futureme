@@ -6,3 +6,5 @@
 Rails.application.config.filter_parameters += [
   :passw, :secret, :token, :_key, :crypt, :salt, :certificate, :otp, :ssn
 ]
+
+Rails.application.config.filter_parameters += [:code, :id_token, :access_token, :refresh_token]
