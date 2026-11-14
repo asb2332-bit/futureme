@@ -62,6 +62,7 @@ Feature: Time capsules
     And I visit the new capsule page
     Then I see "Create it together"
     And the current creation step is "Collaborate"
+    And I see "Only you can invite or remove people and seal this capsule."
     And I see "Invitations and shared changes are previewed locally"
     When I continue alone
     Then keyboard focus is on "Start with the words."
@@ -83,6 +84,8 @@ Feature: Time capsules
     When I add collaborator "ana@example.com"
     Then I see "ana@example.com"
     And I see "Invited"
+    When I continue to "Write"
+    Then the current creation step is "Write"
     When I open the "Deliver" step
     Then I see "sam@example.com (Active)"
     And I see "ana@example.com (Invited)"
@@ -91,7 +94,7 @@ Feature: Time capsules
     And I see "2 collaborators"
     When I open the "Collaborate" step
     And I remove collaborator "ana@example.com"
-    Then I do not see "ana@example.com"
+    Then the collaborator list does not include "ana@example.com"
     And I see "sam@example.com"
 
   Scenario: Validate collaborator email
@@ -105,6 +108,21 @@ Feature: Time capsules
     Then I see "ana@example.com"
     When I add collaborator "ana@example.com"
     Then I see "That collaborator is already on the list."
+    When I add collaborator "MEMBER@example.com"
+    Then I see "That collaborator is already on the list."
+
+  Scenario: Keep collaborator previews out of saved capsules
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I add collaborator "sam@example.com"
+    Then I see "sam@example.com"
+    And I continue to "Write"
+    And I fill in "Title" with "Local collaboration preview"
+    And I fill in "Message" with "This is still a normal capsule."
+    And I open the "Deliver" step
+    And I fill in "Unlock at" with a date one day from now
+    And I create the capsule
+    Then the capsule titled "Local collaboration preview" has no collaborator data
 
   Scenario: Show live collaborator presence
     When I visit FutureMe

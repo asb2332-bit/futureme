@@ -46,7 +46,7 @@ When('I return to {string}') do |step|
 end
 
 When('I open the {string} step') do |step|
-  click_button step
+  find("button[data-show-step='#{step.downcase}']").click
 end
 
 When('I continue alone') do
@@ -60,6 +60,10 @@ end
 
 When('I remove collaborator {string}') do |email|
   find("button[aria-label='Remove collaborator #{email}']").click
+end
+
+Then('the collaborator list does not include {string}') do |email|
+  expect(find('#collaborator-list')).to have_no_text(email)
 end
 
 Then('the current creation step is {string}') do |step|
@@ -288,6 +292,15 @@ end
 Then('the capsule titled {string} has message {string}') do |title, message|
   expect(page).to have_current_path(/capsule\.html/)
   expect(Capsule.find_by!(title: title).message).to eq(message)
+end
+
+Then('the capsule titled {string} has no collaborator data') do |title|
+  expect(page).to have_current_path(/capsule\.html/)
+  capsule = Capsule.find_by!(title: title)
+  serialized = capsule.attributes.to_json
+
+  expect(serialized).not_to include('sam@example.com')
+  expect(serialized).not_to match(/collaborator|presence|activeCollaborator/i)
 end
 
 Then('the poster design is saved') do

@@ -57,6 +57,7 @@ const collaboratorCount = document.querySelector("#collaborator-count");
 const presenceAvatars = document.querySelector("#presence-avatars");
 const presenceCount = document.querySelector("#presence-count");
 const presenceActivity = document.querySelector("#presence-activity");
+const collaborationAnnouncement = document.querySelector("#collaboration-announcement");
 const openCollaborateButton = document.querySelector("#open-collaborate");
 const ownerEmail = document.querySelector("#owner-email");
 const ownerAvatar = document.querySelector("#owner-avatar");
@@ -161,6 +162,7 @@ function removeCollaborator(email) {
   if (index === -1) return;
   collaborators.splice(index, 1);
   if (activeCollaboratorEmail === email) activeCollaboratorEmail = null;
+  collaborationAnnouncement.textContent = `${email} was removed from this capsule.`;
   renderCollaborators(); collaboratorInput.focus();
 }
 
@@ -178,6 +180,7 @@ function renderPresence() {
   owner.title = currentUserEmail === "You" ? "You" : `${currentUserEmail} (you)`;
   const active = collaborators.filter((collaborator) => collaborator.status === "active");
   presenceAvatars.replaceChildren(owner, ...active.map((collaborator) => collaboratorAvatar(collaborator)));
+  presenceAvatars.setAttribute("aria-label", active.length === 0 ? "You are the only person here" : `You and ${active.map((collaborator) => collaborator.email).join(", ")} are here`);
   const peopleHere = 1 + active.length;
   presenceCount.textContent = peopleHere === 1 ? "Working solo" : `${peopleHere} people here`;
   const collaborator = activeCollaborator();
@@ -219,7 +222,9 @@ function renderCollaborators() {
   renderPresence(); updateReview(); renderPoster(); renderLayers();
 }
 
-function addCollaborator() {
+async function addCollaborator() {
+  const session = await authenticatedSession();
+  if (session.user?.email_address) currentUserEmail = session.user.email_address.trim().toLowerCase();
   const email = collaboratorInput.value.trim().toLowerCase(); collaboratorInput.value = email;
   if (!email) return showCollaboratorError("Enter an email address.");
   if (!collaboratorInput.checkValidity()) return showCollaboratorError("Enter a valid email address.");
@@ -227,6 +232,7 @@ function addCollaborator() {
   const status = activeCollaboratorEmail ? "invited" : "active";
   collaborators.push({ email, initials: initialsFor(email), color: collaboratorColors[collaborators.length % collaboratorColors.length], status });
   if (status === "active") activeCollaboratorEmail = email;
+  collaborationAnnouncement.textContent = `${email} was added as ${status === "active" ? "an active collaborator" : "an invited collaborator"}.`;
   collaboratorInput.value = ""; clearCollaboratorError(); renderCollaborators(); collaboratorInput.focus();
 }
 
@@ -303,11 +309,11 @@ function blockLabel(id) {
   if (id === "icon") return "Icon";
   const block = blockFor(id); const type = block?.type || "text";
   const sameType = design.sealed_blocks.filter((other) => (other.type || "text") === type);
-  const name = ["image", "remote_image"].includes(type) ? "Photo" : type === "audio" ? "Voice note" : type === "video" ? "Video" : "Text block";
+  const name = type === "image" ? "Photo" : type === "audio" ? "Voice note" : type === "video" ? "Video" : "Text block";
   return `${name} ${sameType.indexOf(block) + 1}`;
 }
 
-function isMediaBlock(block) { return ["image", "remote_image", "audio", "video"].includes(block?.type); }
+function isMediaBlock(block) { return ["image", "audio", "video"].includes(block?.type); }
 
 function renderLayers() {
   const remoteEditor = activeCollaborator();
@@ -414,7 +420,7 @@ function blockKind(id) { return ["title", "message", "icon"].includes(id) ? id :
 function fillMediaBlock(element, block) {
   const previewUrl = block.image_url || mediaPreviews[block.media_id] || "";
   element.setAttribute("aria-label", blockLabel(block.id));
-  if (["image", "remote_image"].includes(block.type)) {
+  if (block.type === "image") {
     element.className = "pb photo"; const image = document.createElement("img"); image.src = previewUrl;
     image.alt = blockLabel(block.id); image.draggable = false;
     image.addEventListener("load", () => { if (!block.aspect_ratio && image.naturalHeight) block.aspect_ratio = image.naturalWidth / image.naturalHeight; });
@@ -462,6 +468,7 @@ function addPosterBlock(id, text, block, editable) {
   posterPreview.append(element);
   if (remoteEditor && currentStep === "design" && id === "message") {
     const frame = document.createElement("span"); frame.className = "remote-selection-frame"; frame.setAttribute("aria-hidden", "true");
+    frame.classList.toggle("label-below", block.y < 8);
     frame.style.left = `${block.x}%`; frame.style.top = `${block.y}%`; frame.style.width = `${block.width}%`; frame.style.height = `${block.height}%`;
     frame.style.transform = `rotate(${block.rotation}deg)`; frame.style.setProperty("--remote-color", remoteEditor.color);
     const label = document.createElement("span"); label.className = "remote-selection-label";
@@ -555,9 +562,9 @@ function addRemoteImage() {
   const url = remoteImageUrlInput.value.trim(); if (!url) return;
   try { if (new URL(url).protocol !== "https:") throw new Error(); }
   catch { showUploadError("Image URL must use HTTPS."); return; }
-  saveUndoState(); const count = design.sealed_blocks.filter((block) => ["image", "remote_image"].includes(block.type)).length;
+  saveUndoState(); const count = design.sealed_blocks.filter((block) => block.type === "image").length;
   const id = `image-${Date.now()}-${count}`;
-  design.sealed_blocks.push({ id, type: "remote_image", image_url: url, x: 25, y: 48, width: 50, height: 30, rotation: 0 });
+  design.sealed_blocks.push({ id, type: "image", image_url: url, x: 25, y: 48, width: 50, height: 30, rotation: 0 });
   remoteImageUrlInput.value = ""; selectedBlockId = id; showUploadError(""); renderPoster(); renderLayers();
 }
 

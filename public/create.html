@@ -50,12 +50,13 @@
     </nav>
 
     <section class="collaboration-presence" aria-label="Capsule collaborators">
-      <div class="presence-avatars" id="presence-avatars" aria-hidden="true"></div>
-      <div class="presence-copy">
-        <strong id="presence-count" aria-live="polite">Working solo</strong>
+      <div class="presence-avatars" id="presence-avatars" role="img" aria-label="You are the only person here"></div>
+      <div class="presence-copy" role="status" aria-live="polite" aria-atomic="true">
+        <strong id="presence-count">Working solo</strong>
         <span id="presence-activity">Only you are in this draft</span>
       </div>
       <button type="button" class="presence-invite" id="open-collaborate">Invite</button>
+      <span class="visually-hidden" id="collaboration-announcement" role="status" aria-live="polite"></span>
     </section>
 
     <div class="create-workspace">
@@ -67,6 +68,7 @@
             <p class="eyebrow">Step 1 of 4 · Optional</p>
             <h2 id="collaborate-heading" tabindex="-1">Create it together.</h2>
             <p>Invite collaborators now or come back later. Everyone you add can shape the words and design before the capsule is sealed.</p>
+            <p class="owner-authority">Only you can invite or remove people and seal this capsule.</p>
           </div>
 
           <section class="collaborator-owner" aria-label="Capsule owner">
@@ -103,8 +105,9 @@
             <p><strong>UI preview.</strong> Invitations and shared changes are previewed locally and are not sent or saved yet.</p>
           </div>
 
-          <div class="step-actions end">
-            <button type="button" class="btn primary" data-next-step="write">Continue alone <span aria-hidden="true">→</span></button>
+          <div class="step-actions">
+            <button type="button" class="btn quiet" data-next-step="write">Continue alone</button>
+            <button type="button" class="btn primary" data-next-step="write">Next: Write <span aria-hidden="true">→</span></button>
           </div>
         </section>
 
