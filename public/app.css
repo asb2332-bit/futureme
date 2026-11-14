@@ -265,6 +265,8 @@ a { color: inherit; }
 .collaborator-member { grid-template-columns: auto minmax(0, 1fr) auto auto; padding: 10px; border: 1px solid var(--rule); }
 .collaborator-remove { min-width: 44px; min-height: 44px; padding: 4px; border: 0; background: transparent; color: var(--blue); font-size: 11px; font-weight: 700; cursor: pointer; }
 .collaborator-remove:hover { color: var(--red); }
+.collaborator-preview { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; color: var(--muted); font-size: 11px; }
+.collaborator-preview select { min-height: 44px; max-width: 100%; padding: 6px 10px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper); color: var(--ink); font: inherit; }
 .collaborator-empty { display: flex; flex-direction: column; gap: 2px; padding: 13px; border: 1px dashed var(--rule); color: var(--muted); font-size: 12px; }
 .collaborator-empty strong { color: var(--ink); font-size: 13px; }
 .collaboration-disclosure { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 12px 13px; background: #f1eef7; color: var(--muted); font-size: 12px; }
@@ -394,6 +396,7 @@ a { color: inherit; }
   .collaborator-identity strong { overflow: visible; overflow-wrap: anywhere; white-space: normal; }
   .collaborator-member .member-status { grid-column: 2; }
   .collaborator-remove { grid-column: 3; grid-row: 1 / span 2; }
+  .collaborator-preview { grid-column: 1 / -1; flex-direction: column; align-items: stretch; }
   .uploads { grid-template-columns: 1fr; }
   .preview-heading { align-items: center; }
   .preview-column .stage { padding: 18px; }

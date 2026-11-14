@@ -79,15 +79,15 @@ Feature: Time capsules
     And I visit the new capsule page
     And I add collaborator "sam@example.com"
     Then I see "sam@example.com"
-    And I see "Active"
-    And I see "2 people here"
+    And collaborator "sam@example.com" is "Invited"
+    And I see "Working solo"
     When I add collaborator "ana@example.com"
     Then I see "ana@example.com"
-    And I see "Invited"
+    And collaborator "ana@example.com" is "Invited"
     When I continue to "Write"
     Then the current creation step is "Write"
     When I open the "Deliver" step
-    Then I see "sam@example.com (Active)"
+    Then I see "sam@example.com (Invited)"
     And I see "ana@example.com (Invited)"
     When I add email recipient "recipient@example.com"
     Then I see "1 recipient"
@@ -124,34 +124,60 @@ Feature: Time capsules
     And I create the capsule
     Then the capsule titled "Local collaboration preview" has no collaborator data
 
-  Scenario: Show live collaborator presence
+  Scenario: Keep new collaborators invited
     When I visit FutureMe
     And I visit the new capsule page
     And I add collaborator "sam@example.com"
     And I add collaborator "ana@example.com"
+    Then collaborator "sam@example.com" is "Invited"
+    And collaborator "ana@example.com" is "Invited"
+    And I see "Working solo"
+    And I see "Only you are in this draft"
+    When I open the "Design" step
+    Then I do not see "sam@example.com cursor"
+    And I do not see "ana@example.com cursor"
+
+  Scenario: Preview collaborator activity
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I add collaborator "sam@example.com"
+    And I add collaborator "ana@example.com"
+    And I preview collaborator "sam@example.com" as "Here but idle"
+    Then collaborator "sam@example.com" is "Active"
+    And collaborator "ana@example.com" is "Invited"
+    And I see "2 people here"
+    And I see "sam@example.com is viewing this draft"
+    When I open the "Write" step
+    And I do not see "sam@example.com is writing"
+    When I open the "Design" step
+    Then I do not see "sam@example.com cursor"
+    And I do not see "sam@example.com is editing Message"
+    When I open the "Collaborate" step
+    And I preview collaborator "sam@example.com" as "Writing message"
     And I open the "Write" step
     Then I see "sam@example.com is writing · Write"
     And I see "sam@example.com is writing"
-    And I do not see "ana@example.com is writing"
-    When I continue to "Design"
+    When I open the "Design" step
+    Then I do not see "sam@example.com cursor"
+    When I open the "Collaborate" step
+    And I preview collaborator "sam@example.com" as "Editing poster"
+    And I open the "Design" step
     Then I see "sam@example.com is arranging the poster · Design"
     And I see "sam@example.com cursor"
     And I see "sam@example.com is editing Message"
     And I see "SA editing"
-
-  Scenario: Return to solo presence
-    When I visit FutureMe
-    And I visit the new capsule page
-    And I add collaborator "sam@example.com"
-    And I add collaborator "ana@example.com"
-    And I remove collaborator "sam@example.com"
-    Then I see "Working solo"
-    And I see "Only you are in this draft"
-    And I do not see "sam@example.com is writing"
+    When I open the "Collaborate" step
+    And I preview collaborator "ana@example.com" as "Here but idle"
+    Then collaborator "sam@example.com" is "Invited"
+    And collaborator "ana@example.com" is "Active"
     When I open the "Design" step
     Then I do not see "sam@example.com cursor"
-    When I continue to "Deliver"
-    Then I see "ana@example.com (Invited)"
+    And I do not see "sam@example.com is editing Message"
+    When I open the "Collaborate" step
+    And I remove collaborator "ana@example.com"
+    Then I see "Working solo"
+    And I see "Only you are in this draft"
+    And collaborator "sam@example.com" is "Invited"
 
   Scenario: Manage multiple email recipients
     When I visit FutureMe

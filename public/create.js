@@ -76,7 +76,6 @@ let selectedBlockId = "message";
 let titleText = "";
 let messageText = "";
 let currentStep = editingCapsuleId ? "write" : "collaborate";
-let activeCollaboratorEmail = null;
 let currentUserEmail = "You";
 let saving = false;
 let pendingUploads = Promise.resolve();
@@ -130,7 +129,7 @@ function updateReview() {
   reviewCollaborators.textContent = collaborators.length === 0 ? "No collaborators" : `${collaborators.length} ${collaborators.length === 1 ? "collaborator" : "collaborators"}`;
   reviewCollaboratorList.replaceChildren(...collaborators.map((collaborator) => {
     const item = document.createElement("li");
-    item.textContent = `${collaborator.email} (${collaborator.status === "active" ? "Active" : "Invited"})`;
+    item.textContent = `${collaborator.email} (${collaborator.previewState !== "invited" ? "Active" : "Invited"})`;
     return item;
   }));
 }
@@ -138,7 +137,19 @@ function updateReview() {
 const collaboratorColors = ["#6f56a5", "#167f78", "#b85c2b"];
 
 function activeCollaborator() {
-  return collaborators.find((collaborator) => collaborator.email === activeCollaboratorEmail && collaborator.status === "active") || null;
+  return collaborators.find((collaborator) => collaborator.previewState !== "invited") || null;
+}
+
+const previewStates = { invited: "Invited", idle: "Here but idle", writing: "Writing message", designing: "Editing poster" };
+
+function setCollaboratorPreview(email, previewState) {
+  const member = collaborators.find((collaborator) => collaborator.email === email);
+  if (!member || !Object.hasOwn(previewStates, previewState)) return;
+  if (previewState !== "invited") collaborators.forEach((collaborator) => { collaborator.previewState = "invited"; });
+  member.previewState = previewState;
+  collaborationAnnouncement.textContent = `${email}: ${previewStates[previewState]} (local preview).`;
+  renderCollaborators();
+  Array.from(collaboratorList.querySelectorAll("select")).find((select) => select.getAttribute("aria-label") === `Preview activity for ${email}`)?.focus();
 }
 
 function initialsFor(email) {
@@ -161,7 +172,6 @@ function removeCollaborator(email) {
   const index = collaborators.findIndex((collaborator) => collaborator.email === email);
   if (index === -1) return;
   collaborators.splice(index, 1);
-  if (activeCollaboratorEmail === email) activeCollaboratorEmail = null;
   collaborationAnnouncement.textContent = `${email} was removed from this capsule.`;
   renderCollaborators(); collaboratorInput.focus();
 }
@@ -178,23 +188,23 @@ function collaboratorAvatar(collaborator, className = "") {
 function renderPresence() {
   const owner = document.createElement("span"); owner.className = "collaborator-avatar is-owner"; owner.textContent = initialsFor(currentUserEmail);
   owner.title = currentUserEmail === "You" ? "You" : `${currentUserEmail} (you)`;
-  const active = collaborators.filter((collaborator) => collaborator.status === "active");
+  const active = collaborators.filter((collaborator) => collaborator.previewState !== "invited");
   presenceAvatars.replaceChildren(owner, ...active.map((collaborator) => collaboratorAvatar(collaborator)));
   presenceAvatars.setAttribute("aria-label", active.length === 0 ? "You are the only person here" : `You and ${active.map((collaborator) => collaborator.email).join(", ")} are here`);
   const peopleHere = 1 + active.length;
   presenceCount.textContent = peopleHere === 1 ? "Working solo" : `${peopleHere} people here`;
   const collaborator = activeCollaborator();
-  const activityByStep = {
-    collaborate: `${collaborator?.email} joined this capsule · Collaborate`,
-    write: `${collaborator?.email} is writing · Write`,
-    design: `${collaborator?.email} is arranging the poster · Design`,
-    deliver: `${collaborator?.email} is reviewing details · Deliver`
+  const activityByState = {
+    idle: `${collaborator?.email} is viewing this draft`,
+    writing: `${collaborator?.email} is writing · Write`,
+    designing: `${collaborator?.email} is arranging the poster · Design`
   };
-  presenceActivity.textContent = collaborator ? activityByStep[currentStep] : "Only you are in this draft";
+  presenceActivity.textContent = collaborator ? activityByState[collaborator.previewState] : "Only you are in this draft";
   titleActivity.hidden = true; titleActivity.textContent = ""; titleField.classList.remove("remote-active");
-  messageActivity.hidden = !(collaborator && currentStep === "write");
-  messageActivity.textContent = collaborator && currentStep === "write" ? `${collaborator.email} is writing` : "";
-  messageField.classList.toggle("remote-active", Boolean(collaborator && currentStep === "write"));
+  const writing = collaborator?.previewState === "writing" && currentStep === "write";
+  messageActivity.hidden = !writing;
+  messageActivity.textContent = writing ? `${collaborator.email} is writing` : "";
+  messageField.classList.toggle("remote-active", writing);
   if (collaborator) messageField.style.setProperty("--remote-color", collaborator.color);
   else messageField.style.removeProperty("--remote-color");
 }
@@ -206,12 +216,22 @@ function renderCollaborators() {
     const email = document.createElement("strong"); email.textContent = collaborator.email;
     const detail = document.createElement("small"); detail.textContent = "Can edit this capsule";
     identity.append(email, detail);
-    const status = document.createElement("span"); status.className = `member-status ${collaborator.status}`;
-    status.textContent = collaborator.status === "active" ? "Active" : "Invited";
+    const active = collaborator.previewState !== "invited";
+    const status = document.createElement("span"); status.className = `member-status ${active ? "active" : "invited"}`;
+    status.textContent = active ? "Active" : "Invited";
+    const preview = document.createElement("label"); preview.className = "collaborator-preview";
+    const caption = document.createElement("span"); caption.textContent = "Preview activity · local only";
+    const select = document.createElement("select"); select.setAttribute("aria-label", `Preview activity for ${collaborator.email}`);
+    Object.entries(previewStates).forEach(([value, text]) => {
+      const option = document.createElement("option"); option.value = value; option.textContent = text; select.append(option);
+    });
+    select.value = collaborator.previewState;
+    select.addEventListener("change", () => setCollaboratorPreview(collaborator.email, select.value));
+    preview.append(caption, select);
     const remove = document.createElement("button"); remove.type = "button"; remove.className = "collaborator-remove"; remove.textContent = "Remove";
     remove.setAttribute("aria-label", `Remove collaborator ${collaborator.email}`);
     remove.addEventListener("click", () => removeCollaborator(collaborator.email));
-    item.append(collaboratorAvatar(collaborator), identity, status, remove); return item;
+    item.append(collaboratorAvatar(collaborator), identity, status, remove, preview); return item;
   });
   if (items.length === 0) {
     const empty = document.createElement("li"); empty.className = "collaborator-empty";
@@ -229,10 +249,8 @@ async function addCollaborator() {
   if (!email) return showCollaboratorError("Enter an email address.");
   if (!collaboratorInput.checkValidity()) return showCollaboratorError("Enter a valid email address.");
   if (email === currentUserEmail || collaborators.some((collaborator) => collaborator.email === email)) return showCollaboratorError("That collaborator is already on the list.");
-  const status = activeCollaboratorEmail ? "invited" : "active";
-  collaborators.push({ email, initials: initialsFor(email), color: collaboratorColors[collaborators.length % collaboratorColors.length], status });
-  if (status === "active") activeCollaboratorEmail = email;
-  collaborationAnnouncement.textContent = `${email} was added as ${status === "active" ? "an active collaborator" : "an invited collaborator"}.`;
+  collaborators.push({ email, initials: initialsFor(email), color: collaboratorColors[collaborators.length % collaboratorColors.length], previewState: "invited" });
+  collaborationAnnouncement.textContent = `${email} was added as an invited collaborator.`;
   collaboratorInput.value = ""; clearCollaboratorError(); renderCollaborators(); collaboratorInput.focus();
 }
 
@@ -326,7 +344,7 @@ function renderLayers() {
     button.type = "button"; button.setAttribute("aria-pressed", String(selectedBlockId === id)); button.textContent = blockLabel(id);
     const note = document.createElement("small"); note.innerHTML = sealed ? `${Postal.lockSvg}sealed` : "on envelope";
     button.append(note);
-    if (remoteEditor && currentStep === "design" && id === "message") {
+    if (remoteEditor?.previewState === "designing" && currentStep === "design" && id === "message") {
       const activity = document.createElement("small"); activity.className = "remote-layer-activity";
       activity.style.setProperty("--remote-color", remoteEditor.color); activity.textContent = `${remoteEditor.initials} editing`;
       button.append(activity);
@@ -444,7 +462,7 @@ function addPosterBlock(id, text, block, editable) {
   element.style.left = `${block.x}%`; element.style.top = `${block.y}%`; element.style.width = `${block.width}%`;
   element.style.height = `${block.height}%`; element.style.transform = `rotate(${block.rotation}deg)`;
   const remoteEditor = activeCollaborator();
-  if (remoteEditor && currentStep === "design" && id === "message") {
+  if (remoteEditor?.previewState === "designing" && currentStep === "design" && id === "message") {
     element.classList.add("remote-selected"); element.dataset.remoteEditor = remoteEditor.email;
     element.style.setProperty("--remote-color", remoteEditor.color);
   }
@@ -466,7 +484,7 @@ function addPosterBlock(id, text, block, editable) {
     startDragging(event, id);
   });
   posterPreview.append(element);
-  if (remoteEditor && currentStep === "design" && id === "message") {
+  if (remoteEditor?.previewState === "designing" && currentStep === "design" && id === "message") {
     const frame = document.createElement("span"); frame.className = "remote-selection-frame"; frame.setAttribute("aria-hidden", "true");
     frame.classList.toggle("label-below", block.y < 8);
     frame.style.left = `${block.x}%`; frame.style.top = `${block.y}%`; frame.style.width = `${block.width}%`; frame.style.height = `${block.height}%`;
@@ -478,7 +496,7 @@ function addPosterBlock(id, text, block, editable) {
 
 function renderRemoteCursor() {
   const collaborator = activeCollaborator();
-  if (!collaborator || currentStep !== "design") return;
+  if (collaborator?.previewState !== "designing" || currentStep !== "design") return;
   const cursor = document.createElement("span"); cursor.className = "remote-cursor"; cursor.setAttribute("aria-hidden", "true");
   cursor.style.setProperty("--remote-color", collaborator.color);
   const pointer = document.createElement("span"); pointer.className = "remote-cursor-pointer"; pointer.textContent = "◆";

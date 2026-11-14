@@ -62,6 +62,15 @@ When('I remove collaborator {string}') do |email|
   find("button[aria-label='Remove collaborator #{email}']").click
 end
 
+When('I preview collaborator {string} as {string}') do |email, state|
+  find("select[aria-label='Preview activity for #{email}']").find('option', text: state, exact_text: true).select_option
+end
+
+Then('collaborator {string} is {string}') do |email, status|
+  collaborator = find('#collaborator-list .collaborator-member', text: email)
+  expect(collaborator).to have_css('.member-status', text: status)
+end
+
 Then('the collaborator list does not include {string}') do |email|
   expect(find('#collaborator-list')).to have_no_text(email)
 end
