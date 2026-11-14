@@ -260,3 +260,20 @@ body { margin: 0; }
 .poster-block.selected { overflow: visible; border: 2px solid var(--blue); z-index: 3; }
 .poster-title-block { font-size: 8cqw; font-weight: 700; }.poster-message-block { font-size: 5cqw; white-space: pre-wrap; }.sealed-block { font-size: 4cqw; white-space: pre-wrap; }
 .poster-block img, .poster-block video { width: 100%; height: 100%; object-fit: contain; }.poster-block audio { width: 100%; }.media-drag-handle { position: absolute; top: 4px; left: 4px; z-index: 4; padding: 3px 6px; border: 0; border-radius: 4px; background: var(--ink); color: var(--paper); font-size: 11px; cursor: grab; }
+
+.editor-actions { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 0 18px 18px; }
+.create-intro { display: grid; grid-template-columns: 1.25fr .75fr; gap: 28px; align-items: end; margin-bottom: 28px; }
+.create-intro h1 { max-width: 14ch; margin-top: 7px; font-family: var(--f-display); font-size: clamp(38px, 5vw, 62px); line-height: 1.02; }
+.create-intro > p { color: var(--muted); font-size: 17px; }
+.create-steps { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 18px; border-bottom: 1px solid var(--rule); }
+.create-steps button { padding: 14px 16px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--muted); text-align: left; cursor: pointer; }
+.create-steps button[aria-current="step"] { border-bottom-color: var(--red); background: var(--paper); color: var(--ink); }
+.create-steps button span { margin-right: 8px; color: var(--red); font-family: var(--f-type); }
+.desk { grid-template-columns: minmax(300px, 440px) minmax(0, 1fr); }
+.desk .side { grid-column: 1; grid-row: 1; }
+.desk .stage { grid-column: 2; grid-row: 1; }
+.side section[hidden] { display: none; }
+.side .errors:not(:empty) { margin: 18px 18px 0; }
+.fld textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--rule); border-radius: var(--radius); background: #fff; font: inherit; font-weight: 400; }
+.flow-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
+@media (max-width: 700px) { .create-intro { grid-template-columns: 1fr; gap: 12px; } .create-steps button { padding: 12px 6px; } .desk { grid-template-columns: 1fr; } .desk .side { grid-column: 1; grid-row: 1; } .desk .stage { grid-column: 1; grid-row: 2; } }
