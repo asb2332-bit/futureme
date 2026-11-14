@@ -168,9 +168,6 @@ function openedPosterHTML(capsule) {
   if (!isHidden(design, "title")) {
     html += `<div class="pb title" style="${Postal.blockStyle(Postal.blockOf(design, "title_block"))}">${esc(capsule.title)}</div>`;
   }
-  if (!isHidden(design, "icon")) {
-    html += `<div class="pb icon" style="${Postal.blockStyle(Postal.blockOf(design, "icon_block"))}">${esc(theme.icon)}</div>`;
-  }
   if (!isHidden(design, "message")) {
     html += `<div class="pb message" style="${Postal.blockStyle(Postal.blockOf(design, "message_block"))}">${esc(capsule.message)}</div>`;
   }
@@ -232,7 +229,10 @@ function showOpened(capsule) {
           <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
         </dl>
         ${unplacedMediaHTML(capsule)}
-        <div class="row"><a class="btn primary" href="/create.html">Seal another</a></div>
+        <div class="row">
+          <a class="btn sm quiet" href="/create.html?id=${encodeURIComponent(capsule.id)}">Edit capsule</a>
+          <a class="btn primary" href="/create.html">Seal another</a>
+        </div>
       </div>
     </section>`;
   Postal.wireAudio(view);
