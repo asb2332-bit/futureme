@@ -20,6 +20,7 @@ class Api::CapsulesController < ApplicationController
 
     submitted_data = capsule_params
     image_signed_ids = submitted_data.delete(:image_signed_ids)
+    submitted_data.delete(:removed_attachment_ids)
     audio_signed_ids = signed_ids(submitted_data, :audio)
     video_signed_ids = signed_ids(submitted_data, :video)
     remote_image_urls = submitted_data.delete(:remote_image_urls)
@@ -42,18 +43,36 @@ class Api::CapsulesController < ApplicationController
   end
 
   def show
-    capsule_data = capsule_json(@capsule, include_message: params[:editing] == "true" || @capsule.unlocked?)
+    editing = params[:editing] == "true"
+    capsule_data = capsule_json(@capsule, include_message: editing || @capsule.unlocked?)
+    if editing
+      capsule_data[:media_attachments] = %i[images audio video].to_h do |name|
+        [name, @capsule.public_send(name).attachments.includes(:blob).order(:id).map { |attachment| { id: attachment.id, size: attachment.blob.byte_size, url: rails_blob_url(attachment.blob) } }]
+      end
+      capsule_data[:media_byte_size] = capsule_data[:media_attachments].values.flatten.sum { |attachment| attachment[:size] }
+    end
 
     render json: capsule_data
   end
 
   def update
     submitted_data = capsule_params
-    audio_signed_ids = signed_ids(submitted_data, :audio)
-    video_signed_ids = signed_ids(submitted_data, :video)
-    @capsule.assign_attributes(submitted_data.except(:image_signed_ids))
-    @capsule.audio.attach(audio_signed_ids) if audio_signed_ids.any?
-    @capsule.video.attach(video_signed_ids) if video_signed_ids.any?
+    uploads = {
+      images: Array(submitted_data.delete(:image_signed_ids)),
+      audio: signed_ids(submitted_data, :audio),
+      video: signed_ids(submitted_data, :video)
+    }
+    removed_ids = Array(submitted_data.delete(:removed_attachment_ids)).map(&:to_s)
+    attachments = %i[images audio video].to_h { |name| [name, @capsule.public_send(name).attachments.includes(:blob).order(:id).to_a] }
+    unless (removed_ids - attachments.values.flatten.map { |attachment| attachment.id.to_s }).empty?
+      return render json: { errors: { base: ["Invalid attachment"] } }, status: :unprocessable_entity
+    end
+
+    @capsule.assign_attributes(submitted_data)
+    attachments.each do |name, existing|
+      retained = existing.reject { |attachment| removed_ids.include?(attachment.id.to_s) }.map(&:blob)
+      @capsule.public_send("#{name}=", retained + uploads[name]) if retained.size != existing.size || uploads[name].any?
+    end
 
     if @capsule.save
       render json: capsule_json(@capsule, include_message: true)
@@ -80,7 +99,7 @@ class Api::CapsulesController < ApplicationController
     submitted_capsule = params.require(:capsule)
 
     submitted_capsule.permit(:title, :message, :unlock_at, :audio_signed_id, :video_signed_id,
-      image_signed_ids: [], audio_signed_ids: [], video_signed_ids: [], remote_image_urls: [], design: {})
+      image_signed_ids: [], audio_signed_ids: [], video_signed_ids: [], removed_attachment_ids: [], remote_image_urls: [], design: {})
   end
 
   def signed_ids(data, name)
@@ -98,9 +117,9 @@ class Api::CapsulesController < ApplicationController
     if include_message
       message = capsule.message
       design["sealed_blocks"] = capsule.design.fetch("sealed_blocks", [])
-      image_urls = Array(capsule.design["remote_image_urls"]) + capsule.images.blobs.map { |image| rails_blob_url(image) }
-      audio_url = capsule.audio.blobs.map { |audio| rails_blob_url(audio) }
-      video_url = capsule.video.blobs.map { |video| rails_blob_url(video) }
+      image_urls = Array(capsule.design["remote_image_urls"]) + capsule.images.attachments.includes(:blob).order(:id).map { |attachment| rails_blob_url(attachment.blob) }
+      audio_url = capsule.audio.attachments.includes(:blob).order(:id).map { |attachment| rails_blob_url(attachment.blob) }
+      video_url = capsule.video.attachments.includes(:blob).order(:id).map { |attachment| rails_blob_url(attachment.blob) }
     end
 
     {

@@ -11,6 +11,26 @@ def retry_stale_browser_node
   end
 end
 
+def creation_step(name)
+  find(".create-steps [data-show-step='#{name}']").click
+end
+
+When('I write a title and message in the creation form') do
+  fill_in 'title-input', with: 'A future memory'
+  fill_in 'message-input', with: 'Keep this message.'
+end
+
+When('I move through the creation steps') do
+  creation_step('design')
+  creation_step('deliver')
+  creation_step('write')
+end
+
+Then('the creation form retains the title and message') do
+  expect(find_field('title-input').value).to eq('A future memory')
+  expect(find_field('message-input').value).to eq('Keep this message.')
+end
+
 When('I visit FutureMe') do
   visit '/'
 end
@@ -25,6 +45,7 @@ When('I fill in {string} with {string}') do |field, value|
       text_block = find("[aria-label='#{field}']")
       page.execute_script("arguments[0].textContent = arguments[1]; arguments[0].dispatchEvent(new Event('input', { bubbles: true }))", text_block, value)
     else
+      creation_step('design') if field == 'Image URL'
       fill_in field, with: value
     end
   end
@@ -32,6 +53,7 @@ end
 
 When('I fill in {string} with a date one day from now') do |field|
   retry_stale_browser_node do
+    creation_step('deliver')
     input = find_field(field)
     value = 1.day.from_now.strftime('%Y-%m-%dT%H:%M')
     page.execute_script('arguments[0].value = arguments[1]', input, value)
@@ -39,26 +61,59 @@ When('I fill in {string} with a date one day from now') do |field|
 end
 
 When('I create the capsule') do
+  creation_step('deliver')
   click_button 'Seal the capsule'
 end
 
-When('I save the capsule changes') do
+When('I clear the capsule title') do
+  creation_step('write')
+  fill_in 'title-input', with: ''
+end
+
+When('I attempt to save the capsule changes') do
+  creation_step('deliver')
   click_button 'Save changes'
+end
+
+When('I save the capsule changes') do
+  creation_step('deliver')
+  click_button 'Save changes'
+  expect(page).to have_current_path(/capsule\.html/)
 end
 
 When('I edit the capsule') do
   click_link 'Edit capsule'
 end
 
+When('I cancel editing') do
+  click_link 'Cancel'
+end
+
+When('I dismiss the delete confirmation') do
+  dismiss_confirm { click_button 'Delete capsule' }
+end
+
+When('I confirm deleting the capsule') do
+  accept_confirm { click_button 'Delete capsule' }
+  expect(page).to have_current_path('/index.html')
+end
+
+Then('the capsule titled {string} no longer exists') do |title|
+  expect(@account.capsules.where(title: title)).to be_empty
+end
+
 When('I choose {string} from {string}') do |option, field|
+  creation_step('design')
   select option, from: field
 end
 
 When('I add a message block') do
+  creation_step('design')
   click_button 'Add message'
 end
 
 When('I click {string}') do |label|
+  creation_step('design') if label == 'Make selected message title'
   click_button label
 end
 
@@ -71,23 +126,93 @@ When('I delete the selected image') do
 end
 
 When('I attach an image file') do
+  creation_step('design')
   attach_file 'capsule-images', Rails.root.join('spec/fixtures/files/capsule.png'), visible: false
 end
 
 When('I add audio') do
+  creation_step('design')
   click_button 'Add audio'
 end
 
 When('I attach an audio file') do
+  creation_step('design')
   attach_file 'capsule-audio', Rails.root.join('spec/fixtures/files/capsule.mp3'), visible: false
 end
 
 When('I attach a video file') do
+  creation_step('design')
   attach_file 'capsule-video', Rails.root.join('spec/fixtures/files/capsule.mp4'), visible: false
 end
 
 When('I open {string}') do |title|
   click_link title
+end
+
+Given('a capsule already contains 2 MB of media') do
+  capsule = @account.capsules.create!(title: 'Full capsule', message: 'Memories', unlock_at: 1.day.from_now,
+    design: { 'sealed_blocks' => [
+      { 'id' => 'saved-image', 'image_index' => 0, 'x' => 10, 'y' => 10, 'width' => 30, 'height' => 25, 'rotation' => 0 },
+      { 'id' => 'saved-audio', 'media_type' => 'audio', 'media_index' => 0, 'x' => 10, 'y' => 40, 'width' => 45, 'height' => 10, 'rotation' => 0 },
+      { 'id' => 'saved-video', 'media_type' => 'video', 'media_index' => 0, 'x' => 55, 'y' => 65, 'width' => 30, 'height' => 25, 'rotation' => 0 }
+    ] })
+  %w[capsule-at-limit.png capsule-at-limit.mp3 capsule-at-limit.mp4].each do |filename|
+    attachment = filename.end_with?('.png') ? capsule.images : filename.end_with?('.mp3') ? capsule.audio : capsule.video
+    attachment.attach(io: File.open(Rails.root.join('spec/fixtures/files', filename)), filename: filename)
+  end
+end
+
+When('I remove the existing image from the poster') do
+  creation_step('design')
+  find('.poster-image-block').click
+  find('body').send_keys(:delete)
+end
+
+When('I remove the existing audio from the poster') do
+  creation_step('design')
+  find('audio').find(:xpath, '..').find('.media-drag-handle').click
+  find('body').send_keys(:delete)
+end
+
+Then('the full capsule has the replacement audio') do
+  capsule = @account.capsules.find_by!(title: 'Full capsule')
+  expect(capsule.audio.blobs.pluck(:filename)).to eq(['capsule.mp3'])
+  expect(capsule.images.blobs.count).to eq(1)
+  expect(capsule.video.blobs.count).to eq(1)
+end
+
+When('I remove the existing video from the poster') do
+  creation_step('design')
+  find('video').find(:xpath, '..').find('.media-drag-handle').click
+  find('body').send_keys(:delete)
+end
+
+Then('the full capsule has the replacement video') do
+  capsule = @account.capsules.find_by!(title: 'Full capsule')
+  expect(capsule.video.blobs.pluck(:filename)).to eq(['capsule.mp4'])
+  expect(capsule.images.blobs.count).to eq(1)
+  expect(capsule.audio.blobs.count).to eq(1)
+end
+
+When('I undo the poster change') do
+  find('body').send_keys([:control, 'z'])
+end
+
+Then('the full capsule retains its original image') do
+  expect(@account.capsules.find_by!(title: 'Full capsule').images.blobs.pluck(:filename)).to eq(['capsule-at-limit.png'])
+end
+
+Then('the full capsule has the replacement image') do
+  capsule = @account.capsules.find_by!(title: 'Full capsule')
+  expect(capsule.images.blobs.pluck(:filename)).to eq(['capsule.png'])
+  expect(capsule.audio.blobs.count).to eq(1)
+  expect(capsule.video.blobs.count).to eq(1)
+end
+
+Then('adding another audio file exceeds the capsule limit') do
+  creation_step('design')
+  expect(accept_alert { attach_file 'capsule-audio', Rails.root.join('spec/fixtures/files/capsule.mp3'), visible: false }).to include("exceed this capsule's 2 MB limit")
+  expect(page).to have_no_text("This file can't be added", wait: 7)
 end
 
 Given('I already have {int} capsules') do |count|
