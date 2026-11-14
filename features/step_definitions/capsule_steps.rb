@@ -15,6 +15,25 @@ def creation_step(name)
   find(".create-steps [data-show-step='#{name}']").click
 end
 
+Then('I can preview collaborators and recipients without sending them') do
+  creation_step('collaborate')
+  fill_in 'Collaborator email', with: 'friend@example.com'
+  click_button 'Add collaborator'
+  find('select[aria-label="Preview activity for friend@example.com"]').select('Writing')
+  expect(page).to have_content('friend@example.com is writing (local preview)')
+  expect(page).to have_content('Invitations and shared changes are not sent or saved')
+  creation_step('deliver')
+  fill_in 'Recipient email', with: 'reader@example.com'
+  click_button 'Add recipient'
+  fill_in 'Recipient email', with: 'reader@example.com'
+  click_button 'Add recipient'
+  expect(page).to have_content('That recipient is already on the list')
+  expect(page).to have_content('1 recipient')
+  expect(page).to have_content('Recipients are not saved and no emails are sent')
+  find('button[aria-label="Remove recipient reader@example.com"]').click
+  expect(page).to have_content('0 recipients')
+end
+
 When('I write a title and message in the creation form') do
   fill_in 'title-input', with: 'A future memory'
   fill_in 'message-input', with: 'Keep this message.'

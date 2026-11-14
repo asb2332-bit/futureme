@@ -6,6 +6,11 @@ Feature: Time capsules
   Background:
     Given I am a registered user who is logged in
 
+  Scenario: Preview collaborators and recipients
+    When I visit FutureMe
+    And I visit the new capsule page
+    Then I can preview collaborators and recipients without sending them
+
   Scenario: Keep the message while moving between creation steps
     When I visit FutureMe
     And I visit the new capsule page

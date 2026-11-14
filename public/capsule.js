@@ -1,211 +1,300 @@
-const capsuleId = new URLSearchParams(window.location.search).get("id");
-const poster = document.querySelector("#capsule-poster");
-const creator = document.querySelector("#capsule-creator");
-const unlockTime = document.querySelector("#capsule-unlock-time");
-const capsuleImages = document.querySelector("#capsule-images");
-const capsuleAudio = document.querySelector("#capsule-audio");
-const deleteCapsuleForm = document.querySelector("#delete-capsule-form");
-const editCapsuleLink = document.querySelector("#edit-capsule");
-const deleteCapsuleToken = document.querySelector("#delete-capsule-token");
-const capsuleVideo = document.querySelector("#capsule-video");
+const params = new URLSearchParams(window.location.search);
+const capsuleId = params.get("id");
+const view = document.querySelector("#capsule-view");
+const toast = document.querySelector("#sealed-toast");
+const { esc, plural, time } = Postal;
 let countdownTimer;
+let justSealed = params.get("sealed") === "1";
 
-const defaultBlocks = {
-  title_block: { x: 8, y: 10, width: 72, height: 16, rotation: 0 },
-  message_block: { x: 8, y: 36, width: 84, height: 38, rotation: 0 },
-  audio_block: { x: 25, y: 78, width: 50, height: 10, rotation: 0 },
-  video_block: { x: 20, y: 48, width: 60, height: 25, rotation: 0 }
-};
-
-function blockStyle(design, name) {
-  return { ...defaultBlocks[name], ...(design[name] || {}) };
+function backLink() {
+  return '<a class="back" href="/">← All capsules</a>';
 }
 
-function addBlock(text, block, sealed) {
-  const element = document.createElement("div");
-  element.className = `poster-block ${sealed ? "sealed-block" : ""}`;
-  element.textContent = text;
-  element.style.left = `${block.x}%`;
-  element.style.top = `${block.y}%`;
-  element.style.width = `${block.width}%`;
-  element.style.height = `${block.height}%`;
-  element.style.transform = `rotate(${block.rotation}deg)`;
-  poster.append(element);
+function showSealedToast(capsule) {
+  if (!justSealed) return;
+  justSealed = false;
+  toast.className = "toast";
+  toast.setAttribute("role", "status");
+  toast.textContent = `Sealed. Opens ${Postal.formatDay(capsule.unlock_at)}.`;
+  history.replaceState(null, "", `/capsule.html?id=${encodeURIComponent(capsule.id)}`);
 }
 
-function addImageBlock(url, block) {
-  const element = document.createElement("div");
-  element.className = "poster-block sealed-block poster-image-block";
-  element.style.left = `${block.x}%`;
-  element.style.top = `${block.y}%`;
-  element.style.width = `${block.width}%`;
-  element.style.height = `${block.height}%`;
-  element.style.transform = `rotate(${block.rotation}deg)`;
-
-  const image = document.createElement("img");
-  image.src = url;
-  image.alt = "Capsule image";
-  element.append(image);
-  poster.append(element);
+function bigEnvelopeHTML(capsule) {
+  const p = Postal.postmarkParts(capsule.unlock_at);
+  return `<div class="big-env" id="capsule-poster">
+      <div class="top">${Postal.postmarkHTML(capsule.created_at, "SEALED", false)}${Postal.stampHTML(capsule)}</div>
+      <div class="to">
+        <span class="eyebrow">${esc(Postal.capsuleNumber(capsule))}</span>
+        <h1>${esc(capsule.title)}</h1>
+        <span class="dno">Do not open before ${p.day} ${p.month} ${p.year}</span>
+      </div>
+      <div class="wax">FM</div>
+    </div>`;
 }
 
-function addVideoBlock(block, url) {
-  const element = document.createElement("div");
-  element.className = "poster-block sealed-block";
-  element.style.left = `${block.x}%`;
-  element.style.top = `${block.y}%`;
-  element.style.width = `${block.width}%`;
-  element.style.height = `${block.height}%`;
-  element.style.transform = `rotate(${block.rotation}deg)`;
-  const video = document.createElement("video");
-  video.controls = true;
-  video.src = url;
-  video.addEventListener("loadedmetadata", () => {
-    const aspectRatio = block.aspect_ratio || video.videoWidth / video.videoHeight;
-    element.style.height = `${block.width * (poster.clientWidth / poster.clientHeight) / aspectRatio}%`;
-  });
-  element.append(video);
-  poster.append(element);
+function lockedActionsHTML(capsule, csrfToken) {
+  const deleteAction = `/capsules/${encodeURIComponent(capsule.id)}/delete`;
+  return `<div class="owner-actions">
+    <p class="eyebrow">Owned by your account</p>
+    <div class="row">
+      <a class="btn sm quiet" href="/create.html?id=${encodeURIComponent(capsule.id)}">Edit capsule</a>
+      <form class="delete-capsule-form" action="${deleteAction}" method="post">
+        <input type="hidden" name="authenticity_token" value="${esc(csrfToken)}">
+        <button class="btn sm danger" type="submit">Delete capsule</button>
+      </form>
+    </div>
+  </div>`;
 }
 
-function addAudioBlock(block, url) {
-  const element = document.createElement("div");
-  element.className = "poster-block sealed-block";
-  element.style.left = `${block.x}%`;
-  element.style.top = `${block.y}%`;
-  element.style.width = `${block.width}%`;
-  element.style.height = `${block.height}%`;
-  element.style.transform = `rotate(${block.rotation}deg)`;
-  const audio = document.createElement("audio");
-  audio.controls = true;
-  audio.src = url;
-  element.append(audio);
-  poster.append(element);
-}
-
-function showPoster(capsule) {
-  const design = capsule.design || {};
-  const theme = design.theme || {};
-  poster.replaceChildren();
-  poster.style.backgroundColor = theme.background_color || "#E3E7DF";
-  poster.style.color = theme.accent_color || "#202923";
-  poster.dataset.font = theme.font || "sans";
-
-  if (!(design.hidden_blocks || []).includes("title")) addBlock(capsule.title, blockStyle(design, "title_block"), false);
-
-  if (capsule.locked) {
-    if (!(design.hidden_blocks || []).includes("message")) addBlock("This capsule is locked", blockStyle(design, "message_block"), true);
-    if (design.audio_block) addBlock("🔊 Audio locked", blockStyle(design, "audio_block"), true);
-    if (design.video_block) addBlock("▶ Video locked", blockStyle(design, "video_block"), true);
-    return;
-  }
-
-  if (!(design.hidden_blocks || []).includes("message")) addBlock(capsule.message, blockStyle(design, "message_block"), true);
-  const hasCanvasBlocks = Array.isArray(design.sealed_blocks);
-  const sealedBlocks = design.sealed_blocks || [];
-  if (capsule.audio_url?.[0] && (!hasCanvasBlocks || design.audio_block)) addAudioBlock(blockStyle(design, "audio_block"), capsule.audio_url[0]);
-  if (!hasCanvasBlocks && capsule.video_url?.[0]) addVideoBlock(blockStyle(design, "video_block"), capsule.video_url[0]);
-  sealedBlocks.forEach((block) => {
-    if (block.media_type === "audio") addAudioBlock(block, capsule.audio_url[block.media_index]);
-    else if (block.media_type === "video") addVideoBlock(block, capsule.video_url[block.media_index]);
-    else if (block.image_url || Number.isInteger(block.image_index)) addImageBlock(block.image_url || capsule.image_urls[block.image_index], block);
-    else addBlock(block.text, block, true);
+function bindLockedActions() {
+  document.querySelector(".delete-capsule-form")?.addEventListener("submit", (event) => {
+    if (!window.confirm("Delete this capsule? This cannot be undone.")) event.preventDefault();
   });
 }
 
-function showImages(capsule) {
-  capsuleImages.replaceChildren();
-  if (capsule.locked) return;
+function showLocked(capsule, csrfToken) {
+  view.innerHTML = `${backLink()}
+    <section class="cap-page">
+      ${bigEnvelopeHTML(capsule)}
+      <div class="info">
+        <span class="chip sealed">${Postal.lockSvg}This capsule is locked</span>
+        <h2>Opens in</h2>
+        <div class="flap" id="capsule-unlock-time" role="timer" aria-live="off">
+          <div><b data-unit="d">0</b><span>days</span></div>
+          <div><b data-unit="h">00</b><span>hours</span></div>
+          <div><b data-unit="m">00</b><span>minutes</span></div>
+          <div><b data-unit="s">00</b><span>seconds</span></div>
+        </div>
+        <dl class="facts">
+          <dt>Unlocks</dt><dd>${esc(Postal.formatDate(capsule.unlock_at))}</dd>
+          <dt>Sealed</dt><dd>${esc(Postal.formatDay(capsule.created_at))}</dd>
+          <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
+          <dt>From</dt><dd>You</dd>
+        </dl>
+        <div class="row">
+          <button type="button" class="btn sm quiet" id="copy-link">Copy link</button>
+          <span id="copied" class="eyebrow" role="status" hidden>Link copied</span>
+        </div>
+        ${lockedActionsHTML(capsule, csrfToken)}
+      </div>
+    </section>`;
 
-  const placedImageIndexes = (capsule.design?.sealed_blocks || []).filter((block) => Number.isInteger(block.image_index)).map((block) => block.image_index);
-  (capsule.image_urls || []).forEach((url, index) => {
-    if (placedImageIndexes.includes(index)) return;
-    const image = document.createElement("img");
-    image.src = url;
-    image.alt = "Capsule image";
-    image.loading = "lazy";
-    capsuleImages.append(image);
-  });
+  startCountdown(capsule);
+  document.querySelector("#copy-link").addEventListener("click", copyLink);
+  bindLockedActions();
 }
 
-function showAudio(capsule) {
-  capsuleAudio.replaceChildren();
-  const placedIndexes = (capsule.design?.sealed_blocks || []).filter((block) => block.media_type === "audio").map((block) => block.media_index);
-  const urls = capsule.audio_url?.filter((_, index) => !(capsule.design?.audio_block && index === 0) && !placedIndexes.includes(index));
-  capsuleAudio.hidden = !urls?.length;
-  urls?.forEach((url) => {
-    const audio = document.createElement("audio");
-    audio.controls = true;
-    audio.src = url;
-    capsuleAudio.append(audio);
-  });
-}
-
-function showVideo(capsule) {
-  capsuleVideo.replaceChildren();
-  const placedIndexes = (capsule.design?.sealed_blocks || []).filter((block) => block.media_type === "video").map((block) => block.media_index);
-  const urls = capsule.video_url?.filter((_, index) => !(capsule.design?.video_block && index === 0) && !placedIndexes.includes(index));
-  capsuleVideo.hidden = !urls?.length;
-  urls?.forEach((url) => {
-    const video = document.createElement("video");
-    video.controls = true;
-    video.src = url;
-    capsuleVideo.append(video);
-  });
-}
-
-function showCountdown(capsule) {
-  clearInterval(countdownTimer);
-
-  if (!capsule.locked) {
-    unlockTime.textContent = "Unlocked";
-    return;
-  }
-
-  const updateCountdown = () => {
-    const secondsRemaining = Math.ceil((new Date(capsule.unlock_at).getTime() - Date.now()) / 1000);
-
-    if (secondsRemaining <= 0) {
+function startCountdown(capsule) {
+  const flap = document.querySelector("#capsule-unlock-time");
+  const tick = () => {
+    const seconds = Math.max(0, Math.floor((time(capsule.unlock_at) - Date.now()) / 1000));
+    if (seconds === 0) {
       clearInterval(countdownTimer);
-      unlockTime.textContent = "Opening capsule…";
       loadCapsule();
       return;
     }
 
-    const days = Math.floor(secondsRemaining / 86_400);
-    const hours = Math.floor((secondsRemaining % 86_400) / 3_600);
-    const minutes = Math.floor((secondsRemaining % 3_600) / 60);
-    const seconds = secondsRemaining % 60;
-    unlockTime.textContent = `Opens in ${days}d ${hours}h ${minutes}m ${seconds}s`;
+    const values = {
+      d: Math.floor(seconds / 86_400),
+      h: Math.floor((seconds % 86_400) / 3_600),
+      m: Math.floor((seconds % 3_600) / 60),
+      s: seconds % 60
+    };
+    flap.querySelectorAll("b").forEach((digit) => {
+      const value = values[digit.dataset.unit];
+      digit.textContent = digit.dataset.unit === "d" ? value : String(value).padStart(2, "0");
+    });
   };
 
-  countdownTimer = setInterval(updateCountdown, 1_000);
-  updateCountdown();
+  countdownTimer = setInterval(tick, 1_000);
+  tick();
+}
+
+async function copyLink() {
+  const copied = document.querySelector("#copied");
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+    copied.textContent = "Link copied";
+  } catch (error) {
+    copied.textContent = "Copy this page's address to share it";
+  }
+  copied.hidden = false;
+}
+
+function writtenAgo(capsule) {
+  const days = Math.max(0, Math.floor((Date.now() - time(capsule.created_at)) / Postal.DAY));
+  return days === 0 ? "Written today." : `Written ${plural(days, "day")} ago.`;
+}
+
+function isHidden(design, name) {
+  return (design.hidden_blocks || []).includes(name);
+}
+
+function mediaType(block) {
+  if (block.type === "image" || block.type === "audio" || block.type === "video") return block.type;
+  if (block.media_type) return block.media_type;
+  if (block.image_url || Number.isInteger(block.image_index)) return "image";
+  return "text";
+}
+
+function mediaUrl(capsule, block, type) {
+  if (block.url) return block.url;
+  if (type === "image") return block.image_url || capsule.image_urls?.[block.image_index];
+  const urls = type === "audio" ? capsule.audio_url : capsule.video_url;
+  return urls?.[block.media_index];
+}
+
+function mediaBlockHTML(capsule, block, number) {
+  const type = mediaType(block);
+  const src = mediaUrl(capsule, block, type);
+  const style = Postal.blockStyle(block);
+  if (type === "image" && src) {
+    return `<div class="pb photo" style="${style}"><img src="${esc(src)}" alt="Capsule photo ${number}" loading="lazy"></div>`;
+  }
+  if (type === "audio" && src) {
+    return `<div class="pb audio" style="${style}" data-src="${esc(src)}" role="group" aria-label="Voice note ${number}">${Postal.audioPillHTML()}</div>`;
+  }
+  if (type === "video" && src) {
+    return `<div class="pb video" style="${style}"><video src="${esc(src)}" controls playsinline preload="metadata"></video></div>`;
+  }
+  if (type === "text") return `<div class="pb note" style="${style}">${esc(block.text)}</div>`;
+  return "";
+}
+
+function openedPosterHTML(capsule) {
+  const design = capsule.design || {};
+  const theme = Postal.themeOf(design);
+  let html = `<div class="poster" data-font="${esc(theme.font)}" style="${Postal.posterStyle(theme)}">`;
+  if (!isHidden(design, "title")) {
+    html += `<div class="pb title" style="${Postal.blockStyle(Postal.blockOf(design, "title_block"))}">${esc(capsule.title)}</div>`;
+  }
+  if (!isHidden(design, "icon")) {
+    html += `<div class="pb icon" style="${Postal.blockStyle(Postal.blockOf(design, "icon_block"))}">${esc(theme.icon)}</div>`;
+  }
+  if (!isHidden(design, "message")) {
+    html += `<div class="pb message" style="${Postal.blockStyle(Postal.blockOf(design, "message_block"))}">${esc(capsule.message)}</div>`;
+  }
+
+  const blocks = [...(design.sealed_blocks || [])];
+  if (design.audio_block && capsule.audio_url?.[0] && !blocks.some((block) => mediaType(block) === "audio" && block.media_index === 0)) {
+    blocks.push({ ...design.audio_block, type: "audio", media_index: 0 });
+  }
+  if (design.video_block && capsule.video_url?.[0] && !blocks.some((block) => mediaType(block) === "video" && block.media_index === 0)) {
+    blocks.push({ ...design.video_block, type: "video", media_index: 0 });
+  }
+
+  const counts = { image: 0, audio: 0, video: 0 };
+  blocks.forEach((block) => {
+    const type = mediaType(block);
+    if (counts[type] !== undefined) counts[type] += 1;
+    html += mediaBlockHTML(capsule, block, counts[type] || 0);
+  });
+  return `${html}</div>`;
+}
+
+function unplacedMediaHTML(capsule) {
+  const design = capsule.design || {};
+  const placed = { image: new Set(), audio: new Set(), video: new Set() };
+  (design.sealed_blocks || []).forEach((block) => {
+    const type = mediaType(block);
+    const src = mediaUrl(capsule, block, type);
+    if (placed[type] && src) placed[type].add(src);
+  });
+  if (design.audio_block && capsule.audio_url?.[0]) placed.audio.add(capsule.audio_url[0]);
+  if (design.video_block && capsule.video_url?.[0]) placed.video.add(capsule.video_url[0]);
+
+  const images = (capsule.image_urls || []).filter((url) => !placed.image.has(url));
+  const audio = (capsule.audio_url || []).filter((url) => !placed.audio.has(url));
+  const video = (capsule.video_url || []).filter((url) => !placed.video.has(url));
+  if (!images.length && !audio.length && !video.length) return "";
+
+  let html = '<section class="media-archive" aria-label="Capsule attachments"><h3>Also inside</h3>';
+  if (images.length) html += `<div class="capsule-images">${images.map((url, index) => `<img src="${esc(url)}" alt="Capsule photo ${index + 1}" loading="lazy">`).join("")}</div>`;
+  if (audio.length) html += `<div class="capsule-media">${audio.map((url) => `<audio src="${esc(url)}" controls preload="metadata"></audio>`).join("")}</div>`;
+  if (video.length) html += `<div class="capsule-media">${video.map((url) => `<video src="${esc(url)}" controls playsinline preload="metadata"></video>`).join("")}</div>`;
+  return `${html}</section>`;
+}
+
+function showOpened(capsule) {
+  view.innerHTML = `${backLink()}
+    <section class="cap-page opened-capsule">
+      <div class="opening" id="capsule-poster">
+        ${openedPosterHTML(capsule)}
+        <div class="pocket" aria-hidden="true"><div class="wax">FM</div></div>
+      </div>
+      <div class="info">
+        <span class="chip open">${Postal.openSvg}Unlocked</span>
+        <h2>${writtenAgo(capsule)}</h2>
+        <p class="lead">You sealed “${esc(capsule.title)}” on ${esc(Postal.formatDay(capsule.created_at))} and it waited until ${esc(Postal.formatDay(capsule.unlock_at))}.</p>
+        <dl class="facts">
+          <dt>Sealed</dt><dd>${esc(Postal.formatDay(capsule.created_at))}</dd>
+          <dt>Unlocked</dt><dd>${esc(Postal.formatDate(capsule.unlock_at))}</dd>
+          <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
+        </dl>
+        ${unplacedMediaHTML(capsule)}
+        <div class="row"><a class="btn primary" href="/create.html">Seal another</a></div>
+      </div>
+    </section>`;
+  Postal.wireAudio(view);
+}
+
+function showNotFound() {
+  view.innerHTML = `<section class="rts">
+    <span class="rubber">Return to sender</span>
+    <h1>Capsule not found</h1>
+    <p>This capsule doesn't exist or it doesn't belong to your account.</p>
+    <a class="btn primary" href="/">Back to all capsules</a>
+  </section>`;
+}
+
+function showUnreachable() {
+  view.innerHTML = `<section class="rts" id="unreachable">
+    <h1>No connection</h1>
+    <p>Couldn't reach FutureMe. Check your connection and reload.</p>
+    <button type="button" class="btn primary" id="reload">Reload</button>
+  </section>`;
+  document.querySelector("#reload").addEventListener("click", () => window.location.reload());
+}
+
+async function deleteSession(capsule) {
+  const action = `/capsules/${encodeURIComponent(capsule.id)}/delete`;
+  try {
+    const response = await fetch(`/api/session?form_action=${encodeURIComponent(action)}`, { cache: "no-store" });
+    if (response.ok) return response.json();
+  } catch (error) {
+    // The generic token from the already-loaded session is a safe fallback.
+  }
+  return window.futuremeSession;
 }
 
 async function loadCapsule() {
-  const response = await fetch(`/api/capsules/${capsuleId}`);
+  clearInterval(countdownTimer);
+  view.innerHTML = '<p class="loading">Opening the mailbox…</p>';
 
-  if (!response.ok) {
-    poster.textContent = "Capsule not found";
-    return;
+  try {
+    const session = await window.futuremeSession;
+    if (!session.user) return;
+
+    const response = await fetch(`/api/capsules/${encodeURIComponent(capsuleId)}`);
+    if (response.status === 404) return showNotFound();
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const capsule = await response.json();
+
+    document.title = `${capsule.title} · FutureMe`;
+    showSealedToast(capsule);
+    if (capsule.locked) {
+      const scopedSession = await deleteSession(capsule);
+      showLocked(capsule, scopedSession.csrf_token);
+    } else {
+      showOpened(capsule);
+    }
+  } catch (error) {
+    showUnreachable();
   }
-
-  const capsule = await response.json();
-  creator.textContent = "Created by: You";
-  editCapsuleLink.hidden = false;
-  editCapsuleLink.href = `/create.html?id=${capsule.id}`;
-  showPoster(capsule);
-  showCountdown(capsule);
 }
-
-deleteCapsuleForm.action = `/capsules/${capsuleId}/delete`;
-fetch(`/api/session?form_action=${encodeURIComponent(deleteCapsuleForm.action)}`, { cache: "no-store" })
-  .then((response) => response.json())
-  .then((session) => { deleteCapsuleToken.value = session.csrf_token; });
 
 if (capsuleId) {
   loadCapsule();
 } else {
-  poster.textContent = "Capsule not found";
+  showNotFound();
 }

@@ -9,6 +9,7 @@
   <script src="/auth.js?v=frontend-port-1" defer></script>
   <script src="/postal.js?v=frontend-port-1" defer></script>
   <script src="/create.js?v=edit-media-removal-1" defer></script>
+  <script src="/collaboration-preview.js" defer></script>
 </head>
 <body>
   <div class="stripe" aria-hidden="true"></div>
@@ -25,9 +26,10 @@
       <p>Write the memory first, make it yours, then choose the day it returns.</p>
     </section>
     <nav class="create-steps" aria-label="Capsule creation steps">
-      <button type="button" data-show-step="write" aria-current="step"><span>01</span> Write</button>
-      <button type="button" data-show-step="design"><span>02</span> Design</button>
-      <button type="button" data-show-step="deliver"><span>03</span> Deliver</button>
+      <button type="button" data-show-step="collaborate"><span>01</span> Collaborate</button>
+      <button type="button" data-show-step="write" aria-current="step"><span>02</span> Write</button>
+      <button type="button" data-show-step="design"><span>03</span> Design</button>
+      <button type="button" data-show-step="deliver"><span>04</span> Deliver</button>
     </nav>
     <div class="desk">
       <div class="stage">
@@ -36,15 +38,26 @@
       </div>
       <aside class="side" aria-label="Capsule settings">
         <p id="form-errors" class="errors" role="alert"></p>
+        <section data-step="collaborate" hidden>
+          <h2><span>01</span>Create it together</h2>
+          <p>Preview collaborators and their activity on this capsule.</p>
+          <p class="collaboration-disclosure"><strong>UI preview only.</strong> Invitations and shared changes are not sent or saved.</p>
+          <label class="fld" for="collaborator-email">Collaborator email</label>
+          <div class="collaborator-entry"><input id="collaborator-email" type="email" placeholder="friend@example.com" aria-describedby="collaborator-error"><button type="button" class="btn collaborator-add" id="add-collaborator">Add collaborator</button></div>
+          <p id="collaborator-error" role="alert"></p>
+          <p id="presence-activity" role="status">Only you are in this draft</p>
+          <ul id="collaborator-list" class="collaborator-list" aria-label="Collaborators"></ul>
+          <button type="button" class="btn primary" data-show-step="write">Next: Write →</button>
+        </section>
         <section data-step="write">
-          <h2><span>01</span>Start with the words</h2>
+          <h2><span>02</span>Start with the words</h2>
           <p>First, capture what you do not want to forget.</p>
           <label class="fld">Title<input id="title-input" type="text" placeholder="Your title"></label>
           <label class="fld">Message<textarea id="message-input" rows="6" placeholder="Your sealed message"></textarea></label>
           <button type="button" class="btn primary" data-show-step="design">Next: Design →</button>
         </section>
         <section data-step="design" hidden>
-          <h2><span>02</span>Stationery</h2>
+          <h2><span>03</span>Stationery</h2>
           <label class="fld">Theme<select id="theme-preset"><option value="sage">Sage</option><option value="sunset">Sunset</option><option value="night">Night</option></select></label>
           <div class="two"><label class="fld">Background<input id="background-color" type="color" value="#E3E7DF"></label><label class="fld">Accent<input id="accent-color" type="color" value="#202923"></label></div>
           <label class="fld">Font<select id="poster-font"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option><option value="display">Display</option></select></label>
@@ -61,8 +74,15 @@
           <div class="flow-actions"><button type="button" class="btn quiet" data-show-step="write">← Back to Write</button><button type="button" class="btn primary" data-show-step="deliver">Next: Deliver →</button></div>
         </section>
         <section data-step="deliver" hidden>
-          <h2><span>03</span>Delivery</h2>
+          <h2><span>04</span>Delivery</h2>
           <label class="fld">Unlock at<input id="unlock-at" type="datetime-local"></label>
+          <h3>Send it to someone</h3>
+          <p class="recipient-help"><strong>UI preview only.</strong> Recipients are not saved and no emails are sent.</p>
+          <label class="fld" for="recipient-email">Recipient email</label>
+          <div class="recipient-entry"><input id="recipient-email" type="email" placeholder="friend@example.com" aria-describedby="recipient-error"><button type="button" class="btn recipient-add" id="add-recipient">Add recipient</button></div>
+          <p id="recipient-error" role="alert"></p>
+          <p id="recipient-count" aria-live="polite">0 recipients</p>
+          <ul id="recipient-list" class="recipient-list" aria-label="Email recipients"></ul>
           <button type="button" class="btn quiet" data-show-step="design">← Back to Design</button>
           <button id="seal-capsule" class="btn seal" type="button"><span class="dot" aria-hidden="true">FM</span>Seal the capsule</button>
         </section>
