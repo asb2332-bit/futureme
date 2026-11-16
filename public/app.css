@@ -284,7 +284,6 @@ a { color: inherit; }
 .recipient-help { color: var(--muted); font-size: 13px; line-height: 1.45; text-wrap: pretty; }
 .recipient-composer { display: flex; flex-direction: column; gap: 10px; }
 .recipient-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-.recipient-entry input, .collaborator-entry input { min-width: 0; padding: 9px 11px; border: 1px solid var(--rule); border-radius: var(--radius); font: inherit; }
 .recipient-entry .recipient-add { padding: 8px 12px; white-space: nowrap; }
 .recipient-summary { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-family: var(--f-type); font-size: 11.5px; }
 .recipient-summary span:first-child { color: var(--ink); font-weight: 700; }
@@ -404,7 +403,7 @@ a { color: inherit; }
   .library-heading { align-items: start; }
   .library-heading h2 { font-size: 31px; }
   .discovery-tools { grid-template-columns: 1fr; gap: 14px; padding: 15px; }
-  .status-filter > div { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .status-filter > div { display: grid; grid-template-columns: repeat(4, 1fr); }
   .status-filter button { padding-inline: 5px; }
 }
 
@@ -464,19 +463,4 @@ body { margin: 0; }
   .capsule-images { grid-template-columns: 1fr; }
 }
 
-.editor-actions { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 0 18px 18px; }
-.create-intro { display: grid; grid-template-columns: 1.25fr .75fr; gap: 28px; align-items: end; margin-bottom: 28px; }
-.create-intro h1 { max-width: 14ch; margin-top: 7px; font-family: var(--f-display); font-size: clamp(38px, 5vw, 62px); line-height: 1.02; }
-.create-intro > p { color: var(--muted); font-size: 17px; }
-.create-steps { display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: 18px; border-bottom: 1px solid var(--rule); }
-.create-steps button { padding: 14px 16px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--muted); text-align: left; cursor: pointer; }
-.create-steps button[aria-current="step"] { border-bottom-color: var(--red); background: var(--paper); color: var(--ink); }
-.create-steps button span { margin-right: 8px; color: var(--red); font-family: var(--f-type); }
-.desk { grid-template-columns: minmax(300px, 440px) minmax(0, 1fr); }
-.desk .side { grid-column: 1; grid-row: 1; }
-.desk .stage { grid-column: 2; grid-row: 1; }
-.side section[hidden] { display: none; }
-.side .errors:not(:empty) { margin: 18px 18px 0; }
-.fld textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--rule); border-radius: var(--radius); background: #fff; font: inherit; font-weight: 400; }
-.flow-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
-@media (max-width: 700px) { .create-intro { grid-template-columns: 1fr; gap: 12px; } .create-steps button { padding: 12px 6px; } .desk { grid-template-columns: 1fr; } .desk .side { grid-column: 1; grid-row: 1; } .desk .stage { grid-column: 1; grid-row: 2; } }
+.editor-actions { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 18px; }

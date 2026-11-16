@@ -1,6 +1,12 @@
+# Tests use disposable local storage. Development/production can choose either the local
+# service or Cloudinary through their environment configuration.
 test:
   service: Disk
   root: <%= Rails.root.join("tmp/storage") %>
+
+local:
+  service: Disk
+  root: <%= Rails.root.join("storage") %>
 
 cloudinary:
   service: Cloudinary

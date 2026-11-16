@@ -121,6 +121,62 @@ async function copyLink() {
   copied.hidden = false;
 }
 
+function showReady(capsule) {
+  view.innerHTML = `${backLink()}
+    <section class="cap-page">
+      ${bigEnvelopeHTML(capsule)}
+      <div class="info">
+        <span class="chip ready">${Postal.openSvg}Ready to open</span>
+        <h2>The wait is over.</h2>
+        <p class="lead">“${esc(capsule.title)}” has been sealed since ${esc(Postal.formatDay(capsule.created_at))}. Break the seal when you're ready to read it.</p>
+        <dl class="facts">
+          <dt>Unlocked</dt><dd>${esc(Postal.formatDate(capsule.unlock_at))}</dd>
+          <dt>Sealed</dt><dd>${esc(Postal.formatDay(capsule.created_at))}</dd>
+          <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
+          <dt>From</dt><dd>You</dd>
+        </dl>
+        <div class="row">
+          <button type="button" class="btn primary" id="break-seal">Break the seal</button>
+          <button type="button" class="btn sm quiet" id="copy-link">Copy link</button>
+          <span id="copied" class="eyebrow" role="status" hidden>Link copied</span>
+        </div>
+        <p class="errors" id="open-error" role="alert"></p>
+      </div>
+    </section>`;
+
+  document.querySelector("#copy-link").addEventListener("click", copyLink);
+  document.querySelector("#break-seal").addEventListener("click", () => breakSeal(capsule));
+}
+
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function breakSeal(capsule) {
+  const button = document.querySelector("#break-seal");
+  const error = document.querySelector("#open-error");
+  button.disabled = true;
+  error.textContent = "";
+  document.querySelector(".big-env").classList.add("breaking");
+
+  try {
+    const session = await window.futuremeSession;
+    const [response] = await Promise.all([
+      fetch(`/api/capsules/${encodeURIComponent(capsule.id)}/open`, {
+        method: "POST",
+        headers: { Accept: "application/json", "X-CSRF-Token": session.csrf_token }
+      }),
+      pause(reducedMotion() ? 0 : 650)
+    ]);
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+    showOpened(body);
+  } catch (failure) {
+    document.querySelector(".big-env").classList.remove("breaking");
+    button.disabled = false;
+    error.textContent = failure instanceof TypeError ? "Couldn't reach FutureMe. Check your connection and try again." : failure.message;
+  }
+}
+
 function writtenAgo(capsule) {
   const days = Math.max(0, Math.floor((Date.now() - time(capsule.created_at)) / Postal.DAY));
   return days === 0 ? "Written today." : `Written ${plural(days, "day")} ago.`;
@@ -167,6 +223,9 @@ function openedPosterHTML(capsule) {
   let html = `<div class="poster" data-font="${esc(theme.font)}" style="${Postal.posterStyle(theme)}">`;
   if (!isHidden(design, "title")) {
     html += `<div class="pb title" style="${Postal.blockStyle(Postal.blockOf(design, "title_block"))}">${esc(capsule.title)}</div>`;
+  }
+  if (!isHidden(design, "icon")) {
+    html += `<div class="pb icon" style="${Postal.blockStyle(Postal.blockOf(design, "icon_block"))}">${esc(theme.icon)}</div>`;
   }
   if (!isHidden(design, "message")) {
     html += `<div class="pb message" style="${Postal.blockStyle(Postal.blockOf(design, "message_block"))}">${esc(capsule.message)}</div>`;
@@ -225,14 +284,11 @@ function showOpened(capsule) {
         <p class="lead">You sealed “${esc(capsule.title)}” on ${esc(Postal.formatDay(capsule.created_at))} and it waited until ${esc(Postal.formatDay(capsule.unlock_at))}.</p>
         <dl class="facts">
           <dt>Sealed</dt><dd>${esc(Postal.formatDay(capsule.created_at))}</dd>
-          <dt>Unlocked</dt><dd>${esc(Postal.formatDate(capsule.unlock_at))}</dd>
+          <dt>Opened</dt><dd>${esc(Postal.formatDate(capsule.opened_at || capsule.unlock_at))}</dd>
           <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
         </dl>
         ${unplacedMediaHTML(capsule)}
-        <div class="row">
-          <a class="btn sm quiet" href="/create.html?id=${encodeURIComponent(capsule.id)}">Edit capsule</a>
-          <a class="btn primary" href="/create.html">Seal another</a>
-        </div>
+        <div class="row"><a class="btn sm quiet" href="/create.html?id=${encodeURIComponent(capsule.id)}">Edit capsule</a><a class="btn primary" href="/create.html">Seal another</a></div>
       </div>
     </section>`;
   Postal.wireAudio(view);
@@ -285,8 +341,10 @@ async function loadCapsule() {
     if (capsule.locked) {
       const scopedSession = await deleteSession(capsule);
       showLocked(capsule, scopedSession.csrf_token);
-    } else {
+    } else if (capsule.opened) {
       showOpened(capsule);
+    } else {
+      showReady(capsule);
     }
   } catch (error) {
     showUnreachable();

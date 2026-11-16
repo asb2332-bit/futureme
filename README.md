@@ -37,6 +37,14 @@ bin/rails server
 
 Open <http://localhost:3000>.
 
+Optional demo data (four capsules with photos and voice notes matching the UI prototype):
+
+```sh
+bin/rails db:seed
+```
+
+Seeding only creates capsules that do not exist yet (matched by title); it never changes or deletes existing data.
+
 ### Optional local integrations
 
 Create a local `.env` file for Cloudinary uploads and Google sign-in. Development automatically loads this file; never commit it.
@@ -49,10 +57,18 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 ```
 
-Cloudinary is required to persist uploaded media outside the local process. Google OAuth is optional; email/password accounts work without it. For local Google sign-in, add this authorized redirect URI in Google Cloud Console:
+Cloudinary persists uploaded media outside the local process. The repository also defines a local Active Storage disk service for development or Docker configurations that select it; in Docker, back up the `storage_data` volume with the database. Upload IDs are signed, so keep `RAILS_MASTER_KEY` or `SECRET_KEY_BASE` stable across deployments.
+
+Google OAuth is optional; email/password accounts work without it. For local Google sign-in, add this authorized redirect URI in Google Cloud Console:
 
 ```text
 http://localhost:3000/auth/google_oauth2/callback
+```
+
+Uploads that are never attached to a capsule can be removed after one day with:
+
+```sh
+bin/rails futureme:purge_unattached_uploads
 ```
 
 Stop the local database with:
@@ -76,4 +92,3 @@ These limits keep the prototype within the Cloudinary free-tier storage allowanc
 
 - Each account can create up to **5 capsules**.
 - Uploaded image, audio, and video files are limited to **2 MB total per capsule**.
-

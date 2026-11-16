@@ -26,9 +26,9 @@ function showHero() {
     <div class="wax">FM</div>`;
 }
 
-// The existing API unlocks capsules by time and does not track opens.
+// Unlocked by time but nobody has broken the seal yet.
 function isReady(capsule) {
-  return !isLocked(capsule);
+  return !isLocked(capsule) && !capsule.opened;
 }
 
 function envelopeHTML(capsule) {
@@ -61,7 +61,7 @@ function noResultsHTML() {
 function statusFor(capsule) {
   if (isLocked(capsule)) return "sealed";
   if (isReady(capsule)) return "ready";
-  return "ready";
+  return "opened";
 }
 
 function filteredCapsules() {
@@ -124,6 +124,8 @@ function scheduleRefresh(sealed) {
 function showCapsules(capsuleList) {
   const sealed = capsuleList.filter(isLocked).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
   const ready = capsuleList.filter(isReady).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
+  const opened = capsuleList.filter((c) => !isLocked(c) && c.opened)
+    .sort((a, b) => time(b.opened_at || b.unlock_at) - time(a.opened_at || a.unlock_at));
   let html = "";
 
   if (ready.length) {
@@ -133,6 +135,9 @@ function showCapsules(capsuleList) {
   if (sealed.length) {
     html += `<div class="sec-head"><h2>Opening soon</h2><span class="eyebrow">${plural(sealed.length, "sealed capsule")}</span></div>`;
     html += `<ol class="timeline">${sealed.map(envelopeHTML).join("")}<li><a class="newenv" href="/create.html">+ Seal another capsule</a></li></ol>`;
+  }
+  if (opened.length) {
+    html += `<div class="sec-head"><h2>Already opened</h2></div><ol class="timeline opened">${opened.map(envelopeHTML).join("")}</ol>`;
   }
 
   capsulesContainer.innerHTML = html;

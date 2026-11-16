@@ -15,5 +15,29 @@ services:
       timeout: 5s
       retries: 5
 
+  # The production image. Only starts with `docker compose --profile app up`, so
+  # `docker compose up -d db` still starts just the database for local development.
+  app:
+    profiles: ["app"]
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      FUTUREME_DATABASE_PASSWORD: futureme
+      # Passed through from your shell only if set. Provide one of them:
+      # RAILS_MASTER_KEY (contents of config/master.key) or SECRET_KEY_BASE.
+      RAILS_MASTER_KEY:
+      SECRET_KEY_BASE:
+    ports:
+      - "3000:3000"
+    volumes:
+      # Uploaded photos and voice notes (Active Storage Disk service). A named volume,
+      # so uploads survive rebuilds and redeploys of the app container.
+      - storage_data:/rails/storage
+
 volumes:
   postgres_data:
+  storage_data:

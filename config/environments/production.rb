@@ -63,6 +63,9 @@ Rails.application.configure do
   # config.active_job.queue_adapter = :resque
   # config.active_job.queue_name_prefix = "futureme_production"
 
+  # Store uploaded files on disk (see config/storage.yml).
+  config.active_storage.service = :local
+
   config.action_mailer.perform_caching = false
 
   # Ignore bad email addresses and do not raise email delivery errors.
