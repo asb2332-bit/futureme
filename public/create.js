@@ -447,8 +447,11 @@ function fillMediaBlock(element, block) {
     element.className = "pb video"; const video = document.createElement("video"); video.src = previewUrl; video.controls = true;
     video.addEventListener("pointerdown", (event) => event.stopPropagation()); element.append(video);
   } else {
-    element.className = "pb audio"; const audio = document.createElement("audio"); audio.src = previewUrl; audio.controls = true;
-    audio.addEventListener("pointerdown", (event) => event.stopPropagation()); element.append(audio);
+    element.className = "pb audio";
+    element.dataset.src = previewUrl;
+    element.setAttribute("role", "group");
+    element.innerHTML = Postal.audioPillHTML();
+    Postal.wireAudio(element);
   }
 }
 
