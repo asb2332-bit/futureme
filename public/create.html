@@ -21,7 +21,7 @@
     <header class="site-nav create-nav">
       <a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
       <div class="nav-actions">
-        <a class="back" href="/">Cancel</a>
+        <a id="cancel-edit" class="back" href="/">Cancel</a>
         <span class="account-nav"><a href="/login">Log in</a></span>
       </div>
     </header>
@@ -240,7 +240,7 @@
               <h3 id="email-heading">Send it to someone</h3>
               <span class="soon">Coming soon</span>
             </div>
-            <p class="recipient-help" id="recipient-help">Add everyone who should receive the private link after the capsule is sealed. No account required.</p>
+            <p class="recipient-help" id="recipient-help">Recipients are not saved and no emails are sent. This list is a local preview.</p>
             <div class="recipient-composer">
               <label class="fld recipient-field" for="recipient-email">Recipient email
                 <span class="recipient-entry">
@@ -288,6 +288,12 @@
         <div class="stage" id="stage">
           <div id="poster-preview" class="poster editor-canvas" aria-label="Capsule poster canvas" tabindex="0"></div>
           <p class="hint"><strong>Design step:</strong> drag to move · double-click text to edit · Delete removes a selected extra · drop media</p>
+        </div>
+        <div class="editor-actions">
+          <form id="delete-edit-form" method="post" hidden>
+            <input id="delete-edit-token" type="hidden" name="authenticity_token">
+            <button class="btn quiet" type="submit">Delete capsule</button>
+          </form>
         </div>
       </aside>
     </div>

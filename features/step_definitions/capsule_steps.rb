@@ -123,13 +123,14 @@ When('I attach {string} with {string}') do |filename, label|
 end
 
 When('I create the capsule') do
-  click_button 'Deliver' unless find_button('Seal the capsule', visible: :all).visible?
+  find("[data-show-step='deliver']").click unless find_button('Seal the capsule', visible: :all).visible?
   click_button 'Seal the capsule'
 end
 
 When('I save the capsule changes') do
-  click_button 'Deliver' unless find_button('Save changes', visible: :all).visible?
+  find("[data-show-step='deliver']").click unless find_button('Save changes', visible: :all).visible?
   click_button 'Save changes'
+  expect(page).to have_current_path(/capsule\.html/)
 end
 
 When('I edit the capsule') do
@@ -337,11 +338,11 @@ Then('the uploaded image is sealed') do
 end
 
 Then('I can play the selected audio') do
-  expect(page).to have_css('#poster-preview audio[controls]')
+  expect(page).to have_css('#poster-preview .pb.audio .play')
 end
 
 Then('I see two selected audio previews') do
-  expect(page).to have_css('#poster-preview audio[controls]', count: 2)
+  expect(page).to have_css('#poster-preview .pb.audio .play', count: 2)
 end
 
 Then('I see two selected video previews') do
@@ -376,4 +377,140 @@ end
 
 Then('I do not see {string}') do |text|
   retry_stale_browser_node { expect(page).not_to have_text(text) }
+end
+
+def creation_step(name)
+  find("[data-show-step='#{name}']").click
+end
+
+Then('I can preview collaborators and recipients without sending them') do
+  creation_step('collaborate')
+  fill_in 'Collaborator email', with: 'friend@example.com'
+  click_button 'Add collaborator'
+  find('select[aria-label="Preview activity for friend@example.com"]').select('Writing')
+  expect(page).to have_content('friend@example.com: Writing message (local preview).')
+  expect(page).to have_content('local preview')
+  creation_step('deliver')
+  fill_in 'Recipient email', with: 'reader@example.com'
+  click_button 'Add recipient'
+  fill_in 'Recipient email', with: 'reader@example.com'
+  click_button 'Add recipient'
+  expect(page).to have_content('That recipient is already on the list')
+  expect(page).to have_content('1 recipient')
+  expect(page).to have_content('Recipients are not saved and no emails are sent')
+  find('button[aria-label="Remove reader@example.com"]').click
+  expect(page).to have_content('0 recipients')
+end
+
+When('I write a title and message in the creation form') do
+  creation_step('write')
+  fill_in 'Title', with: 'A future memory'
+  fill_in 'capsule-message', with: 'Keep this message.'
+end
+
+When('I move through the creation steps') do
+  creation_step('design')
+  creation_step('deliver')
+  creation_step('write')
+end
+
+Then('the creation form retains the title and message') do
+  expect(find_field('capsule-title').value).to eq('A future memory')
+  expect(find_field('capsule-message').value).to eq('Keep this message.')
+end
+
+
+When('I clear the capsule title') do
+  creation_step('write')
+  fill_in 'Title', with: ''
+end
+
+When('I attempt to save the capsule changes') do
+  creation_step('deliver')
+  click_button 'Save changes'
+end
+
+
+When('I cancel editing') do
+  click_link 'Cancel'
+end
+
+When('I dismiss the delete confirmation') do
+  dismiss_confirm { click_button 'Delete capsule' }
+end
+
+When('I confirm deleting the capsule') do
+  accept_confirm { click_button 'Delete capsule' }
+  expect(page).to have_current_path('/index.html')
+end
+
+Then('the capsule titled {string} no longer exists') do |title|
+  expect(@account.capsules.where(title: title)).to be_empty
+end
+
+
+Given('a capsule already contains 2 MB of media') do
+  capsule = @account.capsules.create!(title: 'Full capsule', message: 'Memories', unlock_at: 1.day.from_now,
+    design: { 'sealed_blocks' => [
+      { 'id' => 'saved-image', 'image_index' => 0, 'x' => 10, 'y' => 10, 'width' => 30, 'height' => 25, 'rotation' => 0 },
+      { 'id' => 'saved-audio', 'media_type' => 'audio', 'media_index' => 0, 'x' => 10, 'y' => 40, 'width' => 45, 'height' => 10, 'rotation' => 0 },
+      { 'id' => 'saved-video', 'media_type' => 'video', 'media_index' => 0, 'x' => 55, 'y' => 65, 'width' => 30, 'height' => 25, 'rotation' => 0 }
+    ] })
+  %w[capsule-at-limit.png capsule-at-limit.mp3 capsule-at-limit.mp4].each do |filename|
+    attachment = filename.end_with?('.png') ? capsule.images : filename.end_with?('.mp3') ? capsule.audio : capsule.video
+    attachment.attach(io: File.open(Rails.root.join('spec/fixtures/files', filename)), filename: filename)
+  end
+end
+
+When('I remove the existing image from the poster') do
+  creation_step('design')
+  find('.pb.photo').click
+  find('body').send_keys(:delete)
+end
+
+When('I remove the existing audio from the poster') do
+  creation_step('design')
+  find('#layers button', text: 'Voice note 1').click
+  find('body').send_keys(:delete)
+end
+
+Then('the full capsule has the replacement audio') do
+  capsule = @account.capsules.find_by!(title: 'Full capsule')
+  expect(capsule.audio.blobs.pluck(:filename)).to eq(['capsule.mp3'])
+  expect(capsule.images.blobs.count).to eq(1)
+  expect(capsule.video.blobs.count).to eq(1)
+end
+
+When('I remove the existing video from the poster') do
+  creation_step('design')
+  find('#layers button', text: 'Video 1').click
+  find('body').send_keys(:delete)
+end
+
+Then('the full capsule has the replacement video') do
+  capsule = @account.capsules.find_by!(title: 'Full capsule')
+  expect(capsule.video.blobs.pluck(:filename)).to eq(['capsule.mp4'])
+  expect(capsule.images.blobs.count).to eq(1)
+  expect(capsule.audio.blobs.count).to eq(1)
+end
+
+When('I undo the poster change') do
+  find('body').send_keys([:control, 'z'])
+end
+
+Then('the full capsule retains its original image') do
+  expect(@account.capsules.find_by!(title: 'Full capsule').images.blobs.pluck(:filename)).to eq(['capsule-at-limit.png'])
+end
+
+Then('the full capsule has the replacement image') do
+  capsule = @account.capsules.find_by!(title: 'Full capsule')
+  expect(capsule.images.blobs.pluck(:filename)).to eq(['capsule.png'])
+  expect(capsule.audio.blobs.count).to eq(1)
+  expect(capsule.video.blobs.count).to eq(1)
+end
+
+Then('adding another audio file exceeds the capsule limit') do
+  creation_step('design')
+  attach_file 'audio-upload', Rails.root.join('spec/fixtures/files/capsule.mp3'), visible: false
+  expect(page).to have_text("exceed this capsule's 2 MB limit")
 end

@@ -85,6 +85,8 @@ class Capsule < ApplicationRecord
     @media_blobs = []
 
     media_blocks.each do |block|
+      next if block["type"] == "image" && block["image_url"].present?
+
       blob = ActiveStorage::Blob.find_signed(block["media_id"]) if block["media_id"].is_a?(String)
       if blob.nil? || sealed_blob_error(blob, block["type"])
         errors.add(:media, "is invalid")
@@ -103,7 +105,7 @@ class Capsule < ApplicationRecord
   end
 
   def attach_media_blobs
-    media.attach(@media_blobs.uniq) if @media_blobs.present?
+    self.media = @media_blobs.uniq if design.key?("sealed_blocks") && @media_blobs
   end
 
   def images_are_valid
@@ -135,7 +137,7 @@ class Capsule < ApplicationRecord
   end
 
   def all_media_blobs
-    (media.blobs.to_a + images.blobs.to_a + audio.blobs.to_a + video.blobs.to_a + Array(@media_blobs))
+    ((design.key?("sealed_blocks") ? Array(@media_blobs) : media.blobs.to_a) + images.blobs.to_a + audio.blobs.to_a + video.blobs.to_a + Array(@media_blobs))
       .uniq { |blob| blob.id || blob.object_id }
   end
 

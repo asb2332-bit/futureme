@@ -288,7 +288,7 @@ function showOpened(capsule) {
           <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
         </dl>
         ${unplacedMediaHTML(capsule)}
-        <div class="row"><a class="btn primary" href="/create.html">Seal another</a></div>
+        <div class="row"><a class="btn sm quiet" href="/create.html?id=${encodeURIComponent(capsule.id)}">Edit capsule</a><a class="btn primary" href="/create.html">Seal another</a></div>
       </div>
     </section>`;
   Postal.wireAudio(view);

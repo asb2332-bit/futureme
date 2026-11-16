@@ -462,3 +462,5 @@ body { margin: 0; }
   .nav-actions .account-nav { gap: 10px; }
   .capsule-images { grid-template-columns: 1fr; }
 }
+
+.editor-actions { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 18px; }

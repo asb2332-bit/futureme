@@ -79,6 +79,7 @@ let currentStep = editingCapsuleId ? "write" : "collaborate";
 let currentUserEmail = "You";
 let saving = false;
 let pendingUploads = Promise.resolve();
+let existingAttachments = [];
 
 const themePresets = {
   sage: { background_color: "#E3E7DF", accent_color: "#202923" },
@@ -524,7 +525,14 @@ function showUploadError(message) {
   if (!message) uploadStatus.textContent = uploadHelp;
 }
 
-function selectedUploadBytes() { return design.sealed_blocks.reduce((total, block) => total + (block.upload_size || 0), 0); }
+function removedAttachments() {
+  return existingAttachments.filter((attachment) => attachment.blockId && !design.sealed_blocks.some((block) => block.id === attachment.blockId));
+}
+function selectedUploadBytes() {
+  const removed = removedAttachments();
+  return existingAttachments.filter((attachment) => !removed.includes(attachment)).reduce((total, attachment) => total + attachment.size, 0)
+    + design.sealed_blocks.filter((block) => !block.persisted).reduce((total, block) => total + (block.upload_size || 0), 0);
+}
 function mediaKind(file) {
   if (file.type.startsWith("image/")) return "image";
   if (file.type.startsWith("audio/")) return "audio";
@@ -662,6 +670,7 @@ async function createCapsule() {
     const session = await authenticatedSession();
     const capsule = {
       title: titleText, message: capsuleMessage, unlock_at: new Date(unlockAt).toISOString(),
+      removed_attachment_ids: removedAttachments().map((attachment) => attachment.id),
       image_signed_ids: newSignedIds("image"), audio_signed_ids: newSignedIds("audio"), video_signed_ids: newSignedIds("video"),
       remote_image_urls: design.sealed_blocks.filter((block) => block.image_url).map((block) => block.image_url), design
     };
@@ -707,7 +716,20 @@ async function loadCapsuleForEditing() {
   design.message_block = { ...design.message_block, ...(loadedDesign.message_block || {}) };
   design.icon_block = { ...design.icon_block, ...(loadedDesign.icon_block || {}) };
   design.hidden_blocks = loadedDesign.hidden_blocks || []; design.sealed_blocks = loadedDesign.sealed_blocks || [];
-  normalizeLoadedBlocks(capsule); sealButton.replaceChildren(document.createTextNode("Save changes"));
+  normalizeLoadedBlocks(capsule);
+  const kinds = { images: "image", audio: "audio", video: "video" };
+  existingAttachments = Object.entries(capsule.media_attachments || {}).flatMap(([name, attachments]) => attachments.map((attachment, index) => {
+    const type = kinds[name];
+    const block = design.sealed_blocks.find((item) => item.type === type && (item.media_id === attachment.signed_id || item.media_id === `persisted-${type}-${index}`));
+    if (block) {
+      if (!block.media_id.startsWith("persisted-")) mediaPreviews[attachment.signed_id] = mediaPreviews[block.media_id];
+      else mediaPreviews[attachment.signed_id] = attachment.url;
+      block.media_id = attachment.signed_id;
+    }
+    return { ...attachment, blockId: block?.id };
+  }));
+  renderPoster();
+  sealButton.replaceChildren(document.createTextNode("Save changes"));
   document.querySelector(".saving-card strong").textContent = "Saving your capsule…";
   syncThemeControls(); updateWritingMeta(); updateReview(); renderPoster(); renderLayers();
 }
@@ -761,3 +783,20 @@ window.futuremeSession.then((session) => {
   ownerEmail.textContent = currentUserEmail; ownerAvatar.textContent = initialsFor(currentUserEmail); renderPresence();
 }).catch(() => {});
 loadCapsuleForEditing().catch((error) => { console.error(error); showValidationErrors({ base: [error.message || "Couldn't load this capsule."] }); });
+
+if (editingCapsuleId) {
+  document.querySelector("#cancel-edit").href = `/capsule.html?id=${encodeURIComponent(editingCapsuleId)}`;
+  const deleteForm = document.querySelector("#delete-edit-form");
+  deleteForm.action = `/capsules/${encodeURIComponent(editingCapsuleId)}/delete`;
+  deleteForm.addEventListener("submit", (event) => {
+    if (!confirm("Delete this capsule and its media permanently?")) event.preventDefault();
+  });
+  fetch(`/api/session?form_action=${encodeURIComponent(deleteForm.action)}`, { cache: "no-store" })
+    .then((response) => { if (!response.ok) throw new Error(); return response.json(); })
+    .then((session) => {
+      if (!session.csrf_token) throw new Error();
+      document.querySelector("#delete-edit-token").value = session.csrf_token;
+      deleteForm.hidden = false;
+    })
+    .catch(() => { formErrors.textContent = "Couldn't enable deletion. Please refresh and try again."; });
+}

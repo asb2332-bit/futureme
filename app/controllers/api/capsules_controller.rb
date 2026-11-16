@@ -31,7 +31,16 @@ class Api::CapsulesController < ApplicationController
 
   def show
     reveal_for_editing = params[:editing] == "true"
-    render json: capsule_json(@capsule, include_message: reveal_for_editing || @capsule.opened?)
+    data = capsule_json(@capsule, include_message: reveal_for_editing || @capsule.opened?)
+    if reveal_for_editing
+      data[:media_attachments] = %i[images audio video].to_h do |name|
+        [name, @capsule.public_send(name).attachments.includes(:blob).order(:id).map do |attachment|
+          { id: attachment.id, size: attachment.blob.byte_size, url: rails_blob_url(attachment.blob), signed_id: attachment.blob.signed_id }
+        end]
+      end
+      data[:media_byte_size] = data[:media_attachments].values.flatten.sum { |attachment| attachment[:size] }
+    end
+    render json: data
   end
 
   # Reaching the unlock time makes the capsule ready; this action breaks its seal once.
@@ -45,9 +54,17 @@ class Api::CapsulesController < ApplicationController
 
   def update
     submitted_data = capsule_params
-    attachments = extract_attachments(submitted_data, existing_design: @capsule.design)
+    removed_ids = Array(submitted_data.delete(:removed_attachment_ids)).map(&:to_s)
+    existing = %i[images audio video].to_h { |name| [name, @capsule.public_send(name).attachments.includes(:blob).order(:id).to_a] }
+    unless (removed_ids - existing.values.flatten.map { |attachment| attachment.id.to_s }).empty?
+      return render json: { errors: { base: ["Invalid attachment"] } }, status: :unprocessable_entity
+    end
+    uploads = extract_attachments(submitted_data, existing_design: @capsule.design)
     @capsule.assign_attributes(submitted_data)
-    attach_files(@capsule, attachments)
+    existing.each do |name, attachments|
+      retained = attachments.reject { |attachment| removed_ids.include?(attachment.id.to_s) }.map(&:blob)
+      @capsule.public_send("#{name}=", retained + uploads[name]) if retained.size != attachments.size || uploads[name].any?
+    end
 
     if @capsule.save
       render json: capsule_json(@capsule, include_message: true)
@@ -74,11 +91,12 @@ class Api::CapsulesController < ApplicationController
     params.require(:capsule).permit(
       :title, :message, :unlock_at, :audio_signed_id, :video_signed_id,
       image_signed_ids: [], audio_signed_ids: [], video_signed_ids: [],
-      remote_image_urls: [], design: {}
+      removed_attachment_ids: [], remote_image_urls: [], design: {}
     )
   end
 
   def extract_attachments(data, existing_design: {})
+    data.delete(:removed_attachment_ids)
     attachments = {
       images: Array(data.delete(:image_signed_ids)),
       audio: signed_ids(data, :audio),
@@ -86,7 +104,7 @@ class Api::CapsulesController < ApplicationController
     }
     remote_image_urls = data.delete(:remote_image_urls)
     submitted_design = data[:design]&.to_h
-    if remote_image_urls.present?
+    if !remote_image_urls.nil?
       data[:design] = (submitted_design || existing_design).merge("remote_image_urls" => remote_image_urls)
     elsif submitted_design && existing_design["remote_image_urls"].present?
       data[:design] = submitted_design.reverse_merge("remote_image_urls" => existing_design["remote_image_urls"])
