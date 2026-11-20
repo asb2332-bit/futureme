@@ -25,12 +25,17 @@ const imagePreviewUrls = {};
 let imageFiles = [];
 let audioFiles = [];
 let videoFiles = [];
+let existingMediaSize = 0;
+let existingImages = [];
+let existingAudio = [];
+let existingVideo = [];
+let removedAttachmentIds = [];
 let audioPreviewUrls = [];
 let videoPreviewUrls = [];
 const undoHistory = [];
 let capsuleVersion;
-let existingImageCount = 0;
-let canManageEditors = true;
+let canManageEditors = !editingCapsuleId;
+let deleteTokenReady = false;
 let savedDocuments = [];
 const maxCapsuleSize = 2 * 1024 * 1024;
 
@@ -380,7 +385,10 @@ function addMediaBlocks(type, startIndex, count) {
 }
 
 function saveUndoState() {
-  undoHistory.push({ design: structuredClone(design), titleText: titleText, messageText: messageText, selectedBlockId: selectedBlockId });
+  undoHistory.push({ design: structuredClone(design), titleText, messageText, selectedBlockId,
+    existingImages: [...existingImages], existingAudio: [...existingAudio], existingVideo: [...existingVideo],
+    removedAttachmentIds: [...removedAttachmentIds], imageFiles: [...imageFiles], audioFiles: [...audioFiles], videoFiles: [...videoFiles],
+    audioPreviewUrls: [...audioPreviewUrls], videoPreviewUrls: [...videoPreviewUrls], imagePreviewUrls: { ...imagePreviewUrls } });
 }
 
 function undo() {
@@ -390,7 +398,28 @@ function undo() {
   titleText = state.titleText;
   messageText = state.messageText;
   selectedBlockId = state.selectedBlockId;
+  existingImages = state.existingImages; existingAudio = state.existingAudio; existingVideo = state.existingVideo;
+  removedAttachmentIds = state.removedAttachmentIds;
+  imageFiles = state.imageFiles; audioFiles = state.audioFiles; videoFiles = state.videoFiles;
+  audioPreviewUrls = state.audioPreviewUrls; videoPreviewUrls = state.videoPreviewUrls;
+  Object.keys(imagePreviewUrls).forEach((id) => delete imagePreviewUrls[id]);
+  Object.assign(imagePreviewUrls, state.imagePreviewUrls);
+  existingMediaSize = [...existingImages, ...existingAudio, ...existingVideo].reduce((sum, attachment) => sum + attachment.size, 0);
+  imageSignedIds = [];
+  const files = new DataTransfer();
+  imageFiles.forEach((file) => files.items.add(file));
+  imageInput.files = files.files;
   renderPoster();
+}
+
+function removeMediaAt(existing, files, index) {
+  if (index < existing.length) {
+    const [attachment] = existing.splice(index, 1);
+    removedAttachmentIds.push(attachment.id);
+    existingMediaSize -= attachment.size;
+  } else {
+    files.splice(index - existing.length, 1);
+  }
 }
 
 function deleteSelectedImage() {
@@ -418,9 +447,9 @@ function deleteSelectedImage() {
   if (selectedBlockId === "audio") {
     design.audio_block = null;
     audioInput.value = "";
-    audioFiles = [];
-    audioPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-    audioPreviewUrls = [];
+    removeMediaAt(existingAudio, audioFiles, 0);
+    audioPreviewUrls.splice(0, 1);
+    design.sealed_blocks.forEach((item) => { if (item.media_type === "audio" && item.media_index > 0) item.media_index -= 1; });
     selectedBlockId = "message";
     renderPoster();
     return;
@@ -428,9 +457,9 @@ function deleteSelectedImage() {
   if (selectedBlockId === "video") {
     design.video_block = null;
     videoInput.value = "";
-    videoFiles = [];
-    videoPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-    videoPreviewUrls = [];
+    removeMediaAt(existingVideo, videoFiles, 0);
+    videoPreviewUrls.splice(0, 1);
+    design.sealed_blocks.forEach((item) => { if (item.media_type === "video" && item.media_index > 0) item.media_index -= 1; });
     selectedBlockId = "message";
     renderPoster();
     return;
@@ -438,20 +467,21 @@ function deleteSelectedImage() {
 
   if (block?.media_type) {
     const files = block.media_type === "audio" ? audioFiles : videoFiles;
+    const existing = block.media_type === "audio" ? existingAudio : existingVideo;
     const urls = block.media_type === "audio" ? audioPreviewUrls : videoPreviewUrls;
-    files.splice(block.media_index, 1);
-    URL.revokeObjectURL(urls.splice(block.media_index, 1)[0]);
+    removeMediaAt(existing, files, block.media_index);
+    urls.splice(block.media_index, 1);
     design.sealed_blocks.forEach((item) => {
       if (item.media_type === block.media_type && item.media_index > block.media_index) item.media_index -= 1;
     });
   } else if (Number.isInteger(block.image_index)) {
-    imageFiles.splice(block.image_index, 1);
+    removeMediaAt(existingImages, imageFiles, block.image_index);
     const files = new DataTransfer();
     imageFiles.forEach((file) => files.items.add(file));
     imageInput.files = files.files;
     imageSignedIds = [];
     design.sealed_blocks.forEach((item) => { if (item.image_index > block.image_index) item.image_index -= 1; });
-    URL.revokeObjectURL(imagePreviewUrls[block.id]);
+    delete imagePreviewUrls[block.id];
   }
 
   design.sealed_blocks = design.sealed_blocks.filter((item) => item.id !== block.id);
@@ -486,7 +516,7 @@ function restoreTitleBlock() {
 }
 
 async function uploadSelectedImages(session) {
-  const files = Array.from(imageInput.files);
+  const files = imageFiles;
 
   for (const file of files.slice(imageSignedIds.length)) {
     const formData = new FormData();
@@ -520,13 +550,24 @@ async function uploadMedia(session, files, type) {
   return signedIds;
 }
 
+function showStep(step) {
+  document.querySelectorAll("[data-step]").forEach((panel) => { panel.hidden = panel.dataset.step !== step; });
+  document.querySelectorAll(".create-steps [data-show-step]").forEach((tab) => {
+    if (tab.dataset.showStep === step) tab.setAttribute("aria-current", "step");
+    else tab.removeAttribute("aria-current");
+  });
+}
+
 function showValidationErrors(errors) {
   formErrors.textContent = Object.values(errors).flat().join(", ");
+  if (errors.title || errors.message) showStep("write");
+  else if (errors.unlock_at) showStep("deliver");
 }
 
 function setSaving(saving) {
   savingOverlay.hidden = !saving;
   sealButton.disabled = saving;
+  document.querySelector("#save-draft").disabled = saving;
 }
 
 async function createCapsule(draft = false) {
@@ -540,6 +581,7 @@ async function createCapsule(draft = false) {
   if (!draft && !unlockAt) missingFields.push("Unlock at can't be blank");
   if (missingFields.length) {
     formErrors.textContent = missingFields.join(", ");
+    showStep(!String(titleText || "").trim() || !capsuleMessage ? "write" : "deliver");
     return;
   }
   setSaving(true);
@@ -569,6 +611,7 @@ async function createCapsule(draft = false) {
     video_signed_ids: videoSignedIds,
     lock_version: capsuleVersion,
     ...(canManageEditors ? {editor_emails: document.querySelector("#editor-emails").value.split(",").map(email => email.trim()).filter(Boolean)} : {}),
+    removed_attachment_ids: removedAttachmentIds,
     design: design
   };
   const response = await fetch(editingCapsuleId ? `/api/capsules/${editingCapsuleId}` : "/api/capsules", {
@@ -590,9 +633,16 @@ async function createCapsule(draft = false) {
 
 async function loadCapsuleForEditing() {
   if (!editingCapsuleId) return;
+  [imageInput, audioInput, videoInput, sealButton, document.querySelector("#save-draft")].forEach((input) => { input.disabled = true; });
   const response = await fetch(`/api/capsules/${editingCapsuleId}?editing=true`);
   const capsule = await response.json();
   if (!response.ok) { location.replace(`/capsule.html?id=${editingCapsuleId}`); return; }
+  if (!Number.isSafeInteger(capsule.media_byte_size) || capsule.media_byte_size < 0) throw new Error("Missing media size");
+  const attachments = capsule.media_attachments;
+  if (!attachments || ![attachments.images, attachments.audio, attachments.video].every((items) => Array.isArray(items) && items.every((item) => Number.isSafeInteger(item.id) && Number.isSafeInteger(item.size) && item.size >= 0))) throw new Error("Missing attachments");
+  existingImages = attachments.images; existingAudio = attachments.audio; existingVideo = attachments.video;
+  existingMediaSize = capsule.media_byte_size;
+  [imageInput, audioInput, videoInput, sealButton, document.querySelector("#save-draft")].forEach((input) => { input.disabled = false; });
   titleText = capsule.title || "";
   messageText = capsule.message || "";
   titleInput.value = titleText;
@@ -600,15 +650,15 @@ async function loadCapsuleForEditing() {
   if (capsule.unlock_at) unlockAtInput.value = new Date(capsule.unlock_at).toISOString().slice(0, 16);
   capsuleVersion = capsule.lock_version;
   canManageEditors = capsule.owner;
+  document.querySelector("#delete-edit-form").hidden = !canManageEditors || !deleteTokenReady;
   document.querySelector("#editor-field").hidden = !canManageEditors;
   document.querySelector("#editor-emails").value = (capsule.editor_emails || []).join(", ");
   savedDocuments = capsule.documents || [];
   renderDocumentList();
   Object.assign(design, capsule.design);
   (design.sealed_blocks || []).forEach((block) => {
-    if (Number.isInteger(block.image_index)) imagePreviewUrls[block.id] = capsule.image_urls[block.image_index];
+    if (Number.isInteger(block.image_index)) imagePreviewUrls[block.id] = existingImages[block.image_index]?.url;
   });
-  existingImageCount = capsule.image_urls.length;
   document.querySelector("#save-draft").hidden = !capsule.draft;
   audioPreviewUrls = capsule.audio_url || [];
   videoPreviewUrls = capsule.video_url || [];
@@ -629,9 +679,14 @@ accentInput.addEventListener("input", () => { design.theme.accent_color = accent
 fontInput.addEventListener("change", () => { design.theme.font = fontInput.value; renderPoster(); });
 titleInput.addEventListener("input", () => { titleText = titleInput.value; renderPoster(); });
 messageInput.addEventListener("input", () => { messageText = messageInput.value; renderPoster(); });
+let capsuleLimitErrorTimer;
 function showCapsuleLimitError() {
   const message = "This file can't be added: it would exceed this capsule's 2 MB limit.";
   formErrors.textContent = message;
+  clearTimeout(capsuleLimitErrorTimer);
+  capsuleLimitErrorTimer = setTimeout(() => {
+    if (formErrors.textContent === message) formErrors.textContent = "";
+  }, 5000);
   alert(message);
 }
 
@@ -646,7 +701,7 @@ function renderDocumentList() {
 }
 
 function exceedsCapsuleLimit(extraFiles = []) {
-  return [...imageFiles, ...audioFiles, ...videoFiles, ...savedDocuments, ...extraFiles].reduce((total, file) => total + file.size, 0) > maxCapsuleSize;
+  return [...imageFiles, ...audioFiles, ...videoFiles, ...savedDocuments, ...extraFiles].reduce((total, file) => total + file.size, existingMediaSize) > maxCapsuleSize;
 }
 
 function addSelectedMedia(input, files, label) {
@@ -667,16 +722,20 @@ function addSelectedMedia(input, files, label) {
 }
 
 videoInput.addEventListener("change", () => {
+  if (!videoInput.files.length) return;
+  saveUndoState();
   const addedFiles = addSelectedMedia(videoInput, videoFiles, "Video");
-  if (!addedFiles) return;
-  const firstIndex = videoPreviewUrls.length;
+  if (!addedFiles) { undoHistory.pop(); return; }
+  const firstIndex = existingVideo.length + videoFiles.length - addedFiles.length;
   videoPreviewUrls.push(...addedFiles.map((file) => URL.createObjectURL(file)));
   addMediaBlocks("video", firstIndex, addedFiles.length);
 });
 audioInput.addEventListener("change", () => {
+  if (!audioInput.files.length) return;
+  saveUndoState();
   const addedFiles = addSelectedMedia(audioInput, audioFiles, "Audio");
-  if (!addedFiles) return;
-  const firstIndex = audioPreviewUrls.length;
+  if (!addedFiles) { undoHistory.pop(); return; }
+  const firstIndex = existingAudio.length + audioFiles.length - addedFiles.length;
   audioPreviewUrls.push(...addedFiles.map((file) => URL.createObjectURL(file)));
   addMediaBlocks("audio", firstIndex, addedFiles.length);
 });
@@ -697,7 +756,9 @@ imageInput.addEventListener("change", () => {
     imageInput.value = "";
     return;
   }
-  const firstIndex = existingImageCount + imageFiles.length;
+  if (!addedFiles.length) return;
+  saveUndoState();
+  const firstIndex = existingImages.length + imageFiles.length;
   imageFiles.push(...addedFiles);
   const files = new DataTransfer();
   imageFiles.forEach((file) => files.items.add(file));
@@ -740,16 +801,27 @@ sealButton.addEventListener("click", () => {
   });
 });
 
-renderPoster();
-loadCapsuleForEditing();
-
-document.querySelectorAll("[data-show-step]").forEach(button => {
-  button.addEventListener("click", () => {
-    const step = button.dataset.showStep;
-    document.querySelectorAll("[data-step]").forEach(panel => { panel.hidden = panel.dataset.step !== step; });
-    document.querySelectorAll(".step-tab").forEach(tab => {
-      if (tab.dataset.showStep === step) tab.setAttribute("aria-current", "step");
-      else tab.removeAttribute("aria-current");
-    });
+if (editingCapsuleId) {
+  document.querySelector("#cancel-edit").href = `/capsule.html?id=${encodeURIComponent(editingCapsuleId)}`;
+  const deleteForm = document.querySelector("#delete-edit-form");
+  deleteForm.action = `/capsules/${encodeURIComponent(editingCapsuleId)}/delete`;
+  deleteForm.addEventListener("submit", (event) => {
+    if (!confirm("Delete this capsule and its media permanently?")) event.preventDefault();
   });
+  fetch(`/api/session?form_action=${encodeURIComponent(deleteForm.action)}`, { cache: "no-store" })
+    .then((response) => { if (!response.ok) throw new Error(); return response.json(); })
+    .then((session) => {
+      if (!session.csrf_token) throw new Error();
+      document.querySelector("#delete-edit-token").value = session.csrf_token;
+      deleteTokenReady = true;
+      deleteForm.hidden = !canManageEditors;
+    })
+    .catch(() => { formErrors.textContent = "Couldn't enable deletion. Please refresh and try again."; });
+}
+
+document.querySelectorAll("[data-show-step]").forEach((button) => {
+  button.addEventListener("click", () => showStep(button.dataset.showStep));
 });
+
+renderPoster();
+loadCapsuleForEditing().catch(() => { formErrors.textContent = "Couldn't load this capsule. Please refresh and try again."; });

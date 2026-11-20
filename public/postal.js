@@ -44,13 +44,12 @@ const Postal = (() => {
     return `background:${esc(theme.background_color)};color:${esc(theme.accent_color)};--pbg:${esc(theme.background_color)}`;
   }
 
-  // titleOnly: the public parts (title + icon), used for stamps and sealed capsules.
+  // titleOnly: the public title used for stamps and sealed capsules.
   function posterHTML(capsule, { titleOnly = false } = {}) {
     const design = capsule.design || {};
     const theme = themeOf(design);
     let html = `<div class="poster" data-font="${esc(theme.font)}" style="${posterStyle(theme)}">`;
     html += `<div class="pb title" style="${blockStyle(blockOf(design, "title_block"))}">${esc(capsule.title)}</div>`;
-    html += `<div class="pb icon" style="${blockStyle(blockOf(design, "icon_block"))}">${esc(theme.icon)}</div>`;
 
     if (!titleOnly) {
       html += `<div class="pb message" style="${blockStyle(blockOf(design, "message_block"))}">${esc(capsule.message)}</div>`;
