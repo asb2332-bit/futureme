@@ -6,8 +6,7 @@ class SessionsController < ApplicationController
   def create
     user = User.find_by(email_address: params[:email_address].to_s.strip.downcase)
     if user&.password_digest.present? && user.authenticate(params[:password].to_s)
-      sign_in(user)
-      redirect_to root_path, notice: "Welcome back!"
+      redirect_to sign_in(user), notice: "Welcome back!"
     else
       flash.now[:alert] = "Invalid email or password."
       render :new, status: :unprocessable_entity

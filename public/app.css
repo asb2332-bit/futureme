@@ -490,3 +490,12 @@ body { margin: 0; }
   color: #72241e;
   overflow-wrap: anywhere;
 }
+
+.collaboration-poster { position: relative; width: 100%; max-width: 500px; }
+.collaborator-overlay { position: absolute; inset: 0; pointer-events: none; }
+.collaborator-outline {
+  position: absolute; overflow: hidden; border: 2px dashed #235db3;
+  background: #dceaff66; color: #13457f; font-size: .75rem;
+}
+.collaborator-activity { overflow-wrap: anywhere; font-size: .9rem; }
+#share-draft-form { margin-top: .7rem; }

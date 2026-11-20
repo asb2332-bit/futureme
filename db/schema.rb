@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_11_12_121000) do
+ActiveRecord::Schema[7.1].define(version: 2026_11_20_150500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -42,12 +42,32 @@ ActiveRecord::Schema[7.1].define(version: 2026_11_12_121000) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "capsule_activities", force: :cascade do |t|
+    t.bigint "capsule_id", null: false
+    t.bigint "user_id", null: false
+    t.jsonb "preview", default: {}, null: false
+    t.integer "draft_version", null: false
+    t.datetime "updated_at", null: false
+    t.index ["capsule_id", "user_id"], name: "index_capsule_activities_on_capsule_id_and_user_id", unique: true
+    t.index ["capsule_id"], name: "index_capsule_activities_on_capsule_id"
+    t.index ["user_id"], name: "index_capsule_activities_on_user_id"
+  end
+
   create_table "capsule_editors", force: :cascade do |t|
     t.bigint "capsule_id", null: false
     t.bigint "user_id", null: false
     t.index ["capsule_id", "user_id"], name: "index_capsule_editors_on_capsule_id_and_user_id", unique: true
     t.index ["capsule_id"], name: "index_capsule_editors_on_capsule_id"
     t.index ["user_id"], name: "index_capsule_editors_on_user_id"
+  end
+
+  create_table "capsule_invitations", force: :cascade do |t|
+    t.bigint "capsule_id", null: false
+    t.string "email", null: false
+    t.datetime "accepted_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["capsule_id"], name: "index_capsule_invitations_on_capsule_id"
   end
 
   create_table "capsules", force: :cascade do |t|
@@ -77,7 +97,10 @@ ActiveRecord::Schema[7.1].define(version: 2026_11_12_121000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "capsule_activities", "capsules", on_delete: :cascade
+  add_foreign_key "capsule_activities", "users", on_delete: :cascade
   add_foreign_key "capsule_editors", "capsules", on_delete: :cascade
   add_foreign_key "capsule_editors", "users", on_delete: :cascade
+  add_foreign_key "capsule_invitations", "capsules", on_delete: :cascade
   add_foreign_key "capsules", "users"
 end

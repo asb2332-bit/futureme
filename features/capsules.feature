@@ -264,3 +264,8 @@ Feature: Time capsules
     Then I see "Title can't be blank"
     And I see "Message can't be blank"
     And I see "Unlock at can't be blank"
+
+  Scenario: Two editors join by email and see each other's live activity
+    Given an account exists with email "teammate@example.com"
+    When I share a saved draft with "teammate@example.com"
+    Then the owner and teammate can see typing and dragging on the same draft

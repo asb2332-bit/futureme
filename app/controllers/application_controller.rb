@@ -21,7 +21,9 @@ class ApplicationController < ActionController::Base
   end
 
   def sign_in(user)
+    invitation = session[:capsule_invitation]
     reset_session
     session[:user_id] = user.id
+    invitation.present? ? capsule_invitation_path(invitation) : root_path
   end
 end

@@ -12,7 +12,13 @@ Rails.application.routes.draw do
   post "/capsules/:id/delete", to: "capsule_deletions#create"
   post "/rails/active_storage/direct_uploads", to: "direct_uploads#create"
 
+  get "/draft-invitations/:token", to: "capsule_invitations#show", as: :capsule_invitation
+  post "/draft-invitations/:token", to: "capsule_invitations#accept"
+
   namespace :api do
+    post "capsules/:capsule_id/invitations", to: "/capsule_invitations#create"
+    get "capsules/:capsule_id/activity", to: "capsule_activity#show"
+    put "capsules/:capsule_id/activity", to: "capsule_activity#update"
     resource :session, only: :show
     resources :uploads, only: :create
     resources :capsules, only: %i[index create show update destroy]

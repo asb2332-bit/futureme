@@ -89,6 +89,8 @@ function startDragging(event, id) {
     const yChange = ((moveEvent.clientY - startY) / bounds.height) * 100;
     block.x = Math.max(0, Math.min(100 - block.width, originalX + xChange));
     block.y = Math.max(0, Math.min(100 - block.height, originalY + yChange));
+    DraftCollaboration.preview({ kind: "dragging", label: id === "title" ? "title" : id === "message" ? "message" : "poster block",
+      x: block.x, y: block.y, width: block.width, height: block.height });
     renderPoster();
   };
 
@@ -306,6 +308,7 @@ function addPosterBlock(id, text, block, editable) {
       if (id === "title") { titleText = element.textContent; titleInput.value = titleText; }
       else if (id === "message") { messageText = element.textContent; messageInput.value = messageText; }
       else block.text = element.textContent;
+      DraftCollaboration.preview({ kind: "typing", field: label, text: element.textContent });
     });
     element.addEventListener("blur", () => {
       element.dataset.editing = "false";
@@ -628,13 +631,23 @@ async function createCapsule(draft = false) {
   }
 
   const createdCapsule = await response.json();
-  window.location.href = draft ? "/" : `/capsule.html?id=${createdCapsule.id}`;
+  if (draft && canManageEditors) {
+    const collaborationUrl = `/create.html?id=${createdCapsule.id}#collaborate`;
+    if (editingCapsuleId) {
+      history.replaceState(null, "", collaborationUrl);
+      location.reload();
+    } else {
+      location.assign(collaborationUrl);
+    }
+    return;
+  }
+  location.assign(draft ? "/" : `/capsule.html?id=${createdCapsule.id}`);
 }
 
 async function loadCapsuleForEditing() {
   if (!editingCapsuleId) return;
   [imageInput, audioInput, videoInput, sealButton, document.querySelector("#save-draft")].forEach((input) => { input.disabled = true; });
-  const response = await fetch(`/api/capsules/${editingCapsuleId}?editing=true`);
+  const response = await fetch(`/api/capsules/${editingCapsuleId}?editing=true`, { cache: "no-store" });
   const capsule = await response.json();
   if (!response.ok) { location.replace(`/capsule.html?id=${editingCapsuleId}`); return; }
   if (!Number.isSafeInteger(capsule.media_byte_size) || capsule.media_byte_size < 0) throw new Error("Missing media size");
@@ -649,6 +662,8 @@ async function loadCapsuleForEditing() {
   messageInput.value = messageText;
   if (capsule.unlock_at) unlockAtInput.value = new Date(capsule.unlock_at).toISOString().slice(0, 16);
   capsuleVersion = capsule.lock_version;
+  if (capsule.draft) DraftCollaboration.start(capsule);
+  if (location.hash === "#collaborate") showStep("collaborate");
   canManageEditors = capsule.owner;
   document.querySelector("#delete-edit-form").hidden = !canManageEditors || !deleteTokenReady;
   document.querySelector("#editor-field").hidden = !canManageEditors;
@@ -677,8 +692,8 @@ presetInput.addEventListener("change", () => {
 backgroundInput.addEventListener("input", () => { design.theme.background_color = backgroundInput.value; renderPoster(); });
 accentInput.addEventListener("input", () => { design.theme.accent_color = accentInput.value; renderPoster(); });
 fontInput.addEventListener("change", () => { design.theme.font = fontInput.value; renderPoster(); });
-titleInput.addEventListener("input", () => { titleText = titleInput.value; renderPoster(); });
-messageInput.addEventListener("input", () => { messageText = messageInput.value; renderPoster(); });
+titleInput.addEventListener("input", () => { titleText = titleInput.value; renderPoster(); DraftCollaboration.preview({ kind: "typing", field: "Title", text: titleText }); });
+messageInput.addEventListener("input", () => { messageText = messageInput.value; renderPoster(); DraftCollaboration.preview({ kind: "typing", field: "Message", text: messageText }); });
 let capsuleLimitErrorTimer;
 function showCapsuleLimitError() {
   const message = "This file can't be added: it would exceed this capsule's 2 MB limit.";

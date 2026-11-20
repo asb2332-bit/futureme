@@ -77,3 +77,9 @@ These limits keep the prototype within the Cloudinary free-tier storage allowanc
 - Each account can create up to **5 capsules**.
 - Uploaded image, audio, and video files are limited to **2 MB total per capsule**.
 
+
+### Draft invitations
+
+The draft owner can save a draft, open **Collaborate → Share**, and send an invitation. The recipient signs in with the invited address and selects **Join draft**. Online editors can see typing previews and drag outlines while the draft is open. Use **Save draft for editing** to keep changes.
+
+Local development writes invitation emails to `tmp/mails` unless SMTP is configured. For email delivery, set `FUTUREME_PUBLIC_URL` to the app's public HTTPS origin and set `FUTUREME_MAIL_FROM`, `FUTUREME_SMTP_HOST`, and your provider's `FUTUREME_SMTP_USER` and `FUTUREME_SMTP_PASSWORD`. The SMTP port defaults to 587 and can be set with `FUTUREME_SMTP_PORT`.

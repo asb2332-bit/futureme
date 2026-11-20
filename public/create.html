@@ -9,6 +9,7 @@
   <script src="/auth.js?v=frontend-port-1" defer></script>
   <script src="/postal.js?v=frontend-port-1" defer></script>
   <script src="/drive-import.js" defer></script>
+  <script src="/draft-collaboration.js" defer></script>
   <script src="/create.js?v=edit-media-removal-1" defer></script>
   <script src="/collaboration-preview.js" defer></script>
 </head>
@@ -34,7 +35,10 @@
     </nav>
     <div class="desk">
       <div class="stage">
-        <div id="poster-preview" class="poster editor-canvas" aria-label="Capsule poster canvas" tabindex="0"></div>
+        <div class="collaboration-poster">
+          <div id="poster-preview" class="poster editor-canvas" aria-label="Capsule poster canvas" tabindex="0"></div>
+        </div>
+        <div id="collaborator-activity" class="collaborator-activity" hidden></div>
         <p class="hint">Drag to move · double-click text to write · use the handles to resize or rotate</p>
       </div>
       <aside class="side" aria-label="Capsule settings">
@@ -43,6 +47,14 @@
           <h2><span>01</span>Create it together</h2>
           <p>Save a draft to share it with other FutureMe accounts.</p>
           <label class="fld" id="editor-field">Co-editors (account emails, separated by commas)<input id="editor-emails" type="text" autocomplete="off"></label>
+          <details id="share-draft" hidden>
+            <summary class="btn quiet">Share</summary>
+            <form id="share-draft-form">
+              <label class="fld">Teammate’s email<input name="email" type="email" required></label>
+              <button class="btn primary" type="submit">Send invitation</button>
+            </form>
+            <p id="share-feedback" role="status"></p>
+          </details>
           <button type="button" class="btn primary" data-show-step="write">Next: Write →</button>
         </section>
         <section data-step="write">
