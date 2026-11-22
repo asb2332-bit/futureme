@@ -69,13 +69,13 @@ function showLocked(capsule, csrfToken) {
           <dt>Unlocks</dt><dd>${esc(Postal.formatDate(capsule.unlock_at))}</dd>
           <dt>Sealed</dt><dd>${esc(Postal.formatDay(capsule.created_at))}</dd>
           <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
-          <dt>From</dt><dd>You</dd>
+          <dt>From</dt><dd>${capsule.owner ? "You" : "Another FutureMe user"}</dd>
         </dl>
         <div class="row">
           <button type="button" class="btn sm quiet" id="copy-link">Copy link</button>
           <span id="copied" class="eyebrow" role="status" hidden>Link copied</span>
         </div>
-        ${lockedActionsHTML(capsule, csrfToken)}
+        ${capsule.owner ? lockedActionsHTML(capsule, csrfToken) : ""}
       </div>
     </section>`;
 
@@ -222,7 +222,7 @@ function showOpened(capsule) {
       <div class="info">
         <span class="chip open">${Postal.openSvg}Unlocked</span>
         <h2>${writtenAgo(capsule)}</h2>
-        <p class="lead">You sealed “${esc(capsule.title)}” on ${esc(Postal.formatDay(capsule.created_at))} and it waited until ${esc(Postal.formatDay(capsule.unlock_at))}.</p>
+        <p class="lead">${capsule.owner ? "You sealed" : "Someone shared"} “${esc(capsule.title)}” on ${esc(Postal.formatDay(capsule.created_at))} and it waited until ${esc(Postal.formatDay(capsule.unlock_at))}.</p>
         <dl class="facts">
           <dt>Sealed</dt><dd>${esc(Postal.formatDay(capsule.created_at))}</dd>
           <dt>Unlocked</dt><dd>${esc(Postal.formatDate(capsule.unlock_at))}</dd>
@@ -230,7 +230,7 @@ function showOpened(capsule) {
         </dl>
         ${unplacedMediaHTML(capsule)}
         <div class="row">
-          <a class="btn sm quiet" href="/create.html?id=${encodeURIComponent(capsule.id)}">Edit capsule</a>
+          ${capsule.owner ? `<a class="btn sm quiet" href="/create.html?id=${encodeURIComponent(capsule.id)}">Edit capsule</a>` : ""}
           <a class="btn primary" href="/create.html">Seal another</a>
         </div>
       </div>

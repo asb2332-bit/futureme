@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_11_04_213756) do
+ActiveRecord::Schema[7.1].define(version: 2026_11_22_115356) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -42,6 +42,17 @@ ActiveRecord::Schema[7.1].define(version: 2026_11_04_213756) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "capsule_recipients", force: :cascade do |t|
+    t.bigint "capsule_id", null: false
+    t.string "email", null: false
+    t.datetime "sealed_sent_at"
+    t.datetime "unlocked_sent_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["capsule_id", "email"], name: "index_capsule_recipients_on_capsule_id_and_email", unique: true
+    t.index ["capsule_id"], name: "index_capsule_recipients_on_capsule_id"
+  end
+
   create_table "capsules", force: :cascade do |t|
     t.string "title", null: false
     t.text "message", null: false
@@ -62,10 +73,11 @@ ActiveRecord::Schema[7.1].define(version: 2026_11_04_213756) do
     t.string "google_uid"
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
     t.index ["google_uid"], name: "index_users_on_google_uid", unique: true
-    t.check_constraint "role::text = ANY (ARRAY['user'::character varying, 'admin'::character varying]::text[])", name: "users_valid_role"
+    t.check_constraint "role::text = ANY (ARRAY['user'::character varying::text, 'admin'::character varying::text])", name: "users_valid_role"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "capsule_recipients", "capsules"
   add_foreign_key "capsules", "users"
 end

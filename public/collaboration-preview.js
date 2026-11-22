@@ -1,4 +1,4 @@
-// These lists are local UI previews; neither invitations nor emails are sent.
+// Collaborator activity is a local preview; recipient addresses are saved with the capsule.
 function setupEmailPreview(kind) {
   const input = document.querySelector(`#${kind}-email`);
   const error = document.querySelector(`#${kind}-error`);
@@ -67,7 +67,11 @@ function setupEmailPreview(kind) {
   input.addEventListener("input", () => { error.textContent = ""; input.removeAttribute("aria-invalid"); });
   input.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); add(); } });
   document.querySelector(`#add-${kind}`).addEventListener("click", add);
+  return {
+    emails: () => entries.map((entry) => entry.email),
+    setEmails: (emails) => { entries.splice(0, entries.length, ...emails.map((email) => ({ email }))); render(); }
+  };
 }
 
 setupEmailPreview("collaborator");
-setupEmailPreview("recipient");
+window.capsuleRecipients = setupEmailPreview("recipient");

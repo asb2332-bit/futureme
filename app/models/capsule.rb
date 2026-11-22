@@ -4,6 +4,7 @@ class Capsule < ApplicationRecord
   MAX_MEDIA_SIZE = 2.megabytes
 
   belongs_to :user, optional: true
+  has_many :recipients, class_name: "CapsuleRecipient", dependent: :destroy
   has_many_attached :images
   has_many_attached :audio
   has_many_attached :video
