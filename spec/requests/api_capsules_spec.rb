@@ -43,6 +43,30 @@ RSpec.describe 'Capsules API', type: :request do
     expect(response_body).to include('title' => 'Graduation', 'locked' => true, 'message' => nil)
   end
 
+  it 'emails the owner only after a successful seal, not on edits' do
+    ActionMailer::Base.deliveries.clear
+    post api_capsules_path, params: { capsule: { title: '', message: 'Private message', unlock_at: 1.day.from_now } }, as: :json
+    expect(ActionMailer::Base.deliveries).to be_empty
+
+    post api_capsules_path, params: { capsule: { title: 'Memories', message: 'Private message', unlock_at: 1.day.from_now } }, as: :json
+    expect(response).to have_http_status(:created)
+    email = ActionMailer::Base.deliveries.sole
+    expect(email.to).to eq([user.email_address])
+    expect(email.body.decoded).to include('Memories', 'UTC')
+    expect(email.body.decoded).not_to include('Private message')
+
+    patch api_capsule_path(Capsule.last), params: { capsule: { title: 'Updated' } }, as: :json
+    expect(ActionMailer::Base.deliveries.size).to eq(1)
+  end
+
+  it 'keeps the capsule saved if confirmation delivery fails' do
+    allow_any_instance_of(CapsuleMailer).to receive(:mail).and_raise(Net::SMTPError)
+    expect {
+      post api_capsules_path, params: { capsule: { title: 'Memories', message: 'Private', unlock_at: 1.day.from_now } }, as: :json
+    }.to change(Capsule, :count).by(1)
+    expect(response).to have_http_status(:created)
+  end
+
   it 'saves public and sealed poster design data' do
     design = {
       'theme' => { 'background_color' => '#E3E7DF', 'accent_color' => '#202923', 'font' => 'sans', 'icon' => '⏳' },

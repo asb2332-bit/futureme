@@ -6,10 +6,21 @@ Feature: Time capsules
   Background:
     Given I am a registered user who is logged in
 
-  Scenario: Preview collaborators and recipients
+  Scenario: Preview collaborators and manage recipients
     When I visit FutureMe
     And I visit the new capsule page
-    Then I can preview collaborators and recipients without sending them
+    Then I can preview collaborators and manage recipients
+
+  Scenario: Save and reopen recipient addresses
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I fill in "Title" with "Shared capsule"
+    And I fill in "Message" with "Private message"
+    And I fill in "Unlock at" with a date one day from now
+    And I add a recipient
+    And I create the capsule
+    And I edit the capsule
+    Then the recipient address is restored
 
   Scenario: Keep the message while moving between creation steps
     When I visit FutureMe
@@ -57,6 +68,45 @@ Feature: Time capsules
     Then I see "My custom poster"
     And I do not see "Private poster note"
     And the poster design is saved
+
+  Scenario: Edit, transform, undo, and select poster blocks
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I add a message block
+    And I fill in "Message block 1" with "A movable note"
+    And I select the "Message block 1" poster block
+    And I move the selected poster block
+    Then the selected poster block has moved
+    When I resize the selected poster block
+    Then the selected poster block has been resized
+    When I rotate the selected poster block
+    Then the selected poster block has been rotated
+    When I undo the poster change
+    Then the selected poster block restores its geometry before rotation
+    When I attach an image file
+    Then the uploaded image is selected on the poster
+
+  Scenario: Round-trip a poster design through create, edit, save, and reopen
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I choose "Night" from "Theme"
+    And I add a message block
+    And I fill in "Message block 1" with "First draft"
+    And I fill in "Title" with "Round-trip poster"
+    And I fill in "Message" with "A message for later"
+    And I fill in "Unlock at" with a date one day from now
+    And I create the capsule
+    And I edit the capsule
+    And I fill in "Message block 1" with "Saved after editing"
+    And I select the "Message block 1" poster block
+    And I move the selected poster block
+    And I remember the selected poster block geometry
+    And I save the capsule changes
+    And I edit the capsule
+    And I select the "Message block 1" poster block
+    Then the editor restores the Night theme
+    And the "Message block 1" poster text is "Saved after editing"
+    And the selected poster block geometry is restored
 
   Scenario: Make a text block the title
     When I visit FutureMe

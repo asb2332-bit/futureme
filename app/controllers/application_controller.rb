@@ -21,7 +21,14 @@ class ApplicationController < ActionController::Base
   end
 
   def sign_in(user)
+    shared_capsule_token = session[:shared_capsule_token]
     reset_session
     session[:user_id] = user.id
+    session[:shared_capsule_token] = shared_capsule_token
+  end
+
+  def after_sign_in_path
+    token = session.delete(:shared_capsule_token)
+    CapsuleRecipient.find_signed(token, purpose: :capsule_share) ? capsule_invitation_link_path(token) : root_path
   end
 end
