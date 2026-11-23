@@ -24,6 +24,7 @@ def poster_geometry
 end
 
 def drag_poster_element(element, x, y)
+  page.execute_script('arguments[0].scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" })', element)
   page.driver.browser.action.move_to(element.native).click_and_hold.move_by(x, y).release.perform
 end
 
