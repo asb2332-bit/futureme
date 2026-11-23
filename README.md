@@ -30,6 +30,7 @@ Search only uses titles from your account and never searches sealed messages or 
 
 - Ruby 3.3.8
 - Bundler
+- Node.js 18+ and npm (to build the React poster editor)
 - Docker Desktop (for local PostgreSQL)
 
 ## Run locally
@@ -39,6 +40,8 @@ git clone https://github.com/asb2332-bit/futureme.git
 cd futureme
 docker compose up -d db
 bundle install
+npm ci
+npm run build
 bin/rails db:prepare
 bin/rails server
 ```
@@ -57,7 +60,30 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 ```
 
-Cloudinary is required to persist uploaded media outside the local process. Google OAuth is optional; email/password accounts work without it. For local Google sign-in, add this authorized redirect URI in Google Cloud Console:
+Cloudinary is required to persist uploaded media outside the local process. Google OAuth is optional; email/password accounts work without it. When a capsule is sealed, a confirmation is sent to its owner. Without SMTP configuration, development writes these emails to `tmp/mails` instead of sending them.
+
+To send confirmation emails, configure an SMTP provider and a verified sender in `.env` (or the production environment):
+
+```dotenv
+FUTUREME_PUBLIC_URL=https://your-futureme-domain.example
+FUTUREME_MAIL_FROM=verified-sender@example.com
+FUTUREME_SMTP_HOST=smtp.example.com
+FUTUREME_SMTP_PORT=587
+FUTUREME_SMTP_USER=your-smtp-username
+FUTUREME_SMTP_PASSWORD=your-smtp-password
+```
+
+Email delivery failures are logged; they do not undo a successfully sealed capsule. Configure SMTP and the public HTTPS origin in production to deliver emails.
+
+Recipients receive a seal notification with an unlock date and a countdown link. They must sign in or register with the invited email address. To send unlock notifications and retry failed recipient emails, schedule this command regularly (for example, with Heroku Scheduler or cron):
+
+```sh
+bin/rails capsules:notify_recipients
+```
+
+The scheduler must be configured separately in each deployment. Notification timing depends on its interval. A crash after the mail provider accepts an email but before the database records it can cause a duplicate on retry.
+
+For local Google sign-in, add this authorized redirect URI in Google Cloud Console:
 
 ```text
 http://localhost:3000/auth/google_oauth2/callback

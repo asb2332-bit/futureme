@@ -6,8 +6,12 @@
   <title>FutureMe</title>
   <link rel="preload" href="/fonts/young-serif-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/auth.css">
   <script src="/postal.js" defer></script>
   <script src="/auth.js" defer></script>
+  <link rel="stylesheet" href="/drafts.css">
+  <script src="/drafts.js" defer></script>
+  <script src="/draft-list.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -15,6 +19,10 @@
   <main class="app">
     <header class="site-nav" data-account-controls="false">
       <a class="logo" href="/"><span class="mark" aria-hidden="true">FM</span>FutureMe</a>
+      <span class="nav-actions">
+        <a class="btn sm primary" data-create-capsule href="/create.html">Create a capsule</a>
+        <span class="account-nav"></span>
+      </span>
     </header>
 
     <section class="hero">
@@ -33,11 +41,24 @@
       <li><span class="n">3</span><b>Open</b><p>Come back on the day and read what you wrote.</p></li>
     </ol>
 
+    <section class="draft-library" aria-labelledby="draft-list-title" hidden>
+      <h2 id="draft-list-title">Your drafts</h2>
+      <p id="draft-list-status" role="status"></p>
+      <div id="draft-list"></div>
+    </section>
+
     <section class="capsule-library" aria-labelledby="library-heading">
-      <div class="sec-head"><h2 id="library-heading">Your capsules</h2></div>
+      <div class="library-heading">
+        <div>
+          <p class="eyebrow">Your archive</p>
+          <h2 id="library-heading">Your capsules</h2>
+        </div>
+        <p class="result-count" id="capsule-summary" role="status" aria-atomic="true">Loading capsules…</p>
+      </div>
+
       <div id="capsule-controls" class="capsule-controls" hidden>
         <label class="fld" for="capsule-search">Search capsules
-          <input id="capsule-search" type="search" placeholder="Search title words" maxlength="200" aria-controls="capsules">
+          <input id="capsule-search" type="search" placeholder="Search by title" autocomplete="off" maxlength="200" aria-controls="capsules">
         </label>
         <label class="fld" for="capsule-status">Status
           <select id="capsule-status" aria-controls="capsules">
@@ -51,6 +72,7 @@
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
             <option value="unlock">Unlock date</option>
+            <option value="status">Grouped by status</option>
           </select>
         </label>
         <button id="reset-filters" class="btn quiet" type="button">Reset filters</button>
@@ -66,7 +88,6 @@
         </fieldset>
       </div>
       <p id="capsule-filter-error" class="capsule-filter-error" role="alert" hidden>Choose an end date on or after the start date.</p>
-      <p id="capsule-summary" class="loading" role="status" aria-atomic="true">Loading capsules…</p>
       <div id="capsule-load-error" class="capsule-feedback" role="alert" hidden>
         <p id="capsule-load-error-message"></p>
         <button id="retry-capsules" class="btn quiet" type="button">Try again</button>

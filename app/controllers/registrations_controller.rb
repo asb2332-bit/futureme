@@ -9,7 +9,7 @@ class RegistrationsController < ApplicationController
     @user = User.new(params.require(:user).permit(:email_address, :password, :password_confirmation))
     if @user.save
       sign_in(@user)
-      redirect_to root_path, notice: "Your account is ready."
+      redirect_to after_sign_in_path, notice: "Your account is ready."
     else
       render :new, status: :unprocessable_entity
     end

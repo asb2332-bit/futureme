@@ -26,15 +26,36 @@ let activeRequest = null;
 
 function showHero() {
   const opensAt = Date.now() + 365 * Postal.DAY;
+  const sample = { id: 0, title: "To future me", design: {} };
   const p = Postal.postmarkParts(opensAt);
-  heroEnvelope.innerHTML = `<div class="top">${Postal.postmarkHTML(opensAt, "OPENS", true)}<div class="stamp mini">${Postal.posterHTML({ title: "To future me", design: {} }, { titleOnly: true })}</div></div><div class="addr"><span>To: you, later</span><span>Do not open before ${p.day} ${p.month} ${p.year}</span></div><div class="wax">FM</div>`;
+
+  heroEnvelope.innerHTML = `<div class="top">${Postal.postmarkHTML(opensAt, "OPENS", true)}${Postal.stampHTML(sample)}</div>
+    <div class="addr"><span>To: you, later</span><span>Do not open before ${p.day} ${p.month} ${p.year}</span></div>
+    <div class="wax">FM</div>`;
 }
 
 function envelopeHTML(capsule) {
   const locked = capsule.locked;
-  const label = locked ? "OPENS" : "UNLOCKED";
-  const chip = locked ? `<span class="chip sealed">${Postal.lockSvg}Sealed · opens in ${plural(Postal.daysUntil(capsule.unlock_at), "day")}</span>` : `<span class="chip open">${Postal.openSvg}Unlocked</span>`;
-  return `<li${locked ? "" : ' class="opened"'}><a class="env${locked ? "" : " open"}" href="/capsule.html?id=${encodeURIComponent(capsule.id)}"><div class="meta"><span class="eyebrow">${esc(Postal.capsuleNumber(capsule))}</span><h3>${esc(capsule.title)}</h3>${chip}</div><div class="right">${Postal.postmarkHTML(capsule.unlock_at, label, locked)}<div class="stamp mini" aria-hidden="true">${Postal.posterHTML(capsule, { titleOnly: true })}</div></div></a></li>`;
+  const chip = locked
+    ? `<span class="chip sealed">${Postal.lockSvg}Sealed · opens in ${plural(Postal.daysUntil(capsule.unlock_at), "day")}</span>`
+    : `<span class="chip ready">${Postal.openSvg}Ready to open</span>`;
+
+  return `<li><a class="env" href="/capsule.html?id=${encodeURIComponent(capsule.id)}">
+    <div class="meta"><span class="eyebrow">${esc(Postal.capsuleNumber(capsule))}</span><h3>${esc(capsule.title)}</h3>${chip}<span class="inside">Inside: ${esc(Postal.insideText(capsule.contents))}</span></div>
+    <div class="right">${Postal.postmarkHTML(capsule.unlock_at, locked ? "OPENS" : "UNLOCKED", locked)}<div class="stamp mini" aria-hidden="true">${Postal.posterHTML(capsule, { titleOnly: true })}</div></div>
+  </a></li>`;
+}
+
+function groupedTimeline(matches) {
+  let html = "";
+  for (const locked of [false, true]) {
+    const group = matches.filter((capsule) => capsule.locked === locked);
+    if (!group.length) continue;
+    const heading = locked ? "Opening soon" : "Ready to open";
+    html += `<div class="sec-head"><h2>${heading}</h2><span class="eyebrow">${plural(group.length, "capsule")}</span></div>
+      <ol class="timeline">${group.map(envelopeHTML).join("")}</ol>`;
+  }
+  return html;
 }
 
 function normalizedTitle(value) {
@@ -90,7 +111,7 @@ function restoreFilters() {
   if (saved?.version !== 1 || saved.account !== currentAccount.email_address) return;
   searchInput.value = typeof saved.query === "string" ? saved.query.slice(0, 200) : "";
   statusInput.value = ["all", "locked", "unlocked"].includes(saved.status) ? saved.status : "all";
-  sortInput.value = ["newest", "oldest", "unlock"].includes(saved.sort) ? saved.sort : "newest";
+  sortInput.value = ["newest", "oldest", "unlock", "status"].includes(saved.sort) ? saved.sort : "newest";
   unlockFromInput.value = validDate(saved.from) ? saved.from : "";
   unlockThroughInput.value = validDate(saved.through) ? saved.through : "";
 }
@@ -118,7 +139,7 @@ function matchingCapsules() {
 
   return matches.sort((first, second) => {
     if (sortInput.value === "oldest") return time(first.created_at) - time(second.created_at) || first.id - second.id;
-    if (sortInput.value === "unlock") return time(first.unlock_at) - time(second.unlock_at) || first.id - second.id;
+    if (sortInput.value === "unlock" || sortInput.value === "status") return time(first.unlock_at) - time(second.unlock_at) || first.id - second.id;
     return time(second.created_at) - time(first.created_at) || second.id - first.id;
   });
 }
@@ -141,13 +162,15 @@ function showCapsules() {
   if (!capsules.length) {
     capsulesContainer.innerHTML = `<div class="empty"><div class="wax">FM</div><h3>No capsules yet</h3><p>Seal your first message and it will wait here.</p><a class="btn primary" href="/create.html">Create a capsule</a></div>`;
   } else if (!matches.length) {
-    capsulesContainer.innerHTML = `<div class="empty"><h3>No capsules match your search or filters.</h3><p>Try another title, widen the unlock dates, or reset your filters.</p></div>`;
+    capsulesContainer.innerHTML = `<div class="empty no-results"><h3>No capsules match your search or filters.</h3><p>Try another title, widen the unlock dates, or reset your filters.</p><button type="button" class="btn quiet" id="clear-capsule-search">Clear search</button></div>`;
   } else {
-    capsulesContainer.innerHTML = `<ol class="timeline">${matches.map(envelopeHTML).join("")}</ol>`;
+    const timeline = sortInput.value === "status" ? groupedTimeline(matches) : `<ol class="timeline">${matches.map(envelopeHTML).join("")}</ol>`;
+    capsulesContainer.innerHTML = timeline + '<a class="newenv" href="/create.html">+ Seal another capsule</a>';
   }
 }
 
 function showSignedOut(message) {
+  setDraftListAccount(null);
   capsules = [];
   hasLoaded = false;
   capsuleControls.hidden = true;
@@ -201,6 +224,7 @@ async function loadCapsules() {
       return;
     }
     currentAccount = session.user;
+    setDraftListAccount(currentAccount.email_address);
     restoreFilters();
     capsulesContainer.hidden = false;
     capsuleControls.hidden = !hasLoaded;
@@ -250,6 +274,7 @@ function updateCapsules() {
 }
 
 function hideLibrary() {
+  setDraftListAccount(null);
   needsAccountCheck = true;
   loadVersion += 1;
   activeRequest?.abort();
@@ -271,10 +296,15 @@ function changeFilters() {
 
 searchInput.addEventListener("input", changeFilters);
 [statusInput, sortInput, unlockFromInput, unlockThroughInput].forEach((input) => input.addEventListener("change", changeFilters));
-resetButton.addEventListener("click", () => {
+function resetFilters() {
   resetFilterValues();
   changeFilters();
   searchInput.focus();
+}
+
+resetButton.addEventListener("click", resetFilters);
+capsulesContainer.addEventListener("click", (event) => {
+  if (event.target.closest("#clear-capsule-search")) resetFilters();
 });
 retryButton.addEventListener("click", () => accountChecked ? loadCapsules() : location.reload());
 document.addEventListener("visibilitychange", () => {

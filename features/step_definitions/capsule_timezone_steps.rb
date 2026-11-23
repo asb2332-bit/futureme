@@ -15,6 +15,7 @@ end
 
 When('I visit the scheduled capsule editor') do
   visit "/create.html?id=#{@scheduled_capsule.id}"
+  creation_step('deliver')
   expect(page).to have_button('Save changes')
 end
 

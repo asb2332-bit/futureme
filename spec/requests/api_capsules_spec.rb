@@ -43,6 +43,30 @@ RSpec.describe 'Capsules API', type: :request do
     expect(response_body).to include('title' => 'Graduation', 'locked' => true, 'message' => nil)
   end
 
+  it 'emails the owner only after a successful seal, not on edits' do
+    ActionMailer::Base.deliveries.clear
+    post api_capsules_path, params: { capsule: { title: '', message: 'Private message', unlock_at: 1.day.from_now } }, as: :json
+    expect(ActionMailer::Base.deliveries).to be_empty
+
+    post api_capsules_path, params: { capsule: { title: 'Memories', message: 'Private message', unlock_at: 1.day.from_now } }, as: :json
+    expect(response).to have_http_status(:created)
+    email = ActionMailer::Base.deliveries.sole
+    expect(email.to).to eq([user.email_address])
+    expect(email.body.decoded).to include('Memories', 'UTC')
+    expect(email.body.decoded).not_to include('Private message')
+
+    patch api_capsule_path(Capsule.last), params: { capsule: { title: 'Updated' } }, as: :json
+    expect(ActionMailer::Base.deliveries.size).to eq(1)
+  end
+
+  it 'keeps the capsule saved if confirmation delivery fails' do
+    allow_any_instance_of(CapsuleMailer).to receive(:mail).and_raise(Net::SMTPError)
+    expect {
+      post api_capsules_path, params: { capsule: { title: 'Memories', message: 'Private', unlock_at: 1.day.from_now } }, as: :json
+    }.to change(Capsule, :count).by(1)
+    expect(response).to have_http_status(:created)
+  end
+
   it 'saves public and sealed poster design data' do
     design = {
       'theme' => { 'background_color' => '#E3E7DF', 'accent_color' => '#202923', 'font' => 'sans', 'icon' => '⏳' },
@@ -137,6 +161,43 @@ RSpec.describe 'Capsules API', type: :request do
     expect(response).to have_http_status(:ok)
     expect(capsule.reload.audio.blobs).to match_array(audio)
     expect(capsule.video.blobs).to match_array(video)
+  end
+
+  it 'reports the total attached media size only when editing' do
+    capsule = user.capsules.create!(title: 'Full capsule', message: 'Memories', unlock_at: 1.day.from_now)
+    capsule.images.attach(io: StringIO.new('image'), filename: 'memory.jpg', content_type: 'image/jpeg')
+    capsule.audio.attach(io: StringIO.new('audio'), filename: 'memory.mp3', content_type: 'audio/mpeg')
+    capsule.video.attach(io: StringIO.new('video'), filename: 'memory.mp4', content_type: 'video/mp4')
+
+    get api_capsule_path(capsule)
+    expect(response_body).not_to have_key('media_byte_size')
+
+    get api_capsule_path(capsule), params: { editing: true }
+    expect(response_body.fetch('media_byte_size')).to eq(15)
+  end
+
+  it 'removes selected media and adds a replacement only on a successful update' do
+    capsule = user.capsules.create!(title: 'Memories', message: 'Keep', unlock_at: 1.day.from_now)
+    capsule.audio.attach(io: StringIO.new('old audio'), filename: 'old.mp3', content_type: 'audio/mpeg')
+    old_attachment = capsule.audio.attachments.first
+    replacement = ActiveStorage::Blob.create_and_upload!(io: StringIO.new('new audio'), filename: 'new.mp3', content_type: 'audio/mpeg')
+
+    patch api_capsule_path(capsule), params: { capsule: { title: '', removed_attachment_ids: [old_attachment.id], audio_signed_ids: [replacement.signed_id] } }, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(capsule.reload.audio.blobs.map(&:id)).to eq([old_attachment.blob_id])
+
+    patch api_capsule_path(capsule), params: { capsule: { title: 'Memories', removed_attachment_ids: [old_attachment.id], audio_signed_ids: [replacement.signed_id] } }, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(capsule.reload.audio.blobs.map(&:id)).to eq([replacement.id])
+  end
+
+  it 'rejects removal of another capsule’s attachment' do
+    capsule = user.capsules.create!(title: 'Mine', message: 'Keep', unlock_at: 1.day.from_now)
+    other = user.capsules.create!(title: 'Other', message: 'Keep', unlock_at: 1.day.from_now)
+    other.audio.attach(io: StringIO.new('audio'), filename: 'other.mp3', content_type: 'audio/mpeg')
+    patch api_capsule_path(capsule), params: { capsule: { removed_attachment_ids: [other.audio.attachments.first.id] } }, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(other.reload.audio).to be_attached
   end
 
   it 'returns image URLs only after a capsule unlocks' do

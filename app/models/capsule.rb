@@ -1,9 +1,8 @@
-require "uri"
-
 class Capsule < ApplicationRecord
   MAX_MEDIA_SIZE = 2.megabytes
 
   belongs_to :user, optional: true
+  has_many :recipients, class_name: "CapsuleRecipient", dependent: :destroy
   has_many_attached :images
   has_many_attached :audio
   has_many_attached :video
@@ -14,7 +13,7 @@ class Capsule < ApplicationRecord
   validate :video_is_valid
   validate :media_total_is_valid
   validate :media_files_are_valid
-  validate :remote_image_urls_use_https
+  validate :valid_poster_design, if: -> { new_record? || will_save_change_to_design? }
 
   def unlocked?
     unlock_at <= Time.current
@@ -59,12 +58,7 @@ class Capsule < ApplicationRecord
     end
   end
 
-  def remote_image_urls_use_https
-    Array(design["remote_image_urls"]).each do |image_url|
-      uri = URI.parse(image_url)
-      errors.add(:design, "remote image URLs must use HTTPS") unless uri.is_a?(URI::HTTPS) && uri.host.present?
-    rescue URI::InvalidURIError, TypeError
-      errors.add(:design, "remote image URLs must use HTTPS")
-    end
+  def valid_poster_design
+    PosterDesign.new(design).validation_errors.each { |message| errors.add(:design, message) }
   end
 end

@@ -183,6 +183,19 @@ RSpec.describe 'Capsule calendar reminders', type: :request do
     expect(response.body).not_to include('BEGIN:VCALENDAR', other_capsule.title, other_capsule.message)
   end
 
+  it 'keeps the calendar owner-only after a recipient opens a shared capsule' do
+    recipient = User.create!(email_address: 'invitee@example.com', password: 'a-secure-password')
+    invitation = capsule.recipients.create!(email: recipient.email_address)
+    post logout_path
+    post login_path, params: { email_address: recipient.email_address, password: 'a-secure-password' }
+    get capsule_invitation_link_path(invitation.signed_id(purpose: :capsule_share))
+    get api_capsule_path(capsule)
+    expect(response.parsed_body).to include('owner' => false, 'locked' => true)
+
+    get calendar_api_capsule_path(capsule)
+    expect_calendar_error(:not_found)
+  end
+
   it 'returns not found for a capsule that does not exist' do
     get calendar_api_capsule_path(-1)
 

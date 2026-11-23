@@ -18,7 +18,7 @@ When('I visit the capsule page without an ID') do
 end
 
 When('the capsule titled {string} reaches its unlock time') do |title|
-  expect(page).to have_css('#capsule-poster[aria-busy="false"]')
+  expect(page).to have_css('#capsule-view[aria-busy="false"]')
   Capsule.find_by!(title: title).update!(unlock_at: 1.minute.ago)
   page.execute_script(<<~JS)
     const originalNow = Date.now.bind(Date);
@@ -34,7 +34,7 @@ Then('I eventually see the unlocked message {string}') do |message|
 end
 
 When('the next capsule refresh fails with {string}') do |failure|
-  expect(page).to have_css('#capsule-poster[aria-busy="false"]')
+  expect(page).to have_css('#capsule-view[aria-busy="false"]')
   page.execute_script(<<~JS, failure)
     const failure = arguments[0];
     const originalFetch = window.fetch.bind(window);
@@ -135,7 +135,7 @@ Then('I remain on the capsule titled {string}') do |title|
 end
 
 When('the capsule detail clock runs ahead of the server') do
-  expect(page).to have_css('#capsule-poster[aria-busy="false"]')
+  expect(page).to have_css('#capsule-view[aria-busy="false"]')
   page.execute_script(<<~JS)
     const originalFetch = window.fetch.bind(window);
     const state = { requests: 0, now: Date.now() + 2 * 86400000, monotonic: performance.now() + 6000 };
@@ -152,7 +152,7 @@ When('the capsule detail clock runs ahead of the server') do
 end
 
 Then('{int} tracked capsule detail request has completed') do |count|
-  expect(page).to have_css('#capsule-poster[aria-busy="false"]')
+  expect(page).to have_css('#capsule-view[aria-busy="false"]')
   expect(page.evaluate_script('window.capsuleDetailTest.requests')).to eq(count)
 end
 
@@ -166,7 +166,7 @@ When('the server unlocks {string} and the detail retry interval passes') do |tit
 end
 
 When('capsule detail visibility is tracked') do
-  expect(page).to have_css('#capsule-poster[aria-busy="false"]')
+  expect(page).to have_css('#capsule-view[aria-busy="false"]')
   page.execute_script(<<~JS)
     const originalFetch = window.fetch.bind(window);
     const state = { hidden: false, requests: 0, unauthorized: false, delayed: false, release: null };
@@ -206,15 +206,15 @@ When('I return to the capsule detail page') do
 end
 
 Then('{int} foreground capsule request has completed') do |count|
-  expect(page).to have_css('#capsule-poster[aria-busy="false"]', visible: :all)
+  expect(page).to have_css('#capsule-view[aria-busy="false"]', visible: :all)
   expect(page.evaluate_script('window.capsuleVisibilityTest.requests')).to eq(count)
 end
 
 When('the next capsule detail response is delayed') do
-  expect(page).to have_css('#capsule-poster[aria-busy="false"]')
+  expect(page).to have_css('#capsule-view[aria-busy="false"]')
   page.execute_script('window.capsuleVisibilityTest.delayed = true; loadCapsule();')
   expect(page).to have_css('body[data-capsule-response-pending="true"]')
-  expect(page).to have_css('#capsule-poster[aria-busy="true"]')
+  expect(page).to have_css('#capsule-view[aria-busy="true"]')
 end
 
 When('I release the delayed capsule detail response') do

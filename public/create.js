@@ -3,6 +3,7 @@ const unlockAtInput = document.querySelector("#unlock-at");
 const presetInput = document.querySelector("#theme-preset");
 const backgroundInput = document.querySelector("#background-color");
 const accentInput = document.querySelector("#accent-color");
+const iconInput = document.querySelector("#poster-icon");
 const fontInput = document.querySelector("#poster-font");
 const titleInput = document.querySelector("#title-input");
 const messageInput = document.querySelector("#message-input");
@@ -26,6 +27,11 @@ const imagePreviewUrls = {};
 let imageFiles = [];
 let audioFiles = [];
 let videoFiles = [];
+let existingMediaSize = 0;
+let existingImages = [];
+let existingAudio = [];
+let existingVideo = [];
+let removedAttachmentIds = [];
 let audioPreviewUrls = [];
 let videoPreviewUrls = [];
 const undoHistory = [];
@@ -37,8 +43,9 @@ const themePresets = {
   night: { background_color: "#202923", accent_color: "#F5E8C8" }
 };
 
+const defaultEditorTheme = { background_color: "#E3E7DF", accent_color: "#202923", font: "sans" };
 const design = {
-  theme: { background_color: "#E3E7DF", accent_color: "#202923", font: "sans" },
+  theme: { ...defaultEditorTheme },
   title_block: { x: 8, y: 10, width: 72, height: 16, rotation: 0 },
   message_block: { x: 8, y: 36, width: 84, height: 38, rotation: 0 },
   audio_block: null,
@@ -47,289 +54,87 @@ const design = {
   sealed_blocks: []
 };
 
+function restorePosterDesign(saved) {
+  delete design.icon_block;
+  Object.assign(design, { audio_block: null, video_block: null, hidden_blocks: [], sealed_blocks: [] }, saved);
+  design.theme = { ...defaultEditorTheme, ...saved.theme };
+  design.title_block = Postal.blockOf(saved, "title_block");
+  design.message_block = Postal.blockOf(saved, "message_block");
+  if (design.theme.icon) design.icon_block = Postal.blockOf(saved, "icon_block");
+  iconInput.value = design.theme.icon || "";
+  backgroundInput.value = design.theme.background_color;
+  accentInput.value = design.theme.accent_color;
+  fontInput.value = design.theme.font;
+  presetInput.value = Object.keys(themePresets).find((name) => {
+    const preset = themePresets[name];
+    return preset.background_color.toLowerCase() === design.theme.background_color.toLowerCase()
+      && preset.accent_color.toLowerCase() === design.theme.accent_color.toLowerCase();
+  }) || "custom";
+}
+
 function blockFor(id) {
   if (id === "title") return design.title_block;
   if (id === "message") return design.message_block;
+  if (id === "icon") return design.icon_block;
   if (id === "audio") return design.audio_block;
   if (id === "video") return design.video_block;
   return design.sealed_blocks.find((block) => block.id === id);
 }
 
 function selectBlock(id) {
-  if (!blockFor(id) || selectedBlockId === id) return;
-
+  if (!blockFor(id)) return;
   selectedBlockId = id;
   renderPoster();
-  posterPreview.focus();
 }
 
-function startDragging(event, id) {
-  if (event.button !== 0) return;
+function draftChanged() {
+  window.dispatchEvent(new Event("capsule:changed"));
+}
 
-  saveUndoState();
-  event.preventDefault();
-  selectBlock(id);
+function updateBlock(id, changes) {
   const block = blockFor(id);
-  const bounds = posterPreview.getBoundingClientRect();
-  const startX = event.clientX;
-  const startY = event.clientY;
-  const originalX = block.x;
-  const originalY = block.y;
-
-  const drag = (moveEvent) => {
-    const xChange = ((moveEvent.clientX - startX) / bounds.width) * 100;
-    const yChange = ((moveEvent.clientY - startY) / bounds.height) * 100;
-    block.x = Math.max(0, Math.min(100 - block.width, originalX + xChange));
-    block.y = Math.max(0, Math.min(100 - block.height, originalY + yChange));
-    renderPoster();
-  };
-
-  const stopDragging = () => {
-    window.removeEventListener("pointermove", drag);
-    window.removeEventListener("pointerup", stopDragging);
-  };
-
-  window.addEventListener("pointermove", drag);
-  window.addEventListener("pointerup", stopDragging);
+  if (!block) return;
+  Object.assign(block, changes);
+  draftChanged();
+  renderPoster();
 }
 
-function startResizing(event, id, direction) {
-  saveUndoState();
-  event.preventDefault();
-  event.stopPropagation();
+function updateText(id, text) {
+  // Keep React from replacing the active contentEditable node and its caret.
+  if (id === "title") { titleText = text; titleInput.value = text; }
+  else if (id === "icon") { design.theme.icon = text; iconInput.value = text; }
+  else if (id === "message") { messageText = text; messageInput.value = text; }
+  else {
+    const block = blockFor(id);
+    if (block) block.text = text;
+  }
+  draftChanged();
+}
+
+function updateMediaMetadata(id, { aspectRatio }) {
   const block = blockFor(id);
-  const bounds = posterPreview.getBoundingClientRect();
-  const startX = event.clientX;
-  const startY = event.clientY;
-  const original = { ...block };
-
-  const resize = (moveEvent) => {
-    const xChange = ((moveEvent.clientX - startX) / bounds.width) * 100;
-    const yChange = ((moveEvent.clientY - startY) / bounds.height) * 100;
-    const right = original.x + original.width;
-    const bottom = original.y + original.height;
-
-    if (block.aspect_ratio) {
-      const canvasRatio = bounds.width / bounds.height;
-      let width = direction.match(/[ew]/) ? original.width + (direction.includes("e") ? xChange : -xChange) :
-        (original.height + (direction.includes("s") ? yChange : -yChange)) * block.aspect_ratio / canvasRatio;
-      const maxWidth = Math.min(direction.includes("w") ? right : 100 - original.x,
-        (direction.includes("n") ? bottom : 100 - original.y) * block.aspect_ratio / canvasRatio);
-      width = Math.max(5, Math.min(maxWidth, width));
-      block.width = width;
-      block.height = width * canvasRatio / block.aspect_ratio;
-      block.x = direction.includes("w") ? right - block.width : original.x;
-      block.y = direction.includes("n") ? bottom - block.height : original.y;
-      renderPoster();
-      return;
-    }
-
-    if (direction.includes("e")) block.width = Math.max(5, Math.min(100 - original.x, original.width + xChange));
-    if (direction.includes("s")) block.height = Math.max(5, Math.min(100 - original.y, original.height + yChange));
-    if (direction.includes("w")) {
-      block.width = Math.max(5, Math.min(right, original.width - xChange));
-      block.x = right - block.width;
-    }
-    if (direction.includes("n")) {
-      block.height = Math.max(5, Math.min(bottom, original.height - yChange));
-      block.y = bottom - block.height;
-    }
-
-    renderPoster();
-  };
-
-  const stopResizing = () => {
-    window.removeEventListener("pointermove", resize);
-    window.removeEventListener("pointerup", stopResizing);
-  };
-
-  window.addEventListener("pointermove", resize);
-  window.addEventListener("pointerup", stopResizing);
-}
-
-function startRotating(event, id) {
-  saveUndoState();
-  event.preventDefault();
-  event.stopPropagation();
-  const block = blockFor(id);
-  const bounds = posterPreview.getBoundingClientRect();
-  const centerX = bounds.left + ((block.x + block.width / 2) / 100) * bounds.width;
-  const centerY = bounds.top + ((block.y + block.height / 2) / 100) * bounds.height;
-
-  const rotate = (moveEvent) => {
-    const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * (180 / Math.PI);
-    block.rotation = Math.round(angle + 90);
-    renderPoster();
-  };
-
-  const stopRotating = () => {
-    window.removeEventListener("pointermove", rotate);
-    window.removeEventListener("pointerup", stopRotating);
-  };
-
-  window.addEventListener("pointermove", rotate);
-  window.addEventListener("pointerup", stopRotating);
-}
-
-function addSelectionHandles(element, id) {
-  ["nw", "n", "ne", "e", "se", "s", "sw", "w"].forEach((direction) => {
-    const handle = document.createElement("button");
-    handle.type = "button";
-    handle.className = `resize-handle resize-${direction}`;
-    handle.contentEditable = "false";
-    handle.setAttribute("aria-label", `Resize ${direction}`);
-    handle.addEventListener("pointerdown", (event) => startResizing(event, id, direction));
-    element.append(handle);
-  });
-
-  const rotateHandle = document.createElement("button");
-  rotateHandle.type = "button";
-  rotateHandle.className = "rotate-handle";
-  rotateHandle.contentEditable = "false";
-  rotateHandle.setAttribute("aria-label", "Rotate block");
-  rotateHandle.addEventListener("pointerdown", (event) => startRotating(event, id));
-  element.append(rotateHandle);
-}
-
-function beginEditing(element, event) {
-  event.preventDefault();
-  event.stopPropagation();
-  element.dataset.editing = "true";
-  element.contentEditable = "true";
-  element.focus();
-}
-
-function addPosterImageBlock(id, url, block) {
-  const element = document.createElement("div");
-  element.className = `poster-block sealed-block poster-image-block`;
-  if (selectedBlockId === id) {
-    element.classList.add("selected");
-    addSelectionHandles(element, id);
+  if (!block || block.aspect_ratio || !Number.isFinite(aspectRatio) || aspectRatio <= 0) return;
+  const canvas = posterPreview.querySelector(".editor-canvas");
+  if (!canvas) return;
+  const canvasRatio = canvas.clientWidth / canvas.clientHeight;
+  block.aspect_ratio = aspectRatio;
+  block.height = block.width * canvasRatio / aspectRatio;
+  if (block.y + block.height > 100) {
+    block.height = 100 - block.y;
+    block.width = block.height * aspectRatio / canvasRatio;
   }
-  element.style.left = `${block.x}%`;
-  element.style.top = `${block.y}%`;
-  element.style.width = `${block.width}%`;
-  element.style.height = `${block.height}%`;
-  element.style.transform = `rotate(${block.rotation}deg)`;
-
-  const image = document.createElement("img");
-  image.src = url;
-  image.alt = "Capsule image";
-  image.addEventListener("load", () => {
-    if (block.aspect_ratio) return;
-    block.aspect_ratio = image.naturalWidth / image.naturalHeight;
-    const canvasRatio = posterPreview.clientWidth / posterPreview.clientHeight;
-    block.height = block.width * canvasRatio / block.aspect_ratio;
-    if (block.y + block.height > 100) {
-      block.height = 100 - block.y;
-      block.width = block.height * block.aspect_ratio / canvasRatio;
-    }
-    renderPoster();
-  });
-  element.append(image);
-  element.addEventListener("pointerdown", (event) => startDragging(event, id));
-  posterPreview.append(element);
-}
-
-function addMediaMoveHandle(element, id) {
-  const handle = document.createElement("button");
-  handle.type = "button";
-  handle.className = "media-drag-handle";
-  handle.textContent = "Move";
-  handle.addEventListener("pointerdown", (event) => {
-    event.stopPropagation();
-    startDragging(event, id);
-  });
-  element.append(handle);
-}
-
-function addPosterVideoBlock(id, url, block) {
-  const element = document.createElement("div");
-  element.className = "poster-block sealed-block";
-  if (selectedBlockId === id) { element.classList.add("selected"); addSelectionHandles(element, id); }
-  element.style.left = `${block.x}%`; element.style.top = `${block.y}%`; element.style.width = `${block.width}%`; element.style.height = `${block.height}%`; element.style.transform = `rotate(${block.rotation}deg)`;
-  const video = document.createElement("video");
-  video.controls = true; video.src = url;
-  video.addEventListener("loadedmetadata", () => {
-    if (block.aspect_ratio) return;
-    block.aspect_ratio = video.videoWidth / video.videoHeight;
-    const canvasRatio = posterPreview.clientWidth / posterPreview.clientHeight;
-    block.height = block.width * canvasRatio / block.aspect_ratio;
-    renderPoster();
-  });
-  video.addEventListener("pointerdown", (event) => event.stopPropagation());
-  element.append(video);
-  addMediaMoveHandle(element, id);
-  posterPreview.append(element);
-}
-
-function addPosterAudioBlock(id, url, block) {
-  const element = document.createElement("div");
-  element.className = "poster-block sealed-block";
-  if (selectedBlockId === id) { element.classList.add("selected"); addSelectionHandles(element, id); }
-  element.style.left = `${block.x}%`; element.style.top = `${block.y}%`; element.style.width = `${block.width}%`; element.style.height = `${block.height}%`; element.style.transform = `rotate(${block.rotation}deg)`;
-  const audio = document.createElement("audio");
-  audio.controls = true; audio.src = url;
-  audio.addEventListener("pointerdown", (event) => event.stopPropagation());
-  element.append(audio);
-  addMediaMoveHandle(element, id);
-  posterPreview.append(element);
-}
-
-function addPosterBlock(id, text, block, editable) {
-  const element = document.createElement("div");
-  element.className = `poster-block sealed-block poster-${id}-block`;
-  element.textContent = text;
-  if (selectedBlockId === id) {
-    element.classList.add("selected");
-    addSelectionHandles(element, id);
-  }
-  element.style.left = `${block.x}%`;
-  element.style.top = `${block.y}%`;
-  element.style.width = `${block.width}%`;
-  element.style.height = `${block.height}%`;
-  element.style.transform = `rotate(${block.rotation}deg)`;
-
-  if (editable) {
-    element.contentEditable = "false";
-    const label = id === "title" ? "Title" : id === "message" ? "Message" : `Message block ${design.sealed_blocks.indexOf(block) + 1}`;
-    element.setAttribute("aria-label", label);
-    element.addEventListener("input", () => {
-      if (id === "title") { titleText = element.textContent; titleInput.value = titleText; }
-      else if (id === "message") { messageText = element.textContent; messageInput.value = messageText; }
-      else block.text = element.textContent;
-    });
-    element.addEventListener("blur", () => {
-      element.dataset.editing = "false";
-      element.contentEditable = "false";
-    });
-    element.addEventListener("dblclick", (event) => beginEditing(element, event));
-  }
-
-  element.addEventListener("pointerdown", (event) => {
-    if (editable && event.detail === 2) return beginEditing(element, event);
-    if (element.dataset.editing === "true") return;
-    startDragging(event, id);
-  });
-  posterPreview.append(element);
+  renderPoster();
+  draftChanged();
 }
 
 function renderPoster() {
-  const { theme } = design;
-  posterPreview.replaceChildren();
-  posterPreview.style.backgroundColor = theme.background_color;
-  posterPreview.style.color = theme.accent_color;
-  posterPreview.dataset.font = theme.font;
-
-  if (!design.hidden_blocks.includes("title")) addPosterBlock("title", titleText || "Your title", design.title_block, true);
-  if (!design.hidden_blocks.includes("message")) addPosterBlock("message", messageText || "Your sealed message", design.message_block, true);
-  if (design.audio_block && audioPreviewUrls[0]) addPosterAudioBlock("audio", audioPreviewUrls[0], design.audio_block);
-  if (design.video_block && videoPreviewUrls[0]) addPosterVideoBlock("video", videoPreviewUrls[0], design.video_block);
-  design.sealed_blocks.forEach((block) => {
-    if (block.media_type === "audio") addPosterAudioBlock(block.id, audioPreviewUrls[block.media_index], block);
-    else if (block.media_type === "video") addPosterVideoBlock(block.id, videoPreviewUrls[block.media_index], block);
-    else if (block.image_url || Number.isInteger(block.image_index)) addPosterImageBlock(block.id, block.image_url || imagePreviewUrls[block.id], block);
-    else addPosterBlock(block.id, block.text || "New text", block, true);
+  window.PosterIsland.render(posterPreview, {
+    design, titleText, messageText, selectedBlockId, imagePreviewUrls, audioPreviewUrls, videoPreviewUrls,
+    onSelect: selectBlock,
+    onBlockChange: updateBlock,
+    onTextChange: updateText,
+    onInteractionStart: saveUndoState,
+    onMediaMetadata: updateMediaMetadata
   });
 }
 
@@ -360,6 +165,7 @@ function addImageBlock() {
 
   design.sealed_blocks.push(block);
   selectBlock(id);
+  draftChanged();
 }
 
 function addMediaBlocks(type, startIndex, count) {
@@ -374,29 +180,65 @@ function addMediaBlocks(type, startIndex, count) {
     selectedBlockId = id;
   }
   renderPoster();
+  draftChanged();
 }
 
 function saveUndoState() {
-  undoHistory.push({ design: structuredClone(design), titleText: titleText, messageText: messageText, selectedBlockId: selectedBlockId });
+  undoHistory.push({ design: structuredClone(design), titleText, messageText, selectedBlockId,
+    existingImages: [...existingImages], existingAudio: [...existingAudio], existingVideo: [...existingVideo],
+    removedAttachmentIds: [...removedAttachmentIds], imageFiles: [...imageFiles], audioFiles: [...audioFiles], videoFiles: [...videoFiles],
+    audioPreviewUrls: [...audioPreviewUrls], videoPreviewUrls: [...videoPreviewUrls], imagePreviewUrls: { ...imagePreviewUrls } });
 }
 
 function undo() {
   const state = undoHistory.pop();
   if (!state) return;
-  Object.assign(design, state.design);
+  restorePosterDesign(state.design);
   titleText = state.titleText;
   messageText = state.messageText;
   selectedBlockId = state.selectedBlockId;
+  existingImages = state.existingImages; existingAudio = state.existingAudio; existingVideo = state.existingVideo;
+  removedAttachmentIds = state.removedAttachmentIds;
+  imageFiles = state.imageFiles; audioFiles = state.audioFiles; videoFiles = state.videoFiles;
+  audioPreviewUrls = state.audioPreviewUrls; videoPreviewUrls = state.videoPreviewUrls;
+  Object.keys(imagePreviewUrls).forEach((id) => delete imagePreviewUrls[id]);
+  Object.assign(imagePreviewUrls, state.imagePreviewUrls);
+  existingMediaSize = [...existingImages, ...existingAudio, ...existingVideo].reduce((sum, attachment) => sum + attachment.size, 0);
+  imageSignedIds = [];
+  const files = new DataTransfer();
+  imageFiles.forEach((file) => files.items.add(file));
+  imageInput.files = files.files;
   renderPoster();
+  draftChanged();
+}
+
+function removeMediaAt(existing, files, index) {
+  if (index < existing.length) {
+    const [attachment] = existing.splice(index, 1);
+    removedAttachmentIds.push(attachment.id);
+    existingMediaSize -= attachment.size;
+  } else {
+    files.splice(index - existing.length, 1);
+  }
 }
 
 function deleteSelectedImage() {
   saveUndoState();
   const block = blockFor(selectedBlockId);
+  if (selectedBlockId === "icon") {
+    delete design.theme.icon;
+    delete design.icon_block;
+    iconInput.value = "";
+    selectedBlockId = "message";
+    renderPoster();
+    draftChanged();
+    return;
+  }
   if (selectedBlockId === "title" || selectedBlockId === "message") {
     design.hidden_blocks.push(selectedBlockId);
     selectedBlockId = "audio";
     renderPoster();
+    draftChanged();
     return;
   }
 
@@ -404,6 +246,7 @@ function deleteSelectedImage() {
     design.sealed_blocks = design.sealed_blocks.filter((item) => item.id !== block.id);
     selectedBlockId = "message";
     renderPoster();
+    draftChanged();
     return;
   }
 
@@ -415,51 +258,56 @@ function deleteSelectedImage() {
   if (selectedBlockId === "audio") {
     design.audio_block = null;
     audioInput.value = "";
-    audioFiles = [];
-    audioPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-    audioPreviewUrls = [];
+    removeMediaAt(existingAudio, audioFiles, 0);
+    audioPreviewUrls.splice(0, 1);
+    design.sealed_blocks.forEach((item) => { if (item.media_type === "audio" && item.media_index > 0) item.media_index -= 1; });
     selectedBlockId = "message";
     renderPoster();
+    draftChanged();
     return;
   }
   if (selectedBlockId === "video") {
     design.video_block = null;
     videoInput.value = "";
-    videoFiles = [];
-    videoPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-    videoPreviewUrls = [];
+    removeMediaAt(existingVideo, videoFiles, 0);
+    videoPreviewUrls.splice(0, 1);
+    design.sealed_blocks.forEach((item) => { if (item.media_type === "video" && item.media_index > 0) item.media_index -= 1; });
     selectedBlockId = "message";
     renderPoster();
+    draftChanged();
     return;
   }
 
   if (block?.media_type) {
     const files = block.media_type === "audio" ? audioFiles : videoFiles;
+    const existing = block.media_type === "audio" ? existingAudio : existingVideo;
     const urls = block.media_type === "audio" ? audioPreviewUrls : videoPreviewUrls;
-    files.splice(block.media_index, 1);
-    URL.revokeObjectURL(urls.splice(block.media_index, 1)[0]);
+    removeMediaAt(existing, files, block.media_index);
+    urls.splice(block.media_index, 1);
     design.sealed_blocks.forEach((item) => {
       if (item.media_type === block.media_type && item.media_index > block.media_index) item.media_index -= 1;
     });
   } else if (Number.isInteger(block.image_index)) {
-    imageFiles.splice(block.image_index, 1);
+    removeMediaAt(existingImages, imageFiles, block.image_index);
     const files = new DataTransfer();
     imageFiles.forEach((file) => files.items.add(file));
     imageInput.files = files.files;
     imageSignedIds = [];
     design.sealed_blocks.forEach((item) => { if (item.image_index > block.image_index) item.image_index -= 1; });
-    URL.revokeObjectURL(imagePreviewUrls[block.id]);
+    delete imagePreviewUrls[block.id];
   }
 
   design.sealed_blocks = design.sealed_blocks.filter((item) => item.id !== block.id);
   selectedBlockId = "message";
   renderPoster();
+  draftChanged();
 }
 
 function addMessageBlock() {
   const id = `message-${Date.now()}`;
   design.sealed_blocks.push({ id: id, kind: "message", text: "New message", x: 12, y: 78, width: 50, height: 12, rotation: 0 });
   selectBlock(id);
+  draftChanged();
 }
 
 function makeSelectedTextTitle() {
@@ -474,16 +322,18 @@ function makeSelectedTextTitle() {
   design.sealed_blocks = design.sealed_blocks.filter((item) => item.id !== block.id);
   selectedBlockId = "title";
   renderPoster();
+  draftChanged();
 }
 
 function restoreTitleBlock() {
   design.hidden_blocks = design.hidden_blocks.filter((id) => id !== "title");
   selectedBlockId = "title";
   renderPoster();
+  draftChanged();
 }
 
 async function uploadSelectedImages(session) {
-  const files = Array.from(imageInput.files);
+  const files = imageFiles;
 
   for (const file of files.slice(imageSignedIds.length)) {
     const formData = new FormData();
@@ -517,12 +367,23 @@ async function uploadMedia(session, files, type) {
   return signedIds;
 }
 
+function showStep(step) {
+  document.querySelectorAll("[data-step]").forEach((panel) => { panel.hidden = panel.dataset.step !== step; });
+  document.querySelectorAll(".create-steps [data-show-step]").forEach((tab) => {
+    if (tab.dataset.showStep === step) tab.setAttribute("aria-current", "step");
+    else tab.removeAttribute("aria-current");
+  });
+}
+
 function showValidationErrors(errors) {
   formErrors.textContent = Object.values(errors).flat().join(", ");
+  if (errors.title || errors.message) showStep("write");
+  else if (errors.unlock_at) showStep("deliver");
 }
 
 function setSaving(saving) {
   savingOverlay.hidden = !saving;
+  document.querySelector("main").inert = saving;
   sealButton.disabled = saving;
 }
 
@@ -543,12 +404,14 @@ async function createCapsule() {
   if (!unlockAt) missingFields.push("Unlock at can't be blank");
   if (missingFields.length) {
     formErrors.textContent = missingFields.join(", ");
+    showStep(!String(titleText || "").trim() || !capsuleMessage ? "write" : "deliver");
     return;
   }
   setSaving(true);
   const session = await window.futuremeSession;
   if (!session.user) { location.assign("/login"); return; }
 
+  const submittedDraft = await window.prepareCapsuleDraft?.();
   let imageSignedIds, audioSignedIds, videoSignedIds;
   try {
     imageSignedIds = await uploadSelectedImages(session);
@@ -568,6 +431,8 @@ async function createCapsule() {
     image_signed_ids: imageSignedIds,
     audio_signed_ids: audioSignedIds,
     video_signed_ids: videoSignedIds,
+    removed_attachment_ids: removedAttachmentIds,
+    recipient_emails: window.capsuleRecipients.emails(),
     design: design
   };
   if (!editingCapsuleId || unlockAt !== originalUnlockValue) capsule.unlock_at = new Date(unlockAt).toISOString();
@@ -586,23 +451,36 @@ async function createCapsule() {
   }
 
   const createdCapsule = await response.json();
+  if (window.finishCapsuleDraft && !window.finishCapsuleDraft(submittedDraft, createdCapsule.id)) {
+    setSaving(false);
+    sealButton.disabled = true;
+    return;
+  }
   window.location.href = `/capsule.html?id=${createdCapsule.id}`;
 }
 
 async function loadCapsuleForEditing() {
   if (!editingCapsuleId) return;
+  [imageInput, audioInput, videoInput, sealButton].forEach((input) => { input.disabled = true; });
   const response = await fetch(`/api/capsules/${editingCapsuleId}?editing=true`);
   const capsule = await response.json();
   if (!response.ok) { location.replace(`/capsule.html?id=${editingCapsuleId}`); return; }
+  if (!Number.isSafeInteger(capsule.media_byte_size) || capsule.media_byte_size < 0) throw new Error("Missing media size");
+  const attachments = capsule.media_attachments;
+  if (!attachments || ![attachments.images, attachments.audio, attachments.video].every((items) => Array.isArray(items) && items.every((item) => Number.isSafeInteger(item.id) && Number.isSafeInteger(item.size) && item.size >= 0))) throw new Error("Missing attachments");
+  window.capsuleRecipients.setEmails(capsule.recipient_emails || []);
+  existingImages = attachments.images; existingAudio = attachments.audio; existingVideo = attachments.video;
+  existingMediaSize = capsule.media_byte_size;
+  [imageInput, audioInput, videoInput, sealButton].forEach((input) => { input.disabled = false; });
   titleText = capsule.title || "";
   messageText = capsule.message || "";
   titleInput.value = titleText;
   messageInput.value = messageText;
   originalUnlockValue = localDateTimeValue(capsule.unlock_at);
   unlockAtInput.value = originalUnlockValue;
-  Object.assign(design, capsule.design);
+  restorePosterDesign(capsule.design || {});
   (design.sealed_blocks || []).forEach((block) => {
-    if (Number.isInteger(block.image_index)) imagePreviewUrls[block.id] = capsule.image_urls[block.image_index];
+    if (Number.isInteger(block.image_index)) imagePreviewUrls[block.id] = existingImages[block.image_index]?.url;
   });
   audioPreviewUrls = capsule.audio_url || [];
   videoPreviewUrls = capsule.video_url || [];
@@ -610,6 +488,8 @@ async function loadCapsuleForEditing() {
   renderPoster();
 }
 
+[presetInput, fontInput, unlockAtInput].forEach((input) => input.addEventListener("change", () => queueMicrotask(draftChanged)));
+[backgroundInput, accentInput, iconInput, titleInput, messageInput, unlockAtInput].forEach((input) => input.addEventListener("input", () => queueMicrotask(draftChanged)));
 presetInput.addEventListener("change", () => {
   const preset = themePresets[presetInput.value];
   design.theme.background_color = preset.background_color;
@@ -618,19 +498,29 @@ presetInput.addEventListener("change", () => {
   accentInput.value = preset.accent_color;
   renderPoster();
 });
-backgroundInput.addEventListener("input", () => { design.theme.background_color = backgroundInput.value; renderPoster(); });
-accentInput.addEventListener("input", () => { design.theme.accent_color = accentInput.value; renderPoster(); });
+backgroundInput.addEventListener("input", () => { design.theme.background_color = backgroundInput.value; presetInput.value = "custom"; renderPoster(); });
+accentInput.addEventListener("input", () => { design.theme.accent_color = accentInput.value; presetInput.value = "custom"; renderPoster(); });
+iconInput.addEventListener("input", () => {
+  design.theme.icon = iconInput.value;
+  design.icon_block = Postal.blockOf(design, "icon_block");
+  renderPoster();
+});
 fontInput.addEventListener("change", () => { design.theme.font = fontInput.value; renderPoster(); });
 titleInput.addEventListener("input", () => { titleText = titleInput.value; renderPoster(); });
 messageInput.addEventListener("input", () => { messageText = messageInput.value; renderPoster(); });
+let capsuleLimitErrorTimer;
 function showCapsuleLimitError() {
   const message = "This file can't be added: it would exceed this capsule's 2 MB limit.";
   formErrors.textContent = message;
+  clearTimeout(capsuleLimitErrorTimer);
+  capsuleLimitErrorTimer = setTimeout(() => {
+    if (formErrors.textContent === message) formErrors.textContent = "";
+  }, 5000);
   alert(message);
 }
 
 function exceedsCapsuleLimit(extraFiles = []) {
-  return [...imageFiles, ...audioFiles, ...videoFiles, ...extraFiles].reduce((total, file) => total + file.size, 0) > maxCapsuleSize;
+  return [...imageFiles, ...audioFiles, ...videoFiles, ...extraFiles].reduce((total, file) => total + file.size, existingMediaSize) > maxCapsuleSize;
 }
 
 function addSelectedMedia(input, files, label) {
@@ -651,16 +541,20 @@ function addSelectedMedia(input, files, label) {
 }
 
 videoInput.addEventListener("change", () => {
+  if (!videoInput.files.length) return;
+  saveUndoState();
   const addedFiles = addSelectedMedia(videoInput, videoFiles, "Video");
-  if (!addedFiles) return;
-  const firstIndex = videoFiles.length - addedFiles.length;
+  if (!addedFiles) { undoHistory.pop(); return; }
+  const firstIndex = existingVideo.length + videoFiles.length - addedFiles.length;
   videoPreviewUrls.push(...addedFiles.map((file) => URL.createObjectURL(file)));
   addMediaBlocks("video", firstIndex, addedFiles.length);
 });
 audioInput.addEventListener("change", () => {
+  if (!audioInput.files.length) return;
+  saveUndoState();
   const addedFiles = addSelectedMedia(audioInput, audioFiles, "Audio");
-  if (!addedFiles) return;
-  const firstIndex = audioFiles.length - addedFiles.length;
+  if (!addedFiles) { undoHistory.pop(); return; }
+  const firstIndex = existingAudio.length + audioFiles.length - addedFiles.length;
   audioPreviewUrls.push(...addedFiles.map((file) => URL.createObjectURL(file)));
   addMediaBlocks("audio", firstIndex, addedFiles.length);
 });
@@ -676,7 +570,9 @@ imageInput.addEventListener("change", () => {
     imageInput.value = "";
     return;
   }
-  const firstIndex = imageFiles.length;
+  if (!addedFiles.length) return;
+  saveUndoState();
+  const firstIndex = existingImages.length + imageFiles.length;
   imageFiles.push(...addedFiles);
   const files = new DataTransfer();
   imageFiles.forEach((file) => files.items.add(file));
@@ -690,6 +586,7 @@ imageInput.addEventListener("change", () => {
     selectedBlockId = id;
   });
   renderPoster();
+  draftChanged();
 });
 window.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
@@ -718,5 +615,26 @@ sealButton.addEventListener("click", () => {
   });
 });
 
+if (editingCapsuleId) {
+  document.querySelector("#cancel-edit").href = `/capsule.html?id=${encodeURIComponent(editingCapsuleId)}`;
+  const deleteForm = document.querySelector("#delete-edit-form");
+  deleteForm.action = `/capsules/${encodeURIComponent(editingCapsuleId)}/delete`;
+  deleteForm.addEventListener("submit", (event) => {
+    if (!confirm("Delete this capsule and its media permanently?")) event.preventDefault();
+  });
+  fetch(`/api/session?form_action=${encodeURIComponent(deleteForm.action)}`, { cache: "no-store" })
+    .then((response) => { if (!response.ok) throw new Error(); return response.json(); })
+    .then((session) => {
+      if (!session.csrf_token) throw new Error();
+      document.querySelector("#delete-edit-token").value = session.csrf_token;
+      deleteForm.hidden = false;
+    })
+    .catch(() => { formErrors.textContent = "Couldn't enable deletion. Please refresh and try again."; });
+}
+
+document.querySelectorAll("[data-show-step]").forEach((button) => {
+  button.addEventListener("click", () => showStep(button.dataset.showStep));
+});
+
 renderPoster();
-loadCapsuleForEditing();
+loadCapsuleForEditing().catch(() => { formErrors.textContent = "Couldn't load this capsule. Please refresh and try again."; });

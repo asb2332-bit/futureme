@@ -45,4 +45,6 @@
 }
 ```
 
-`x`, `y`, `width`, and `height` are percentages of the responsive poster canvas. `rotation` is degrees. `sealed_blocks` and the capsule message are returned only after the capsule unlocks.
+`x`, `y`, `width`, and `height` are percentages of the responsive poster canvas. `rotation` is degrees. `sealed_blocks` and the capsule message are returned on unlocked detail views and when the owner reopens the editor.
+
+The editor also stores hidden title or message blocks and image, audio, and video layouts. The API validates supported fields, geometry, and media references on write. Public responses include only visual settings. Media URLs and extra text stay with the sealed content.
