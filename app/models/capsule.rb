@@ -11,6 +11,7 @@ class Capsule < ApplicationRecord
   has_many :capsule_editors, dependent: :destroy
   has_many :editors, through: :capsule_editors, source: :user
   belongs_to :user, optional: true
+  has_many :recipients, class_name: "CapsuleRecipient", dependent: :destroy
   has_many_attached :images
   has_many_attached :audio
   has_many_attached :video

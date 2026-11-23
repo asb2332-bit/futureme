@@ -20,6 +20,8 @@ class Api::CapsulesController < ApplicationController
 
     return render json: { error: "Unsupported file type. Attach images, audio, or video." }, status: :unprocessable_entity if params[:capsule]&.key?(:document_signed_ids)
     submitted_data = capsule_params
+    emails = recipient_emails(submitted_data)
+    return if performed?
     image_signed_ids = submitted_data.delete(:image_signed_ids)
     submitted_data.delete(:removed_attachment_ids)
     audio_signed_ids = signed_ids(submitted_data, :audio)
@@ -31,8 +33,15 @@ class Api::CapsulesController < ApplicationController
     @capsule.images.attach(image_signed_ids) if image_signed_ids.present?
     @capsule.audio.attach(audio_signed_ids) if audio_signed_ids.any?
     @capsule.video.attach(video_signed_ids) if video_signed_ids.any?
+    Array(emails).each { |email| @capsule.recipients.build(email: email) }
 
     if @capsule.save
+      deliver_recipient_notifications(@capsule) unless @capsule.draft?
+      begin
+        CapsuleMailer.sealed(@capsule).deliver_now!
+      rescue StandardError => error
+        Rails.logger.error("Capsule confirmation email failed for capsule #{@capsule.id}: #{error.class}")
+      end
       capsule_data = capsule_json(@capsule)
       capsule_url = api_capsule_url(@capsule)
 
@@ -46,7 +55,10 @@ class Api::CapsulesController < ApplicationController
 
   def show
     editing = params[:editing] == "true"
+    return head :not_found if editing && !accessible_capsules.exists?(@capsule.id)
     capsule_data = capsule_json(@capsule, include_message: editing || @capsule.unlocked?)
+    capsule_data[:owner] = @capsule.user_id == current_user.id
+    capsule_data[:recipient_emails] = @capsule.recipients.pluck(:email) if editing && @capsule.user_id == current_user.id
     if editing
       capsule_data[:media_attachments] = %i[images audio video].to_h do |name|
         [name, @capsule.public_send(name).attachments.includes(:blob).order(:id).map { |attachment| { id: attachment.id, size: attachment.blob.byte_size, url: rails_blob_url(attachment.blob) } }]
@@ -66,6 +78,7 @@ class Api::CapsulesController < ApplicationController
       update_capsule
       raise ActiveRecord::Rollback unless response.successful?
     end
+    deliver_recipient_notifications(@capsule) if response.successful? && !@capsule.draft?
   end
 
   private def update_capsule
@@ -75,6 +88,8 @@ class Api::CapsulesController < ApplicationController
     if submitted_data[:draft] && !@capsule.draft?
       return render json: { error: "A sealed capsule cannot become a draft." }, status: :unprocessable_entity
     end
+    emails = recipient_emails(submitted_data)
+    return if performed?
     uploads = {
       images: Array(submitted_data.delete(:image_signed_ids)),
       audio: signed_ids(submitted_data, :audio),
@@ -94,6 +109,11 @@ class Api::CapsulesController < ApplicationController
 
     @capsule.updated_at = Time.current
     if @capsule.save
+      unless emails.nil?
+        @capsule.recipients.where.not(email: emails).destroy_all
+        existing = @capsule.recipients.pluck(:email)
+        @capsule.recipients.create!((emails - existing).map { |email| { email: email } })
+      end
       render json: capsule_json(@capsule.reload, include_message: true)
     else
       render json: { errors: @capsule.errors.to_hash(full_messages: true) }, status: :unprocessable_entity
@@ -112,7 +132,11 @@ class Api::CapsulesController < ApplicationController
   def set_capsule
     capsule_id = params[:id]
     scope = action_name == "destroy" ? current_user.capsules : accessible_capsules
-    @capsule = scope.find(capsule_id)
+    @capsule = scope.find_by(id: capsule_id)
+    if !@capsule && action_name == "show"
+      @capsule = Capsule.joins(:recipients).where(capsule_recipients: { email: current_user.email_address, id: Array(session[:verified_capsule_recipient_ids]) }).find_by(id: capsule_id)
+    end
+    raise ActiveRecord::RecordNotFound unless @capsule
   end
 
   def accessible_capsules
@@ -139,7 +163,29 @@ class Api::CapsulesController < ApplicationController
     submitted_capsule = params.require(:capsule)
 
     submitted_capsule.permit(:draft, :title, :message, :unlock_at, :audio_signed_id, :video_signed_id,
-      image_signed_ids: [], audio_signed_ids: [], video_signed_ids: [], removed_attachment_ids: [], remote_image_urls: [], design: {})
+      image_signed_ids: [], audio_signed_ids: [], video_signed_ids: [], removed_attachment_ids: [], remote_image_urls: [], recipient_emails: [], design: {})
+  end
+
+  def recipient_emails(data)
+    return nil unless data.key?(:recipient_emails)
+    if @capsule && @capsule.user_id != current_user.id
+      render json: { error: "Only the owner can change delivery recipients." }, status: :forbidden
+      return nil
+    end
+    emails = data.delete(:recipient_emails).map { |email| email.to_s.strip.downcase }.uniq
+    if emails.size > 20 || emails.any? { |email| email.length > 254 || !URI::MailTo::EMAIL_REGEXP.match?(email) }
+      render json: { errors: { recipient_emails: ["Enter valid recipient email addresses (maximum 20)."] } }, status: :unprocessable_entity
+      return nil
+    end
+    emails
+  end
+
+  def deliver_recipient_notifications(capsule)
+    capsule.recipients.find_each do |recipient|
+      recipient.deliver_pending!
+    rescue StandardError => error
+      Rails.logger.error("Recipient notification failed for recipient #{recipient.id}: #{error.class}")
+    end
   end
 
   def signed_ids(data, name)

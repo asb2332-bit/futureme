@@ -1,4 +1,4 @@
-// These lists are local UI previews; neither invitations nor emails are sent.
+// Delivery recipients are saved with the capsule.
 function setupRecipientPreview() {
   const kind = "recipient";
   const input = document.querySelector(`#${kind}-email`);
@@ -42,6 +42,10 @@ function setupRecipientPreview() {
   input.addEventListener("input", () => { error.textContent = ""; input.removeAttribute("aria-invalid"); });
   input.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); add(); } });
   document.querySelector(`#add-${kind}`).addEventListener("click", add);
+  return {
+    emails: () => entries.map((entry) => entry.email),
+    setEmails: (emails) => { entries.splice(0, entries.length, ...emails.map((email) => ({ email }))); render(); }
+  };
 }
 
-setupRecipientPreview();
+window.capsuleRecipients = setupRecipientPreview();

@@ -15,6 +15,9 @@
 /storage/*
 !/storage/.keep
 
+# JavaScript dependencies
+/node_modules/
+
 # Test output
 /coverage
 

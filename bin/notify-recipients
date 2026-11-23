@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+cd "$(dirname "$0")/.." || exit 1
+while true; do
+  bin/rails capsules:notify_recipients
+  sleep 60
+done

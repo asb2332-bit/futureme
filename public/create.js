@@ -64,283 +64,56 @@ function blockFor(id) {
 }
 
 function selectBlock(id) {
-  if (!blockFor(id) || selectedBlockId === id) return;
-
+  if (!blockFor(id)) return;
   selectedBlockId = id;
   renderPoster();
-  posterPreview.focus();
 }
 
-function startDragging(event, id) {
-  if (event.button !== 0) return;
-
-  saveUndoState();
-  event.preventDefault();
-  selectBlock(id);
+function updateBlock(id, changes, mode) {
   const block = blockFor(id);
-  const bounds = posterPreview.getBoundingClientRect();
-  const startX = event.clientX;
-  const startY = event.clientY;
-  const originalX = block.x;
-  const originalY = block.y;
-
-  const drag = (moveEvent) => {
-    const xChange = ((moveEvent.clientX - startX) / bounds.width) * 100;
-    const yChange = ((moveEvent.clientY - startY) / bounds.height) * 100;
-    block.x = Math.max(0, Math.min(100 - block.width, originalX + xChange));
-    block.y = Math.max(0, Math.min(100 - block.height, originalY + yChange));
+  if (!block) return;
+  Object.assign(block, changes);
+  if (mode === "drag") {
     DraftCollaboration.preview({ kind: "dragging", label: id === "title" ? "title" : id === "message" ? "message" : "poster block",
       x: block.x, y: block.y, width: block.width, height: block.height });
-    renderPoster();
-  };
-
-  const stopDragging = () => {
-    window.removeEventListener("pointermove", drag);
-    window.removeEventListener("pointerup", stopDragging);
-  };
-
-  window.addEventListener("pointermove", drag);
-  window.addEventListener("pointerup", stopDragging);
+  }
+  renderPoster();
 }
 
-function startResizing(event, id, direction) {
-  saveUndoState();
-  event.preventDefault();
-  event.stopPropagation();
+function updateText(id, text) {
+  DraftCollaboration.preview({ kind: "typing", field: id === "title" ? "Title" : id === "message" ? "Message" : "Poster note", text });
+  // Keep React from replacing the active contentEditable node and its caret.
+  if (id === "title") { titleText = text; titleInput.value = text; }
+  else if (id === "message") { messageText = text; messageInput.value = text; }
+  else {
+    const block = blockFor(id);
+    if (block) block.text = text;
+  }
+}
+
+function updateMediaMetadata(id, { aspectRatio }) {
   const block = blockFor(id);
-  const bounds = posterPreview.getBoundingClientRect();
-  const startX = event.clientX;
-  const startY = event.clientY;
-  const original = { ...block };
-
-  const resize = (moveEvent) => {
-    const xChange = ((moveEvent.clientX - startX) / bounds.width) * 100;
-    const yChange = ((moveEvent.clientY - startY) / bounds.height) * 100;
-    const right = original.x + original.width;
-    const bottom = original.y + original.height;
-
-    if (block.aspect_ratio) {
-      const canvasRatio = bounds.width / bounds.height;
-      let width = direction.match(/[ew]/) ? original.width + (direction.includes("e") ? xChange : -xChange) :
-        (original.height + (direction.includes("s") ? yChange : -yChange)) * block.aspect_ratio / canvasRatio;
-      const maxWidth = Math.min(direction.includes("w") ? right : 100 - original.x,
-        (direction.includes("n") ? bottom : 100 - original.y) * block.aspect_ratio / canvasRatio);
-      width = Math.max(5, Math.min(maxWidth, width));
-      block.width = width;
-      block.height = width * canvasRatio / block.aspect_ratio;
-      block.x = direction.includes("w") ? right - block.width : original.x;
-      block.y = direction.includes("n") ? bottom - block.height : original.y;
-      renderPoster();
-      return;
-    }
-
-    if (direction.includes("e")) block.width = Math.max(5, Math.min(100 - original.x, original.width + xChange));
-    if (direction.includes("s")) block.height = Math.max(5, Math.min(100 - original.y, original.height + yChange));
-    if (direction.includes("w")) {
-      block.width = Math.max(5, Math.min(right, original.width - xChange));
-      block.x = right - block.width;
-    }
-    if (direction.includes("n")) {
-      block.height = Math.max(5, Math.min(bottom, original.height - yChange));
-      block.y = bottom - block.height;
-    }
-
-    renderPoster();
-  };
-
-  const stopResizing = () => {
-    window.removeEventListener("pointermove", resize);
-    window.removeEventListener("pointerup", stopResizing);
-  };
-
-  window.addEventListener("pointermove", resize);
-  window.addEventListener("pointerup", stopResizing);
-}
-
-function startRotating(event, id) {
-  saveUndoState();
-  event.preventDefault();
-  event.stopPropagation();
-  const block = blockFor(id);
-  const bounds = posterPreview.getBoundingClientRect();
-  const centerX = bounds.left + ((block.x + block.width / 2) / 100) * bounds.width;
-  const centerY = bounds.top + ((block.y + block.height / 2) / 100) * bounds.height;
-
-  const rotate = (moveEvent) => {
-    const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * (180 / Math.PI);
-    block.rotation = Math.round(angle + 90);
-    renderPoster();
-  };
-
-  const stopRotating = () => {
-    window.removeEventListener("pointermove", rotate);
-    window.removeEventListener("pointerup", stopRotating);
-  };
-
-  window.addEventListener("pointermove", rotate);
-  window.addEventListener("pointerup", stopRotating);
-}
-
-function addSelectionHandles(element, id) {
-  ["nw", "n", "ne", "e", "se", "s", "sw", "w"].forEach((direction) => {
-    const handle = document.createElement("button");
-    handle.type = "button";
-    handle.className = `resize-handle resize-${direction}`;
-    handle.contentEditable = "false";
-    handle.setAttribute("aria-label", `Resize ${direction}`);
-    handle.addEventListener("pointerdown", (event) => startResizing(event, id, direction));
-    element.append(handle);
-  });
-
-  const rotateHandle = document.createElement("button");
-  rotateHandle.type = "button";
-  rotateHandle.className = "rotate-handle";
-  rotateHandle.contentEditable = "false";
-  rotateHandle.setAttribute("aria-label", "Rotate block");
-  rotateHandle.addEventListener("pointerdown", (event) => startRotating(event, id));
-  element.append(rotateHandle);
-}
-
-function beginEditing(element, event) {
-  event.preventDefault();
-  event.stopPropagation();
-  element.dataset.editing = "true";
-  element.contentEditable = "true";
-  element.focus();
-}
-
-function addPosterImageBlock(id, url, block) {
-  const element = document.createElement("div");
-  element.className = `poster-block sealed-block poster-image-block`;
-  if (selectedBlockId === id) {
-    element.classList.add("selected");
-    addSelectionHandles(element, id);
+  if (!block || block.aspect_ratio || !Number.isFinite(aspectRatio) || aspectRatio <= 0) return;
+  const canvas = posterPreview.querySelector(".editor-canvas");
+  if (!canvas) return;
+  const canvasRatio = canvas.clientWidth / canvas.clientHeight;
+  block.aspect_ratio = aspectRatio;
+  block.height = block.width * canvasRatio / aspectRatio;
+  if (block.y + block.height > 100) {
+    block.height = 100 - block.y;
+    block.width = block.height * aspectRatio / canvasRatio;
   }
-  element.style.left = `${block.x}%`;
-  element.style.top = `${block.y}%`;
-  element.style.width = `${block.width}%`;
-  element.style.height = `${block.height}%`;
-  element.style.transform = `rotate(${block.rotation}deg)`;
-
-  const image = document.createElement("img");
-  image.src = url;
-  image.alt = "Capsule image";
-  image.addEventListener("load", () => {
-    if (block.aspect_ratio) return;
-    block.aspect_ratio = image.naturalWidth / image.naturalHeight;
-    const canvasRatio = posterPreview.clientWidth / posterPreview.clientHeight;
-    block.height = block.width * canvasRatio / block.aspect_ratio;
-    if (block.y + block.height > 100) {
-      block.height = 100 - block.y;
-      block.width = block.height * block.aspect_ratio / canvasRatio;
-    }
-    renderPoster();
-  });
-  element.append(image);
-  element.addEventListener("pointerdown", (event) => startDragging(event, id));
-  posterPreview.append(element);
-}
-
-function addMediaMoveHandle(element, id) {
-  const handle = document.createElement("button");
-  handle.type = "button";
-  handle.className = "media-drag-handle";
-  handle.textContent = "Move";
-  handle.addEventListener("pointerdown", (event) => {
-    event.stopPropagation();
-    startDragging(event, id);
-  });
-  element.append(handle);
-}
-
-function addPosterVideoBlock(id, url, block) {
-  const element = document.createElement("div");
-  element.className = "poster-block sealed-block";
-  if (selectedBlockId === id) { element.classList.add("selected"); addSelectionHandles(element, id); }
-  element.style.left = `${block.x}%`; element.style.top = `${block.y}%`; element.style.width = `${block.width}%`; element.style.height = `${block.height}%`; element.style.transform = `rotate(${block.rotation}deg)`;
-  const video = document.createElement("video");
-  video.controls = true; video.src = url;
-  video.addEventListener("loadedmetadata", () => {
-    if (block.aspect_ratio) return;
-    block.aspect_ratio = video.videoWidth / video.videoHeight;
-    const canvasRatio = posterPreview.clientWidth / posterPreview.clientHeight;
-    block.height = block.width * canvasRatio / block.aspect_ratio;
-    renderPoster();
-  });
-  video.addEventListener("pointerdown", (event) => event.stopPropagation());
-  element.append(video);
-  addMediaMoveHandle(element, id);
-  posterPreview.append(element);
-}
-
-function addPosterAudioBlock(id, url, block) {
-  const element = document.createElement("div");
-  element.className = "poster-block sealed-block";
-  if (selectedBlockId === id) { element.classList.add("selected"); addSelectionHandles(element, id); }
-  element.style.left = `${block.x}%`; element.style.top = `${block.y}%`; element.style.width = `${block.width}%`; element.style.height = `${block.height}%`; element.style.transform = `rotate(${block.rotation}deg)`;
-  const audio = document.createElement("audio");
-  audio.controls = true; audio.src = url;
-  audio.addEventListener("pointerdown", (event) => event.stopPropagation());
-  element.append(audio);
-  addMediaMoveHandle(element, id);
-  posterPreview.append(element);
-}
-
-function addPosterBlock(id, text, block, editable) {
-  const element = document.createElement("div");
-  element.className = `poster-block sealed-block poster-${id}-block`;
-  element.textContent = text;
-  if (selectedBlockId === id) {
-    element.classList.add("selected");
-    addSelectionHandles(element, id);
-  }
-  element.style.left = `${block.x}%`;
-  element.style.top = `${block.y}%`;
-  element.style.width = `${block.width}%`;
-  element.style.height = `${block.height}%`;
-  element.style.transform = `rotate(${block.rotation}deg)`;
-
-  if (editable) {
-    element.contentEditable = "false";
-    const label = id === "title" ? "Title" : id === "message" ? "Message" : `Message block ${design.sealed_blocks.indexOf(block) + 1}`;
-    element.setAttribute("aria-label", label);
-    element.addEventListener("input", () => {
-      if (id === "title") { titleText = element.textContent; titleInput.value = titleText; }
-      else if (id === "message") { messageText = element.textContent; messageInput.value = messageText; }
-      else block.text = element.textContent;
-      DraftCollaboration.preview({ kind: "typing", field: label, text: element.textContent });
-    });
-    element.addEventListener("blur", () => {
-      element.dataset.editing = "false";
-      element.contentEditable = "false";
-    });
-    element.addEventListener("dblclick", (event) => beginEditing(element, event));
-  }
-
-  element.addEventListener("pointerdown", (event) => {
-    if (editable && event.detail === 2) return beginEditing(element, event);
-    if (element.dataset.editing === "true") return;
-    startDragging(event, id);
-  });
-  posterPreview.append(element);
+  renderPoster();
 }
 
 function renderPoster() {
-  const { theme } = design;
-  posterPreview.replaceChildren();
-  posterPreview.style.backgroundColor = theme.background_color;
-  posterPreview.style.color = theme.accent_color;
-  posterPreview.dataset.font = theme.font;
-
-  if (!design.hidden_blocks.includes("title")) addPosterBlock("title", titleText || "Your title", design.title_block, true);
-  if (!design.hidden_blocks.includes("message")) addPosterBlock("message", messageText || "Your sealed message", design.message_block, true);
-  if (design.audio_block && audioPreviewUrls[0]) addPosterAudioBlock("audio", audioPreviewUrls[0], design.audio_block);
-  if (design.video_block && videoPreviewUrls[0]) addPosterVideoBlock("video", videoPreviewUrls[0], design.video_block);
-  design.sealed_blocks.forEach((block) => {
-    if (block.media_type === "audio") addPosterAudioBlock(block.id, audioPreviewUrls[block.media_index], block);
-    else if (block.media_type === "video") addPosterVideoBlock(block.id, videoPreviewUrls[block.media_index], block);
-    else if (block.image_url || Number.isInteger(block.image_index)) addPosterImageBlock(block.id, block.image_url || imagePreviewUrls[block.id], block);
-    else addPosterBlock(block.id, block.text || "New text", block, true);
+  window.PosterIsland.render(posterPreview, {
+    design, titleText, messageText, selectedBlockId, imagePreviewUrls, audioPreviewUrls, videoPreviewUrls,
+    onSelect: selectBlock,
+    onBlockChange: updateBlock,
+    onTextChange: updateText,
+    onInteractionStart: saveUndoState,
+    onMediaMetadata: updateMediaMetadata
   });
 }
 
@@ -615,6 +388,7 @@ async function createCapsule(draft = false) {
     lock_version: capsuleVersion,
     ...(canManageEditors ? {editor_emails: document.querySelector("#editor-emails").value.split(",").map(email => email.trim()).filter(Boolean)} : {}),
     removed_attachment_ids: removedAttachmentIds,
+    ...(canManageEditors ? { recipient_emails: window.capsuleRecipients.emails() } : {}),
     design: design
   };
   const response = await fetch(editingCapsuleId ? `/api/capsules/${editingCapsuleId}` : "/api/capsules", {
@@ -653,6 +427,7 @@ async function loadCapsuleForEditing() {
   if (!Number.isSafeInteger(capsule.media_byte_size) || capsule.media_byte_size < 0) throw new Error("Missing media size");
   const attachments = capsule.media_attachments;
   if (!attachments || ![attachments.images, attachments.audio, attachments.video].every((items) => Array.isArray(items) && items.every((item) => Number.isSafeInteger(item.id) && Number.isSafeInteger(item.size) && item.size >= 0))) throw new Error("Missing attachments");
+  window.capsuleRecipients.setEmails(capsule.recipient_emails || []);
   existingImages = attachments.images; existingAudio = attachments.audio; existingVideo = attachments.video;
   existingMediaSize = capsule.media_byte_size;
   [imageInput, audioInput, videoInput, sealButton, document.querySelector("#save-draft")].forEach((input) => { input.disabled = false; });
@@ -665,6 +440,7 @@ async function loadCapsuleForEditing() {
   if (capsule.draft) DraftCollaboration.start(capsule);
   if (location.hash === "#collaborate") showStep("collaborate");
   canManageEditors = capsule.owner;
+  document.querySelector("#delivery-recipients").hidden = !canManageEditors;
   document.querySelector("#delete-edit-form").hidden = !canManageEditors || !deleteTokenReady;
   document.querySelector("#editor-field").hidden = !canManageEditors;
   document.querySelector("#editor-emails").value = (capsule.editor_emails || []).join(", ");

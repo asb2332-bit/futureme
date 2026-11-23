@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_11_20_150500) do
+ActiveRecord::Schema[7.1].define(version: 2026_11_22_115356) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -70,6 +70,17 @@ ActiveRecord::Schema[7.1].define(version: 2026_11_20_150500) do
     t.index ["capsule_id"], name: "index_capsule_invitations_on_capsule_id"
   end
 
+  create_table "capsule_recipients", force: :cascade do |t|
+    t.bigint "capsule_id", null: false
+    t.string "email", null: false
+    t.datetime "sealed_sent_at"
+    t.datetime "unlocked_sent_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["capsule_id", "email"], name: "index_capsule_recipients_on_capsule_id_and_email", unique: true
+    t.index ["capsule_id"], name: "index_capsule_recipients_on_capsule_id"
+  end
+
   create_table "capsules", force: :cascade do |t|
     t.string "title", null: false
     t.text "message", null: false
@@ -102,5 +113,6 @@ ActiveRecord::Schema[7.1].define(version: 2026_11_20_150500) do
   add_foreign_key "capsule_editors", "capsules", on_delete: :cascade
   add_foreign_key "capsule_editors", "users", on_delete: :cascade
   add_foreign_key "capsule_invitations", "capsules", on_delete: :cascade
+  add_foreign_key "capsule_recipients", "capsules"
   add_foreign_key "capsules", "users"
 end

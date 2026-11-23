@@ -15,7 +15,19 @@ def creation_step(name)
   find(".create-steps [data-show-step='#{name}']").click
 end
 
-Then('I can enter co-editors and preview delivery recipients') do
+def selected_poster_block
+  find("#poster-preview .poster-block.selected")
+end
+
+def poster_geometry
+  page.evaluate_script("[\"left\", \"top\", \"width\", \"height\", \"transform\"].map((name) => arguments[0].style[name])", selected_poster_block)
+end
+
+def drag_poster_element(element, x, y)
+  page.driver.browser.action.move_to(element.native).click_and_hold.move_by(x, y).release.perform
+end
+
+Then('I can enter co-editors and manage delivery recipients') do
   creation_step('collaborate')
   fill_in 'editor-emails', with: 'friend@example.com'
   creation_step('write')
@@ -28,9 +40,21 @@ Then('I can enter co-editors and preview delivery recipients') do
   click_button 'Add recipient'
   expect(page).to have_content('That recipient is already on the list')
   expect(page).to have_content('1 recipient')
-  expect(page).to have_content('Recipients are not saved and no emails are sent')
+  expect(page).to have_content('Recipients receive an email when you seal the capsule')
   find('button[aria-label="Remove recipient reader@example.com"]').click
   expect(page).to have_content('0 recipients')
+end
+
+When('I add a recipient') do
+  creation_step('deliver')
+  fill_in 'Recipient email', with: 'reader@example.com'
+  click_button 'Add recipient'
+end
+
+Then('the recipient address is restored') do
+  creation_step('deliver')
+  expect(page).to have_content('reader@example.com')
+  expect(page).to have_content('1 recipient')
 end
 
 When('I write a title and message in the creation form') do
@@ -61,7 +85,7 @@ When('I fill in {string} with {string}') do |field, value|
   retry_stale_browser_node do
     if field == 'Title' || field == 'Message' || field.start_with?('Message block')
       text_block = find("[aria-label='#{field}']")
-      page.execute_script("arguments[0].textContent = arguments[1]; arguments[0].dispatchEvent(new Event('input', { bubbles: true }))", text_block, value)
+      page.execute_script("arguments[0].firstChild.data = arguments[1]; arguments[0].dispatchEvent(new Event('input', { bubbles: true }))", text_block, value)
     else
       creation_step('design') if field == 'Image URL'
       fill_in field, with: value
@@ -128,6 +152,65 @@ end
 When('I add a message block') do
   creation_step('design')
   click_button 'Add message'
+end
+
+When('I select the {string} poster block') do |label|
+  creation_step('design')
+  find("#poster-preview [aria-label='#{label}']").click
+end
+
+When('I move the selected poster block') do
+  @geometry_before_move = poster_geometry
+  drag_poster_element(selected_poster_block, 15, 10)
+end
+
+Then('the selected poster block has moved') do
+  expect(poster_geometry.take(2)).not_to eq(@geometry_before_move.take(2))
+end
+
+When('I resize the selected poster block') do
+  @geometry_before_resize = poster_geometry
+  drag_poster_element(find("button[aria-label='Resize se']"), 15, 10)
+end
+
+Then('the selected poster block has been resized') do
+  expect(poster_geometry[2...4]).not_to eq(@geometry_before_resize[2...4])
+end
+
+When('I rotate the selected poster block') do
+  @geometry_before_rotation = poster_geometry
+  drag_poster_element(find("button[aria-label='Rotate block']"), 20, -20)
+end
+
+Then('the selected poster block has been rotated') do
+  expect(poster_geometry.last).not_to eq(@geometry_before_rotation.last)
+end
+
+Then('the selected poster block restores its geometry before rotation') do
+  expect(poster_geometry).to eq(@geometry_before_rotation)
+end
+
+When('I remember the selected poster block geometry') do
+  @saved_poster_geometry = poster_geometry
+end
+
+Then('the selected poster block geometry is restored') do
+  expect(poster_geometry).to eq(@saved_poster_geometry)
+end
+
+Then('the uploaded image is selected on the poster') do
+  expect(selected_poster_block[:class]).to include('poster-image-block')
+  expect(page).to have_css("button[aria-label='Resize se']")
+  expect(page).to have_css("button[aria-label='Rotate block']")
+end
+
+Then('the editor restores the Night theme') do
+  canvas = find('#poster-preview.editor-canvas, #poster-preview .editor-canvas')
+  expect(page.evaluate_script('arguments[0].style.backgroundColor', canvas)).to eq('rgb(32, 41, 35)')
+end
+
+Then('the {string} poster text is {string}') do |label, text|
+  expect(find("#poster-preview [aria-label='#{label}']").text).to eq(text)
 end
 
 When('I click {string}') do |label|

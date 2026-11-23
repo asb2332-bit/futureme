@@ -22,8 +22,10 @@ class ApplicationController < ActionController::Base
 
   def sign_in(user)
     invitation = session[:capsule_invitation]
+    shared_token = session[:shared_capsule_token]
     reset_session
     session[:user_id] = user.id
-    invitation.present? ? capsule_invitation_path(invitation) : root_path
+    return capsule_invitation_path(invitation) if invitation.present?
+    shared_token.present? && CapsuleRecipient.find_signed(shared_token, purpose: :capsule_share) ? capsule_invitation_link_path(shared_token) : root_path
   end
 end

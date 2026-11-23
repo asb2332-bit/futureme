@@ -10,7 +10,8 @@
   <script src="/postal.js?v=frontend-port-1" defer></script>
   <script src="/drive-import.js" defer></script>
   <script src="/draft-collaboration.js" defer></script>
-  <script src="/create.js?v=edit-media-removal-1" defer></script>
+  <script src="/create-poster.js?v=react-poster-1" defer></script>
+  <script src="/create.js?v=react-poster-1" defer></script>
   <script src="/collaboration-preview.js" defer></script>
 </head>
 <body>
@@ -36,7 +37,7 @@
     <div class="desk">
       <div class="stage">
         <div class="collaboration-poster">
-          <div id="poster-preview" class="poster editor-canvas" aria-label="Capsule poster canvas" tabindex="0"></div>
+          <div id="poster-preview" class="poster-preview"></div>
         </div>
         <div id="collaborator-activity" class="collaborator-activity" hidden></div>
         <p class="hint">Drag to move · double-click text to write · use the handles to resize or rotate</p>
@@ -88,13 +89,15 @@
         <section data-step="deliver" hidden>
           <h2><span>04</span>Delivery</h2>
           <label class="fld">Unlock at<input id="unlock-at" type="datetime-local"></label>
+          <div id="delivery-recipients">
           <h3>Send it to someone</h3>
-          <p class="recipient-help"><strong>UI preview only.</strong> Recipients are not saved and no emails are sent.</p>
+          <p class="recipient-help">Recipients receive an email when you seal the capsule and another when it unlocks. They must sign in with the listed email address.</p>
           <label class="fld" for="recipient-email">Recipient email</label>
           <div class="recipient-entry"><input id="recipient-email" type="email" placeholder="friend@example.com" aria-describedby="recipient-error"><button type="button" class="btn recipient-add" id="add-recipient">Add recipient</button></div>
           <p id="recipient-error" role="alert"></p>
           <p id="recipient-count" aria-live="polite">0 recipients</p>
           <ul id="recipient-list" class="recipient-list" aria-label="Email recipients"></ul>
+          </div>
           <button type="button" class="btn quiet" data-show-step="design">← Back to Design</button>
           <button id="save-draft" class="btn quiet" type="button">Save draft for editing</button>
           <button id="seal-capsule" class="btn seal" type="button"><span class="dot" aria-hidden="true">FM</span>Seal the capsule</button>
