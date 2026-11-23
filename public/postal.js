@@ -174,11 +174,12 @@ const Postal = (() => {
 
   // "a message, a note, a photo and a voice note" from the API's contents counts.
   function insideText(contents) {
-    const { notes = 0, photos = 0, audio = 0 } = contents || {};
+    const { notes = 0, photos = 0, audio = 0, videos = 0 } = contents;
     const parts = ["a message"];
     if (notes) parts.push(notes === 1 ? "a note" : `${notes} notes`);
     if (photos) parts.push(photos === 1 ? "a photo" : `${photos} photos`);
     if (audio) parts.push(audio === 1 ? "a voice note" : `${audio} voice notes`);
+    if (videos) parts.push(videos === 1 ? "a video" : `${videos} videos`);
     return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
   }
 

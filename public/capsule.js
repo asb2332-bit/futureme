@@ -93,7 +93,7 @@ function showLocked(capsule, csrfToken) {
         <dl class="facts">
           <dt>Unlocks</dt><dd><time id="capsule-unlock-date" datetime="${esc(capsule.unlock_at)}">Opens ${esc(dateFormatter.format(new Date(capsule.unlock_at)))} (${esc(calendarTimeZone)})</time></dd>
           <dt>Sealed</dt><dd>${esc(Postal.formatDay(capsule.created_at))}</dd>
-          <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
+          ${capsule.contents ? `<dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>` : ""}
           <dt>From</dt><dd>${capsule.owner ? "You" : "Another FutureMe user"}</dd>
         </dl>
         <div class="row">
@@ -170,7 +170,10 @@ function mediaType(block) {
 
 function mediaUrl(capsule, block, type) {
   if (block.url) return block.url;
-  if (type === "image") return block.image_url || capsule.image_urls?.[block.image_index];
+  if (type === "image") {
+    const remoteCount = capsule.design?.remote_image_urls?.length || 0;
+    return block.image_url || capsule.image_urls?.[remoteCount + block.image_index];
+  }
   const urls = type === "audio" ? capsule.audio_url : capsule.video_url;
   return urls?.[block.media_index];
 }
@@ -258,7 +261,7 @@ function showOpened(capsule) {
         <dl class="facts">
           <dt>Sealed</dt><dd>${esc(Postal.formatDay(capsule.created_at))}</dd>
           <dt>Unlocked</dt><dd>${esc(Postal.formatDate(capsule.unlock_at))}</dd>
-          <dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>
+          ${capsule.contents ? `<dt>Inside</dt><dd>${esc(Postal.insideText(capsule.contents))}</dd>` : ""}
         </dl>
         ${unplacedMediaHTML(capsule)}
         <div class="row">

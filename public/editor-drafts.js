@@ -156,8 +156,8 @@ function discardCurrentDraft() {
 }
 
 async function prepareDraftForSubmission() {
-  if (!await saveCurrentDraft()) return null;
-  return savedDraft ? { id: savedDraft.id, revision: savedDraft.revision } : null;
+  await saveCurrentDraft();
+  return savedDraft && !draftConflict ? { id: savedDraft.id, revision: savedDraft.revision } : null;
 }
 
 function removeSubmittedDraft(submittedDraft, capsuleId) {
@@ -199,24 +199,51 @@ window.futuremeSession.then(({ user }) => {
     }
   });
   let visibilityVersion = 0;
-  document.addEventListener("visibilitychange", async () => {
+  const editor = document.querySelector("main");
+  const accountNotice = document.createElement("div");
+  accountNotice.className = "app";
+  accountNotice.hidden = true;
+  const noticeText = document.createElement("p");
+  noticeText.setAttribute("role", "status");
+  noticeText.textContent = "Your draft is still open. Reconnect to verify your account and continue editing.";
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.className = "btn";
+  retry.textContent = "Retry account check";
+  accountNotice.append(noticeText, retry);
+  editor.before(accountNotice);
+
+  async function verifyDraftAccount() {
     const version = ++visibilityVersion;
-    const editor = document.querySelector("main");
     editor.style.visibility = "hidden";
     if (document.hidden) {
+      accountNotice.hidden = true;
       if (draftDirty && !draftClosed && !draftConflict) saveCurrentDraft();
       return;
     }
+    retry.disabled = true;
     try {
       const response = await fetch("/api/session", { cache: "no-store" });
       if (!response.ok) throw new Error();
       const session = await response.json();
       if (version !== visibilityVersion) return;
-      if (session.user?.email_address !== user.email_address) location.replace(session.user ? "/create.html" : "/login");
-      else editor.style.visibility = "";
+      if (session.user?.email_address !== user.email_address) {
+        location.replace(session.user ? "/create.html" : "/login");
+        return;
+      }
+      accountNotice.hidden = true;
+      editor.style.visibility = "";
     } catch {
-      if (version === visibilityVersion) location.reload();
+      if (version !== visibilityVersion) return;
+      accountNotice.hidden = false;
+      retry.disabled = false;
+      retry.focus();
     }
+  }
+  retry.addEventListener("click", verifyDraftAccount);
+  document.addEventListener("visibilitychange", verifyDraftAccount);
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) verifyDraftAccount();
   });
   window.addEventListener("capsule:changed", queueDraftSave);
   window.addEventListener("pagehide", () => {
@@ -229,6 +256,3 @@ window.futuremeSession.then(({ user }) => {
   if (new URLSearchParams(location.search).has("draft")) restoreCurrentDraft();
   else if (titleText || messageText || unlockAtInput.value || undoHistory.length) queueDraftSave();
 }).catch(() => { document.querySelector(".draft-panel").hidden = true; });
-window.addEventListener("pageshow", (event) => {
-  if (event.persisted) location.reload();
-});

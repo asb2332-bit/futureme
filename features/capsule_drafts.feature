@@ -120,7 +120,11 @@ Feature: Continue an unfinished capsule
     And I fill in "Message" with "I can still finish my message here."
     And I attempt to save the draft
     Then the draft storage failure is shown
-    And the draft contains "I can still finish my message here." in "Message"
+    When I return to the draft editor while its account check is offline
+    Then I see "Your draft is still open"
+    And I do not see "I can still finish my message here."
+    When I retry the draft account check
+    Then the draft contains "I can still finish my message here." in "Message"
     And no capsule has been created
 
   Scenario: Keep both versions when another tab edits the same draft
@@ -135,3 +139,20 @@ Feature: Continue an unfinished capsule
     And I visit FutureMe
     Then both draft messages "A message from the second tab." and "My version from the first tab." remain saved
     And no capsule has been created
+
+  Scenario: Sealing a draft clears its saved copy when local storage fills up
+    When I start a new capsule draft
+    And I fill in "Title" with "Storage is full"
+    And I fill in "Message" with "The first version."
+    And I set the draft unlock date to one day from now
+    And I save the draft
+    And this editor runs out of draft storage
+    And I fill in "Message" with "The final version."
+    And I attempt to save the draft
+    Then the draft storage failure is shown
+    When I create the capsule
+    Then I see "This capsule is locked"
+    And exactly one capsule titled "Storage is full" has been created
+    When I visit FutureMe
+    Then I see "Storage is full"
+    And I do not see a saved draft titled "Storage is full"

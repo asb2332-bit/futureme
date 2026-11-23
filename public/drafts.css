@@ -1,4 +1,4 @@
-.draft-panel { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 0 0 1rem; padding: 1rem 1.25rem; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
+.draft-panel { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 0 0 1rem; padding: 1rem 1.25rem; border: 1px solid var(--rule); border-radius: 16px; background: var(--paper); }
 .draft-panel[hidden], .draft-library[hidden] { display: none; }
 .draft-panel p { margin: 0; }
 .draft-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
@@ -8,7 +8,7 @@
 .draft-library { margin-top: 4rem; }
 .draft-library > h2 { font: 700 .8rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; }
 #draft-list { display: grid; gap: 1rem; }
-.draft-card { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1.25rem; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
+.draft-card { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1.25rem; border: 1px solid var(--rule); border-radius: 16px; background: var(--paper); }
 .draft-card > a { min-width: 0; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
 .draft-card h3 { font-size: 1.1rem; }
 .draft-card p { margin: .4rem 0 0; color: var(--muted); font-size: .85rem; }

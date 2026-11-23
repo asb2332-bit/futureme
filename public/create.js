@@ -14,6 +14,8 @@ const videoInput = document.querySelector("#capsule-video");
 const addMessageButton = document.querySelector("#add-message-block");
 const makeTitleBlockButton = document.querySelector("#make-title-block");
 const restoreTitleBlockButton = document.querySelector("#restore-title-block");
+const removeBlockButton = document.querySelector("#remove-poster-block");
+const undoPosterButton = document.querySelector("#undo-poster-change");
 const sealButton = document.querySelector("#seal-capsule");
 const savingOverlay = document.querySelector("#saving-overlay");
 const editingCapsuleId = new URLSearchParams(location.search).get("id");
@@ -128,6 +130,8 @@ function updateMediaMetadata(id, { aspectRatio }) {
 }
 
 function renderPoster() {
+  removeBlockButton.disabled = !blockFor(selectedBlockId) || design.hidden_blocks.includes(selectedBlockId);
+  undoPosterButton.disabled = undoHistory.length === 0;
   window.PosterIsland.render(posterPreview, {
     design, titleText, messageText, selectedBlockId, imagePreviewUrls, audioPreviewUrls, videoPreviewUrls,
     onSelect: selectBlock,
@@ -163,6 +167,7 @@ function addImageBlock() {
     imagePreviewUrls[id] = URL.createObjectURL(file);
   }
 
+  saveUndoState();
   design.sealed_blocks.push(block);
   selectBlock(id);
   draftChanged();
@@ -196,6 +201,8 @@ function undo() {
   restorePosterDesign(state.design);
   titleText = state.titleText;
   messageText = state.messageText;
+  titleInput.value = titleText;
+  messageInput.value = messageText;
   selectedBlockId = state.selectedBlockId;
   existingImages = state.existingImages; existingAudio = state.existingAudio; existingVideo = state.existingVideo;
   removedAttachmentIds = state.removedAttachmentIds;
@@ -222,7 +229,8 @@ function removeMediaAt(existing, files, index) {
   }
 }
 
-function deleteSelectedImage() {
+function removeSelectedBlock() {
+  if (removeBlockButton.disabled) return;
   saveUndoState();
   const block = blockFor(selectedBlockId);
   if (selectedBlockId === "icon") {
@@ -242,7 +250,7 @@ function deleteSelectedImage() {
     return;
   }
 
-  if (block?.text) {
+  if (typeof block?.text === "string") {
     design.sealed_blocks = design.sealed_blocks.filter((item) => item.id !== block.id);
     selectedBlockId = "message";
     renderPoster();
@@ -304,6 +312,7 @@ function deleteSelectedImage() {
 }
 
 function addMessageBlock() {
+  saveUndoState();
   const id = `message-${Date.now()}`;
   design.sealed_blocks.push({ id: id, kind: "message", text: "New message", x: 12, y: 78, width: 50, height: 12, rotation: 0 });
   selectBlock(id);
@@ -316,7 +325,9 @@ function makeSelectedTextTitle() {
     formErrors.textContent = "Select a text block to make it the title.";
     return;
   }
+  saveUndoState();
   titleText = block.text;
+  titleInput.value = titleText;
   design.title_block = { x: block.x, y: block.y, width: block.width, height: block.height, rotation: block.rotation };
   design.hidden_blocks = design.hidden_blocks.filter((id) => id !== "title");
   design.sealed_blocks = design.sealed_blocks.filter((item) => item.id !== block.id);
@@ -326,6 +337,7 @@ function makeSelectedTextTitle() {
 }
 
 function restoreTitleBlock() {
+  if (design.hidden_blocks.includes("title")) saveUndoState();
   design.hidden_blocks = design.hidden_blocks.filter((id) => id !== "title");
   selectedBlockId = "title";
   renderPoster();
@@ -589,14 +601,15 @@ imageInput.addEventListener("change", () => {
   draftChanged();
 });
 window.addEventListener("keydown", (event) => {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+  if (event.target.isContentEditable || /^(TEXTAREA|SELECT)$/.test(event.target.tagName) || (event.target.tagName === "INPUT" && event.target.type !== "file")) return;
+  if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z" && undoHistory.length) {
     event.preventDefault();
     undo();
     return;
   }
-  if ((event.key !== "Delete" && event.key !== "Backspace") || event.target.isContentEditable || /^(TEXTAREA|SELECT)$/.test(event.target.tagName) || (event.target.tagName === "INPUT" && event.target.type !== "file")) return;
+  if (event.key !== "Delete" && event.key !== "Backspace") return;
   event.preventDefault();
-  deleteSelectedImage();
+  removeSelectedBlock();
 });
 remoteImageUrlInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
@@ -604,6 +617,8 @@ remoteImageUrlInput.addEventListener("keydown", (event) => {
     addImageBlock();
   }
 });
+removeBlockButton.addEventListener("click", removeSelectedBlock);
+undoPosterButton.addEventListener("click", undo);
 addMessageButton.addEventListener("click", addMessageBlock);
 makeTitleBlockButton.addEventListener("click", makeSelectedTextTitle);
 restoreTitleBlockButton.addEventListener("click", restoreTitleBlock);

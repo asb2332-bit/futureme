@@ -277,6 +277,23 @@ RSpec.describe 'Capsules API', type: :request do
     expect(capsule.design).to eq(design)
   end
 
+  it 'summarizes notes and media without exposing private contents or counting placed attachments twice' do
+    image_url = 'https://example.org/sealed-photo.jpg'
+    capsule = user.capsules.create!(title: 'Mixed media', message: 'Private message', unlock_at: 1.day.from_now,
+      design: { 'remote_image_urls' => [image_url], 'sealed_blocks' => [
+        { 'text' => 'Private note' }, { 'image_url' => image_url }, { 'image_index' => 1 },
+        { 'media_type' => 'audio', 'media_index' => 0 }, { 'type' => 'video', 'url' => 'https://example.org/private-video.mp4' }
+      ] })
+    capsule.images.attach(io: StringIO.new('image'), filename: 'uploaded.png', content_type: 'image/png')
+    capsule.audio.attach(io: StringIO.new('audio'), filename: 'voice.mp3', content_type: 'audio/mpeg')
+    capsule.video.attach(io: StringIO.new('video'), filename: 'video.mp4', content_type: 'video/mp4')
+
+    get api_capsules_path
+
+    expect(response_body.first.fetch('contents')).to eq('notes' => 1, 'photos' => 2, 'audio' => 1, 'videos' => 2)
+    expect(response.body).not_to include('Private message', 'Private note', image_url, 'private-video', 'uploaded.png', 'voice.mp3')
+  end
+
   it 'does not return sealed content in the capsule list' do
     design = { 'sealed_blocks' => [{ 'id' => 'note-1', 'text' => 'Private note' }] }
     capsule = user.capsules.create!(title: 'Birthday', message: 'Surprise!', unlock_at: 1.day.from_now, design: design)

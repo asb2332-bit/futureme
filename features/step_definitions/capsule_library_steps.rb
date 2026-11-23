@@ -190,3 +190,20 @@ After do
   page.driver.browser.execute_cdp('Emulation.setTimezoneOverride', timezoneId: '') if @library_timezone_override
   page.driver.browser.execute_cdp('Emulation.clearDeviceMetricsOverride') if @library_viewport_override
 end
+
+Given('a capsule has a long unbroken title') do
+  @long_capsule_title = 'Graduation' * 18
+  @account.capsules.create!(title: @long_capsule_title, message: 'A memory', unlock_at: 1.day.from_now)
+end
+
+Then('the long capsule title stays inside its card at each viewport width') do
+  [320, 390, 768, 1280].each do |width|
+    page.driver.browser.execute_cdp('Emulation.setDeviceMetricsOverride', width: width, height: 850, deviceScaleFactor: 1, mobile: false)
+    @library_viewport_override = true
+    heading = find('#capsules h3', exact_text: @long_capsule_title)
+    expect(page.evaluate_script(<<~JS, heading)).to be(true)
+      ((heading) => heading.scrollWidth <= heading.clientWidth + 1 &&
+        document.documentElement.scrollWidth <= window.innerWidth + 1)(arguments[0])
+    JS
+  end
+end

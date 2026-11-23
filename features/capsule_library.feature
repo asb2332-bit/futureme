@@ -182,3 +182,8 @@ Feature: Find capsules in the library
     Then the library controls fit within the viewport
     And I see these capsule titles in order:
       | Graduation letter |
+
+  Scenario: Keep long capsule titles inside the archive at phone, tablet, and desktop widths
+    Given a capsule has a long unbroken title
+    When I visit FutureMe
+    Then the long capsule title stays inside its card at each viewport width

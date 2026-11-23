@@ -1,4 +1,16 @@
 module CapsuleDraftSteps
+  def draft_storage_failure_script
+    <<~JS
+      (() => {
+        const originalSetItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function(key, value) {
+          if (key.startsWith('futureme:draft:')) throw new DOMException('Storage is full', 'QuotaExceededError');
+          return originalSetItem.call(this, key, value);
+        };
+      })();
+    JS
+  end
+
   def inject_draft_test_script(source)
     @draft_test_scripts ||= []
     @draft_test_scripts << page.driver.browser.execute_cdp(
@@ -117,15 +129,30 @@ Given('the next capsule submission fails to connect') do
 end
 
 Given('this browser cannot store capsule drafts') do
-  inject_draft_test_script(<<~JS)
-    (() => {
-      const originalSetItem = Storage.prototype.setItem;
-      Storage.prototype.setItem = function(key, value) {
-        if (key.startsWith('futureme:draft:')) throw new DOMException('Storage is full', 'QuotaExceededError');
-        return originalSetItem.call(this, key, value);
-      };
-    })();
+  inject_draft_test_script(draft_storage_failure_script)
+end
+
+When('this editor runs out of draft storage') do
+  page.execute_script(draft_storage_failure_script)
+end
+
+When('I return to the draft editor while its account check is offline') do
+  page.execute_script(<<~JS)
+    const original = window.fetch.bind(window);
+    window.fetch = (input, options) => {
+      if (input !== "/api/session") return original(input, options);
+      window.fetch = original;
+      return Promise.reject(new TypeError("Offline"));
+    };
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    document.dispatchEvent(new Event('visibilitychange'));
   JS
+end
+
+When('I retry the draft account check') do
+  click_button 'Retry account check'
 end
 
 Then('the capsule submission failure is shown') do

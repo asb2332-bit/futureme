@@ -238,3 +238,13 @@ Then('the calendar controls fit within the viewport') do
       })
   JS
 end
+
+Then('the wax seal leaves the delivery date visible') do
+  expect(page.evaluate_script(<<~JS)).to be(true)
+    (() => {
+      const date = document.querySelector(".big-env .dno").getBoundingClientRect();
+      const seal = document.querySelector(".big-env .wax").getBoundingClientRect();
+      return date.right <= seal.left || date.bottom <= seal.top || seal.bottom <= date.top;
+    })()
+  JS
+end

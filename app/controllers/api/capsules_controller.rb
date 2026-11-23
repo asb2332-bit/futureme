@@ -7,7 +7,7 @@ class Api::CapsulesController < ApplicationController
   before_action :set_capsule, only: %i[show update destroy calendar]
 
   def index
-    capsules = current_user.capsules.order(created_at: :desc)
+    capsules = current_user.capsules.preload(images_attachments: :blob, audio_attachments: :blob, video_attachments: :blob).order(created_at: :desc)
 
     capsules_as_json = capsules.map do |capsule|
       capsule_json(capsule)
@@ -208,17 +208,22 @@ class Api::CapsulesController < ApplicationController
     unlocked = capsule.unlocked?
     poster = PosterDesign.new(capsule.design)
     design = poster.public_data
-    message = nil
-    image_urls = []
-    audio_url = nil
-    video_url = nil
-
-    if include_message
-      message = capsule.message
-      design["sealed_blocks"] = poster.sealed_data
-      image_urls = poster.remote_image_urls + capsule.images.attachments.includes(:blob).order(:id).map { |attachment| rails_blob_url(attachment.blob) }
-      audio_url = capsule.audio.attachments.includes(:blob).order(:id).map { |attachment| rails_blob_url(attachment.blob) }
-      video_url = capsule.video.attachments.includes(:blob).order(:id).map { |attachment| rails_blob_url(attachment.blob) }
+    media = {}
+    contents = nil
+    if unlocked || capsule.user_id == current_user.id
+      blocks = poster.sealed_data
+      media = %i[images audio video].to_h do |name|
+        attachments = capsule.public_send(name).attachments
+        attachments = attachments.includes(:blob) unless attachments.loaded?
+        [name, attachments.sort_by(&:id).map { |file| rails_blob_url(file.blob) }]
+      end
+      remote_images = poster.remote_image_urls
+      media[:images] = remote_images + media[:images]
+      contents = contents_summary(blocks, media)
+      if include_message
+        design["sealed_blocks"] = blocks
+        design["remote_image_urls"] = remote_images if remote_images.any?
+      end
     end
 
     {
@@ -227,11 +232,29 @@ class Api::CapsulesController < ApplicationController
       unlock_at: capsule.unlock_at,
       created_at: capsule.created_at,
       locked: !unlocked,
-      message: message,
-      image_urls: image_urls,
-      audio_url: audio_url,
-      video_url: video_url,
+      message: include_message ? capsule.message : nil,
+      contents: contents,
+      image_urls: include_message ? media[:images] : [],
+      audio_url: include_message ? media[:audio] : nil,
+      video_url: include_message ? media[:video] : nil,
       design: design
     }
+  end
+
+  def contents_summary(blocks, media)
+    urls = { "image" => media[:images].dup, "audio" => media[:audio].dup, "video" => media[:video].dup }
+    notes = 0
+    blocks.each do |block|
+      type = block["type"] || block["media_type"]
+      type ||= "image" if block.key?("image_url") || block.key?("image_index")
+      if urls.key?(type)
+        url = block["url"] || block["image_url"]
+        urls[type] << url if url
+      elsif block["text"].present?
+        notes += 1
+      end
+    end
+    counts = urls.transform_values { |values| values.uniq { |url| url.delete_prefix(request.base_url + "/").delete_prefix("/") }.size }
+    { notes: notes, photos: counts["image"], audio: counts["audio"], videos: counts["video"] }
   end
 end

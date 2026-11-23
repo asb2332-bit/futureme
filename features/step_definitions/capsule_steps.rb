@@ -412,3 +412,26 @@ end
 Then('I do not see {string}') do |text|
   retry_stale_browser_node { expect(page).not_to have_text(text) }
 end
+
+Given('a capsule has a positioned photo and a legacy image link') do
+  @remote_photo = 'https://example.invalid/legacy-picture.png'
+  capsule = @account.capsules.create!(title: 'Mixed photos', message: 'Two memories', unlock_at: 1.day.from_now, design: {
+    'remote_image_urls' => [@remote_photo],
+    'sealed_blocks' => [{ 'id' => 'first-photo', 'image_index' => 0, 'x' => 15, 'y' => 20, 'width' => 30, 'height' => 25, 'rotation' => 0 }]
+  })
+  File.open(Rails.root.join('spec/fixtures/files/capsule.png')) do |photo|
+    capsule.images.attach(io: photo, filename: 'capsule.png', content_type: 'image/png')
+  end
+  capsule.update!(unlock_at: 1.day.ago)
+end
+
+When('I select the design view for the uploaded photo') do
+  creation_step('design')
+  expect(page).to have_css('.poster-image-block img[src*="/rails/active_storage/blobs/"]')
+end
+
+Then('the uploaded photo is on the poster and the linked image is in the attachments') do
+  expect(page).to have_css('#capsule-poster .pb.photo img[src*="/rails/active_storage/blobs/"]')
+  expect(page).to have_css(".media-archive img[src='#{@remote_photo}']")
+  expect(@account.capsules.find_by!(title: 'Edited mixed photos').design.fetch('remote_image_urls')).to eq([@remote_photo])
+end

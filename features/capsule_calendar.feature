@@ -158,3 +158,4 @@ Feature: Remember when a capsule unlocks
     When I visit FutureMe
     And I open "Tomorrow's letter"
     Then the calendar controls fit within the viewport
+    And the wax seal leaves the delivery date visible
