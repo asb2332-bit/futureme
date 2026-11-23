@@ -20,7 +20,35 @@
         <span class="account-nav"><a href="/login">Log in</a></span>
       </span>
     </header>
-    <div id="capsule-view" aria-live="polite"><p class="loading">Opening the mailbox…</p></div>
+    <p id="capsule-refresh-status" role="status" hidden>Checking your capsule…</p>
+    <div id="capsule-load-error" class="capsule-feedback" role="alert" hidden>
+      <p id="capsule-load-error-message"></p>
+      <button id="retry-capsule" class="btn quiet" type="button">Try again</button>
+      <a id="capsule-login" class="btn" href="/login" hidden>Log in</a>
+    </div>
+    <section id="calendar-reminder" aria-labelledby="calendar-reminder-heading" hidden>
+      <h2 id="calendar-reminder-heading">Remember the moment</h2>
+      <label class="fld" for="calendar-lead-time">Remind me
+        <select id="calendar-lead-time" aria-describedby="calendar-reminder-preview calendar-reminder-notice">
+          <option value="0">At unlock time</option>
+          <option value="15">15 minutes before</option>
+          <option value="60">1 hour before</option>
+          <option value="1440">1 day before</option>
+          <option value="10080">1 week before</option>
+        </select>
+      </label>
+      <label class="calendar-privacy" for="calendar-private-title">
+        <input id="calendar-private-title" type="checkbox">
+        Keep the capsule title out of my calendar
+      </label>
+      <p id="calendar-reminder-preview" role="status"></p>
+      <p id="calendar-reminder-notice" role="status"></p>
+      <a id="download-calendar" class="btn sm" aria-describedby="calendar-reminder-hint calendar-download-error">Download calendar reminder</a>
+      <p id="calendar-download-status" role="status"></p>
+      <p id="calendar-download-error" role="alert"></p>
+      <p id="calendar-reminder-hint">Open the downloaded file in your calendar app to add the alert. Your calendar app controls notifications. If you reschedule, download again and replace the old event. If you delete the capsule, remove its calendar event; downloads do not sync automatically.</p>
+    </section>
+    <div id="capsule-view" aria-busy="true" aria-live="polite"><p class="loading">Opening the mailbox…</p></div>
   </main>
 </body>
 </html>

@@ -31,7 +31,7 @@ RSpec.describe 'Capsule recipients', type: :request do
     get link
     expect(response).to redirect_to("/capsule.html?id=#{capsule.id}")
     get api_capsule_path(capsule)
-    expect(response.parsed_body).to include('locked' => true, 'message' => nil, 'owner' => false)
+    expect(response.parsed_body).to include('locked' => true, 'message' => nil, 'owner' => false, 'contents' => nil)
     get api_capsule_path(capsule), params: { editing: true }
     expect(response).to have_http_status(:not_found)
     patch api_capsule_path(capsule), params: { capsule: { title: 'Stolen' } }, as: :json
@@ -45,6 +45,7 @@ RSpec.describe 'Capsule recipients', type: :request do
     expect(emails.last.body.decoded).not_to include('Private memory')
     get api_capsule_path(capsule)
     expect(response.parsed_body).to include('locked' => false, 'message' => 'Private memory')
+    expect(response.parsed_body.fetch('contents')).to include('notes' => 0, 'photos' => 0)
   end
 
   it 'denies a shared link to a different account and revokes removed recipients' do

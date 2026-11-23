@@ -83,7 +83,7 @@ function PosterIsland({ design, titleText, messageText, selectedBlockId, imagePr
 
   const textBlock = (id, text, block) => {
     const selected = selectedBlockId === id;
-    const label = id === "title" ? "Title" : id === "message" ? "Message" : `Message block ${design.sealed_blocks.indexOf(block) + 1}`;
+    const label = id === "title" ? "Title" : id === "message" ? "Message" : id === "icon" ? "Poster icon" : `Message block ${design.sealed_blocks.indexOf(block) + 1}`;
     return <div key={id} className={`poster-block sealed-block poster-${id}-block${selected ? " selected" : ""}`} style={blockStyle(block)} aria-label={label}
       contentEditable={undefined} suppressContentEditableWarning
       onPointerDown={(event) => { if (!event.currentTarget.isContentEditable) start(event, id, block); }}
@@ -109,6 +109,7 @@ function PosterIsland({ design, titleText, messageText, selectedBlockId, imagePr
   const blocks = [];
   if (!design.hidden_blocks.includes("title")) blocks.push(textBlock("title", titleText || "Your title", design.title_block));
   if (!design.hidden_blocks.includes("message")) blocks.push(textBlock("message", messageText || "Your sealed message", design.message_block));
+  if (design.theme.icon && design.icon_block) blocks.push(textBlock("icon", design.theme.icon, design.icon_block));
   if (design.audio_block) blocks.push(mediaBlock("audio", design.audio_block, "audio", audioPreviewUrls[0]));
   if (design.video_block) blocks.push(mediaBlock("video", design.video_block, "video", videoPreviewUrls[0]));
   design.sealed_blocks.forEach((block) => {

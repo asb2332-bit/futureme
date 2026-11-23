@@ -6,11 +6,14 @@
   <title>Create a capsule · FutureMe</title>
   <link rel="stylesheet" href="/app.css">
   <link rel="stylesheet" href="/auth.css">
+  <link rel="stylesheet" href="/drafts.css">
   <script src="/auth.js?v=frontend-port-1" defer></script>
   <script src="/postal.js?v=frontend-port-1" defer></script>
   <script src="/create-poster.js?v=react-poster-1" defer></script>
-  <script src="/create.js?v=react-poster-1" defer></script>
   <script src="/collaboration-preview.js" defer></script>
+  <script src="/create.js?v=react-poster-1" defer></script>
+  <script src="/drafts.js" defer></script>
+  <script src="/editor-drafts.js" defer></script>
 </head>
 <body>
   <div class="stripe" aria-hidden="true"></div>
@@ -26,6 +29,17 @@
       <div><p class="eyebrow">New time capsule</p><h1 id="create-title">Create something worth reopening.</h1></div>
       <p>Write the memory first, make it yours, then choose the day it returns.</p>
     </section>
+    <section class="draft-panel" aria-label="Local draft" hidden>
+      <p id="draft-status" role="status">Drafts save on this device.</p>
+      <div class="draft-actions">
+        <button type="button" class="btn sm quiet" id="save-draft">Save draft</button>
+        <button type="button" class="btn sm quiet" id="discard-draft" disabled>Discard draft</button>
+        <span id="draft-conflict-actions" hidden>
+          <button type="button" class="btn sm quiet" id="reload-draft">Reload saved draft</button>
+          <button type="button" class="btn sm quiet" id="copy-draft">Save as new draft</button>
+        </span>
+      </div>
+    </section>
     <nav class="create-steps" aria-label="Capsule creation steps">
       <button type="button" data-show-step="collaborate"><span>01</span> Collaborate</button>
       <button type="button" data-show-step="write" aria-current="step"><span>02</span> Write</button>
@@ -35,6 +49,10 @@
     <div class="desk">
       <div class="stage">
         <div id="poster-preview" class="poster-preview"></div>
+        <div class="row" role="group" aria-label="Poster editing">
+          <button id="remove-poster-block" type="button" class="btn sm quiet">Remove selected block</button>
+          <button id="undo-poster-change" type="button" class="btn sm quiet" disabled>Undo poster change</button>
+        </div>
         <p class="hint">Drag to move · double-click text to write · use the handles to resize or rotate</p>
       </div>
       <aside class="side" aria-label="Capsule settings">
@@ -59,8 +77,9 @@
         </section>
         <section data-step="design" hidden>
           <h2><span>03</span>Stationery</h2>
-          <label class="fld">Theme<select id="theme-preset"><option value="sage">Sage</option><option value="sunset">Sunset</option><option value="night">Night</option></select></label>
+          <label class="fld">Theme<select id="theme-preset"><option value="sage">Sage</option><option value="sunset">Sunset</option><option value="night">Night</option><option value="custom" disabled>Custom</option></select></label>
           <div class="two"><label class="fld">Background<input id="background-color" type="color" value="#E3E7DF"></label><label class="fld">Accent<input id="accent-color" type="color" value="#202923"></label></div>
+          <label class="fld">Icon<input id="poster-icon" type="text"></label>
           <label class="fld">Font<select id="poster-font"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option><option value="display">Display</option></select></label>
           <h2>Contents</h2>
           <div class="uploads">

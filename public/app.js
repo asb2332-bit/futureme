@@ -1,21 +1,29 @@
 const capsulesContainer = document.querySelector("#capsules");
 const heroEnvelope = document.querySelector("#hero-envelope");
-const capsuleSearch = document.querySelector("#capsule-search");
-const statusButtons = document.querySelectorAll("[data-capsule-status]");
-const resultCount = document.querySelector("#capsule-result-count");
-const capsulesUrl = "/api/capsules";
+const capsuleControls = document.querySelector("#capsule-controls");
+const searchInput = document.querySelector("#capsule-search");
+const statusInput = document.querySelector("#capsule-status");
+const sortInput = document.querySelector("#capsule-sort");
+const unlockFromInput = document.querySelector("#capsule-unlock-from");
+const unlockThroughInput = document.querySelector("#capsule-unlock-through");
+const filterError = document.querySelector("#capsule-filter-error");
+const resetButton = document.querySelector("#reset-filters");
+const summary = document.querySelector("#capsule-summary");
+const loadError = document.querySelector("#capsule-load-error");
+const loadErrorMessage = document.querySelector("#capsule-load-error-message");
+const retryButton = document.querySelector("#retry-capsules");
 const { esc, plural, time } = Postal;
-let refreshTimer;
-let allCapsules = [];
-let capsuleQuery = "";
-let capsuleStatus = "all";
-let capsulesLoadState = "loading";
+let capsules = [];
+let hasLoaded = false;
+let isLoading = false;
+let accountChecked = false;
+let currentAccount = null;
+let filtersRestored = false;
+let needsAccountCheck = false;
+let nextRefreshAt = 0;
+let loadVersion = 0;
+let activeRequest = null;
 
-function isLocked(capsule) {
-  return time(capsule.unlock_at) > Date.now();
-}
-
-// The hero is a sample envelope, not a real capsule, so it never duplicates a capsule's title or link.
 function showHero() {
   const opensAt = Date.now() + 365 * Postal.DAY;
   const sample = { id: 0, title: "To future me", design: {} };
@@ -26,158 +34,293 @@ function showHero() {
     <div class="wax">FM</div>`;
 }
 
-// The existing API unlocks capsules by time and does not track opens.
-function isReady(capsule) {
-  return !isLocked(capsule);
-}
-
 function envelopeHTML(capsule) {
-  const locked = isLocked(capsule);
-  const ready = isReady(capsule);
-  let chip = `<span class="chip open">${Postal.openSvg}Unlocked</span>`;
-  if (locked) chip = `<span class="chip sealed">${Postal.lockSvg}Sealed · opens in ${plural(Postal.daysUntil(capsule.unlock_at), "day")}</span>`;
-  if (ready) chip = `<span class="chip ready">${Postal.openSvg}Ready to open</span>`;
-  const label = locked ? "OPENS" : ready ? "READY" : "OPENED";
-  const postmarkDate = locked || ready ? capsule.unlock_at : capsule.opened_at || capsule.unlock_at;
+  const locked = capsule.locked;
+  const chip = locked
+    ? `<span class="chip sealed">${Postal.lockSvg}Sealed · opens in ${plural(Postal.daysUntil(capsule.unlock_at), "day")}</span>`
+    : `<span class="chip ready">${Postal.openSvg}Ready to open</span>`;
 
-  return `<li><a class="env${locked || ready ? "" : " open"}" href="/capsule.html?id=${encodeURIComponent(capsule.id)}">
-    <div class="meta"><span class="eyebrow">${esc(Postal.capsuleNumber(capsule))}</span><h3>${esc(capsule.title)}</h3>${chip}<span class="inside">Inside: ${esc(Postal.insideText(capsule.contents))}</span></div>
-    <div class="right">${Postal.postmarkHTML(postmarkDate, label, locked)}${Postal.stampHTML(capsule)}</div>
+  return `<li><a class="env" href="/capsule.html?id=${encodeURIComponent(capsule.id)}">
+    <div class="meta"><span class="eyebrow">${esc(Postal.capsuleNumber(capsule))}</span><h3>${esc(capsule.title)}</h3>${chip}${capsule.contents ? `<span class="inside">Inside: ${esc(Postal.insideText(capsule.contents))}</span>` : ""}</div>
+    <div class="right">${Postal.postmarkHTML(capsule.unlock_at, locked ? "OPENS" : "UNLOCKED", locked)}<div class="stamp mini" aria-hidden="true">${Postal.posterHTML(capsule, { titleOnly: true })}</div></div>
   </a></li>`;
 }
 
-function emptyStateHTML() {
-  return `<div class="empty"><div class="wax">FM</div><h3>No capsules yet</h3>
-    <p>Seal your first message and it will wait here, counting down to the day it opens.</p>
-    <a class="btn primary" href="/create.html">Create a capsule</a></div>`;
-}
-
-function noResultsHTML() {
-  return `<div class="empty no-results"><span class="no-results-mark" aria-hidden="true">⌕</span><h3>No capsules match</h3>
-    <p>Try another title or clear the current search and status filter.</p>
-    <button type="button" class="btn quiet" id="clear-capsule-search">Clear search</button></div>`;
-}
-
-function statusFor(capsule) {
-  if (isLocked(capsule)) return "sealed";
-  if (isReady(capsule)) return "ready";
-  return "ready";
-}
-
-function filteredCapsules() {
-  return allCapsules.filter((capsule) => {
-    const matchesQuery = capsule.title.toLocaleLowerCase().includes(capsuleQuery);
-    const matchesStatus = capsuleStatus === "all" || statusFor(capsule) === capsuleStatus;
-    return matchesQuery && matchesStatus;
-  });
-}
-
-function setStatusFilter(status) {
-  capsuleStatus = status;
-  statusButtons.forEach((button) => {
-    button.setAttribute("aria-pressed", String(button.dataset.capsuleStatus === status));
-  });
-}
-
-function renderCapsules() {
-  if (capsulesLoadState === "signed-out") {
-    resultCount.textContent = "Log in to view your archive";
-    capsulesContainer.innerHTML = `<div class="empty"><div class="wax">FM</div><h3>Your archive is waiting</h3>
-      <p>Log in to see the capsules that belong to your account.</p>
-      <a class="btn primary" href="/login">Log in</a></div>`;
-    return;
-  }
-
-  if (capsulesLoadState === "error") {
-    resultCount.textContent = "Capsules unavailable";
-    capsulesContainer.innerHTML = `<p class="loading">Couldn't load your capsules. Refresh to try again.</p>`;
-    return;
-  }
-
-  if (allCapsules.length === 0) {
-    resultCount.textContent = "0 capsules";
-    capsulesContainer.innerHTML = emptyStateHTML();
-    return;
-  }
-
-  const matches = filteredCapsules();
-  resultCount.textContent = `${plural(matches.length, "capsule")} found`;
-  if (matches.length === 0) {
-    capsulesContainer.innerHTML = noResultsHTML();
-  } else {
-    showCapsules(matches);
-  }
-
-  const sealed = allCapsules.filter(isLocked).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
-  scheduleRefresh(sealed);
-}
-
-// When the next sealed capsule unlocks, re-fetch so it moves to "Ready to open".
-function scheduleRefresh(sealed) {
-  clearTimeout(refreshTimer);
-  if (sealed.length === 0) return;
-
-  const wait = time(sealed[0].unlock_at) - Date.now() + 1_000;
-  if (wait < 2 ** 31 - 1) refreshTimer = setTimeout(loadCapsules, wait);
-}
-
-function showCapsules(capsuleList) {
-  const sealed = capsuleList.filter(isLocked).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
-  const ready = capsuleList.filter(isReady).sort((a, b) => time(a.unlock_at) - time(b.unlock_at));
+function groupedTimeline(matches) {
   let html = "";
-
-  if (ready.length) {
-    html += `<div class="sec-head"><h2>Ready to open</h2><span class="eyebrow">${plural(ready.length, "unopened capsule")}</span></div>`;
-    html += `<ol class="timeline">${ready.map(envelopeHTML).join("")}</ol>`;
+  for (const locked of [false, true]) {
+    const group = matches.filter((capsule) => capsule.locked === locked);
+    if (!group.length) continue;
+    const heading = locked ? "Opening soon" : "Ready to open";
+    html += `<div class="sec-head"><h2>${heading}</h2><span class="eyebrow">${plural(group.length, "capsule")}</span></div>
+      <ol class="timeline">${group.map(envelopeHTML).join("")}</ol>`;
   }
-  if (sealed.length) {
-    html += `<div class="sec-head"><h2>Opening soon</h2><span class="eyebrow">${plural(sealed.length, "sealed capsule")}</span></div>`;
-    html += `<ol class="timeline">${sealed.map(envelopeHTML).join("")}<li><a class="newenv" href="/create.html">+ Seal another capsule</a></li></ol>`;
+  return html;
+}
+
+function normalizedTitle(value) {
+  return value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+function localDate(value) {
+  const date = new Date(value);
+  return `${String(date.getFullYear()).padStart(4, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function validDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(0);
+  date.setFullYear(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+  return year > 0 && localDate(date) === value;
+}
+
+function resetFilterValues() {
+  searchInput.value = "";
+  statusInput.value = "all";
+  sortInput.value = "newest";
+  unlockFromInput.value = "";
+  unlockThroughInput.value = "";
+}
+
+function savedHistory() {
+  return history.state && typeof history.state === "object" ? history.state : {};
+}
+
+function rememberFilters() {
+  if (!currentAccount) return;
+  try {
+    history.replaceState({ ...savedHistory(), futuremeLibrary: {
+      version: 1,
+      account: currentAccount.email_address,
+      query: searchInput.value.slice(0, 200),
+      status: statusInput.value,
+      sort: sortInput.value,
+      from: unlockFromInput.value,
+      through: unlockThroughInput.value
+    } }, "");
+  } catch {}
+}
+
+function restoreFilters() {
+  if (filtersRestored) return;
+  filtersRestored = true;
+  const saved = savedHistory().futuremeLibrary;
+  resetFilterValues();
+  if (saved?.version !== 1 || saved.account !== currentAccount.email_address) return;
+  searchInput.value = typeof saved.query === "string" ? saved.query.slice(0, 200) : "";
+  statusInput.value = ["all", "locked", "unlocked"].includes(saved.status) ? saved.status : "all";
+  sortInput.value = ["newest", "oldest", "unlock", "status"].includes(saved.sort) ? saved.sort : "newest";
+  unlockFromInput.value = validDate(saved.from) ? saved.from : "";
+  unlockThroughInput.value = validDate(saved.through) ? saved.through : "";
+}
+
+function clearSavedFilters() {
+  resetFilterValues();
+  try {
+    const state = { ...savedHistory() };
+    delete state.futuremeLibrary;
+    history.replaceState(state, "");
+  } catch {}
+}
+
+function matchingCapsules() {
+  const words = normalizedTitle(searchInput.value).trim().split(/\s+/u).filter(Boolean);
+  const matches = capsules.filter((capsule) => {
+    const title = normalizedTitle(capsule.title);
+    const unlockDate = localDate(capsule.unlock_at);
+    const matchesTitle = words.every((word) => title.includes(word));
+    const matchesStatus = statusInput.value === "all" || (statusInput.value === "locked" ? capsule.locked : !capsule.locked);
+    const matchesFrom = !unlockFromInput.value || unlockDate >= unlockFromInput.value;
+    const matchesThrough = !unlockThroughInput.value || unlockDate <= unlockThroughInput.value;
+    return matchesTitle && matchesStatus && matchesFrom && matchesThrough;
+  });
+
+  return matches.sort((first, second) => {
+    if (sortInput.value === "oldest") return time(first.created_at) - time(second.created_at) || first.id - second.id;
+    if (sortInput.value === "unlock" || sortInput.value === "status") return time(first.unlock_at) - time(second.unlock_at) || first.id - second.id;
+    return time(second.created_at) - time(first.created_at) || second.id - first.id;
+  });
+}
+
+function showCapsules() {
+  if (!hasLoaded || needsAccountCheck) return;
+
+  const invalidRange = unlockFromInput.value && unlockThroughInput.value && unlockFromInput.value > unlockThroughInput.value;
+  filterError.hidden = !invalidRange;
+  unlockFromInput.setAttribute("aria-invalid", String(Boolean(invalidRange)));
+  unlockThroughInput.setAttribute("aria-invalid", String(Boolean(invalidRange)));
+  if (invalidRange) {
+    summary.textContent = "Choose a valid unlock date range to see matching capsules.";
+    capsulesContainer.replaceChildren();
+    return;
   }
 
-  capsulesContainer.innerHTML = html;
+  const matches = matchingCapsules();
+  summary.textContent = `Showing ${matches.length} of ${capsules.length} ${capsules.length === 1 ? "capsule" : "capsules"}`;
+  if (!capsules.length) {
+    capsulesContainer.innerHTML = `<div class="empty"><div class="wax">FM</div><h3>No capsules yet</h3><p>Seal your first message and it will wait here.</p><a class="btn primary" href="/create.html">Create a capsule</a></div>`;
+  } else if (!matches.length) {
+    capsulesContainer.innerHTML = `<div class="empty no-results"><h3>No capsules match your search or filters.</h3><p>Try another title, widen the unlock dates, or reset your filters.</p><button type="button" class="btn quiet" id="clear-capsule-search">Clear search</button></div>`;
+  } else {
+    const timeline = sortInput.value === "status" ? groupedTimeline(matches) : `<ol class="timeline">${matches.map(envelopeHTML).join("")}</ol>`;
+    capsulesContainer.innerHTML = timeline + '<a class="newenv" href="/create.html">+ Seal another capsule</a>';
+  }
+}
+
+function showSignedOut(message) {
+  setDraftListAccount(null);
+  capsules = [];
+  hasLoaded = false;
+  capsuleControls.hidden = true;
+  filterError.hidden = true;
+  summary.textContent = "";
+  loadError.hidden = true;
+  capsulesContainer.hidden = false;
+  capsulesContainer.innerHTML = `<div class="empty"><p>${esc(message)}</p><a class="btn primary" href="/login">Log in</a></div>`;
+  clearSavedFilters();
 }
 
 async function loadCapsules() {
+  if (isLoading || document.hidden) return;
+
+  const version = ++loadVersion;
+  const request = new AbortController();
+  activeRequest = request;
+  isLoading = true;
+  retryButton.disabled = true;
+  capsulesContainer.setAttribute("aria-busy", "true");
+  if (!hasLoaded || needsAccountCheck) summary.textContent = "Loading capsules…";
+
   try {
-    const session = await window.futuremeSession;
-    if (!session.user) {
-      clearTimeout(refreshTimer);
-      allCapsules = [];
-      capsulesLoadState = "signed-out";
-      renderCapsules();
+    let session;
+    if (needsAccountCheck) {
+      if (!accountChecked) {
+        const navigationSession = await window.futuremeSession;
+        if (version !== loadVersion) return;
+        currentAccount = navigationSession.user;
+        accountChecked = true;
+      }
+      const response = await fetch("/api/session", { cache: "no-store", signal: request.signal });
+      if (!response.ok) throw new Error("Unable to verify your account");
+      session = await response.json();
+    } else {
+      session = await window.futuremeSession;
+    }
+    if (version !== loadVersion) return;
+    const accountChanged = accountChecked && (
+      session.user?.email_address !== currentAccount?.email_address || session.user?.role !== currentAccount?.role
+    );
+    accountChecked = true;
+    if (accountChanged) {
+      showSignedOut("Checking your account…");
+      location.reload();
       return;
     }
+    needsAccountCheck = false;
+    if (!session.user) {
+      showSignedOut("Log in to see your capsules.");
+      return;
+    }
+    currentAccount = session.user;
+    setDraftListAccount(currentAccount.email_address);
+    restoreFilters();
+    capsulesContainer.hidden = false;
+    capsuleControls.hidden = !hasLoaded;
+    if (hasLoaded) showCapsules();
 
-    const response = await fetch(capsulesUrl);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    allCapsules = await response.json();
-    capsulesLoadState = "success";
-    renderCapsules();
+    const response = await fetch("/api/capsules", { cache: "no-store", signal: request.signal });
+    if (version !== loadVersion) return;
+    if (response.status === 401) {
+      showSignedOut("Please log in again to see your capsules.");
+      return;
+    }
+    if (!response.ok) throw new Error("Unable to load capsules");
+
+    const capsuleList = await response.json();
+    if (version !== loadVersion) return;
+    if (!Array.isArray(capsuleList)) throw new Error("Invalid capsule list");
+
+    capsules = capsuleList;
+    hasLoaded = true;
+    capsuleControls.hidden = false;
+    showCapsules();
+    loadError.hidden = true;
   } catch (error) {
-    capsulesLoadState = "error";
-    renderCapsules();
+    if (version !== loadVersion || error.name === "AbortError") return;
+    loadErrorMessage.textContent = needsAccountCheck
+      ? "Couldn't verify your account. Please try again."
+      : accountChecked
+        ? (hasLoaded ? "Couldn't refresh your capsules. Showing the last loaded list." : "Couldn't load your capsules. Please try again.")
+        : "Couldn't load your account. Please try again.";
+    loadError.hidden = false;
+    if (!hasLoaded || needsAccountCheck) summary.textContent = "";
+  } finally {
+    if (version === loadVersion) {
+      isLoading = false;
+      activeRequest = null;
+      nextRefreshAt = Date.now() + 5_000;
+      retryButton.disabled = false;
+      capsulesContainer.setAttribute("aria-busy", "false");
+    }
   }
 }
 
-capsuleSearch.addEventListener("input", () => {
-  capsuleQuery = capsuleSearch.value.trim().toLocaleLowerCase();
-  renderCapsules();
-});
+function updateCapsules() {
+  if (document.hidden) return;
+  const needsRefresh = capsules.some((capsule) => capsule.locked && time(capsule.unlock_at) <= Date.now());
+  if (needsRefresh && Date.now() >= nextRefreshAt) loadCapsules();
+}
 
-statusButtons.forEach((button) => button.addEventListener("click", () => {
-  setStatusFilter(button.dataset.capsuleStatus);
-  renderCapsules();
-}));
+function hideLibrary() {
+  setDraftListAccount(null);
+  needsAccountCheck = true;
+  loadVersion += 1;
+  activeRequest?.abort();
+  activeRequest = null;
+  isLoading = false;
+  retryButton.disabled = false;
+  capsulesContainer.setAttribute("aria-busy", "false");
+  capsulesContainer.hidden = true;
+  capsuleControls.hidden = true;
+  filterError.hidden = true;
+  summary.textContent = "";
+  loadError.hidden = true;
+}
 
+function changeFilters() {
+  rememberFilters();
+  showCapsules();
+}
+
+searchInput.addEventListener("input", changeFilters);
+[statusInput, sortInput, unlockFromInput, unlockThroughInput].forEach((input) => input.addEventListener("change", changeFilters));
+function resetFilters() {
+  resetFilterValues();
+  changeFilters();
+  searchInput.focus();
+}
+
+resetButton.addEventListener("click", resetFilters);
 capsulesContainer.addEventListener("click", (event) => {
-  if (!event.target.closest("#clear-capsule-search")) return;
-  capsuleSearch.value = "";
-  capsuleQuery = "";
-  setStatusFilter("all");
-  renderCapsules();
-  capsuleSearch.focus();
+  if (event.target.closest("#clear-capsule-search")) resetFilters();
+});
+retryButton.addEventListener("click", () => accountChecked ? loadCapsules() : location.reload());
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) hideLibrary();
+  else {
+    needsAccountCheck = true;
+    loadCapsules();
+  }
+});
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    hideLibrary();
+    loadCapsules();
+  }
 });
 
 showHero();
+setInterval(updateCapsules, 1_000);
 loadCapsules();

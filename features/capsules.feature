@@ -69,6 +69,17 @@ Feature: Time capsules
     And I do not see "Private poster note"
     And the poster design is saved
 
+  Scenario: Remove and restore a poster note using the on-screen controls
+    Given the browser has a 320 pixel wide viewport
+    When I visit FutureMe
+    And I visit the new capsule page
+    And I add a message block
+    And I fill in "Message block 1" with "Keep this note"
+    And I click "Remove selected block"
+    Then I do not see "Keep this note"
+    When I click "Undo poster change"
+    Then I see "Keep this note"
+
   Scenario: Edit, transform, undo, and select poster blocks
     When I visit FutureMe
     And I visit the new capsule page
@@ -314,3 +325,13 @@ Feature: Time capsules
     Then I see "Title can't be blank"
     And I see "Message can't be blank"
     And I see "Unlock at can't be blank"
+
+  Scenario: Edit and reopen a poster with an uploaded photo and a legacy image link
+    Given a capsule has a positioned photo and a legacy image link
+    When I visit FutureMe
+    And I open "Mixed photos"
+    And I edit the capsule
+    And I select the design view for the uploaded photo
+    And I fill in "Title" with "Edited mixed photos"
+    And I save the capsule changes
+    Then the uploaded photo is on the poster and the linked image is in the attachments

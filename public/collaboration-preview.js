@@ -36,7 +36,7 @@ function setupEmailPreview(kind) {
       remove.type = "button";
       remove.textContent = "Remove";
       remove.setAttribute("aria-label", `Remove ${kind} ${entry.email}`);
-      remove.addEventListener("click", () => { entries.splice(entries.indexOf(entry), 1); render(); input.focus(); });
+      remove.addEventListener("click", () => { entries.splice(entries.indexOf(entry), 1); render(); if (kind === "recipient") window.dispatchEvent(new Event("capsule:changed")); input.focus(); });
       item.dataset.index = entries.indexOf(entry);
       item.append(remove);
       list.append(item);
@@ -60,6 +60,7 @@ function setupEmailPreview(kind) {
       input.value = "";
       error.textContent = "";
       render();
+      if (kind === "recipient") window.dispatchEvent(new Event("capsule:changed"));
     }
     input.setAttribute("aria-invalid", String(Boolean(error.textContent)));
     input.focus();

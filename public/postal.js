@@ -44,12 +44,19 @@ const Postal = (() => {
     return `background:${esc(theme.background_color)};color:${esc(theme.accent_color)};--pbg:${esc(theme.background_color)}`;
   }
 
+  function posterIconHTML(design) {
+    if (!design.theme?.icon) return "";
+    return `<div class="pb icon" style="${blockStyle(blockOf(design, "icon_block"))}">${esc(design.theme.icon)}</div>`;
+  }
+
   // titleOnly: the public title used for stamps and sealed capsules.
   function posterHTML(capsule, { titleOnly = false } = {}) {
     const design = capsule.design || {};
     const theme = themeOf(design);
     let html = `<div class="poster" data-font="${esc(theme.font)}" style="${posterStyle(theme)}">`;
     html += `<div class="pb title" style="${blockStyle(blockOf(design, "title_block"))}">${esc(capsule.title)}</div>`;
+
+    html += posterIconHTML(design);
 
     if (!titleOnly) {
       html += `<div class="pb message" style="${blockStyle(blockOf(design, "message_block"))}">${esc(capsule.message)}</div>`;
@@ -167,11 +174,12 @@ const Postal = (() => {
 
   // "a message, a note, a photo and a voice note" from the API's contents counts.
   function insideText(contents) {
-    const { notes = 0, photos = 0, audio = 0 } = contents || {};
+    const { notes = 0, photos = 0, audio = 0, videos = 0 } = contents;
     const parts = ["a message"];
     if (notes) parts.push(notes === 1 ? "a note" : `${notes} notes`);
     if (photos) parts.push(photos === 1 ? "a photo" : `${photos} photos`);
     if (audio) parts.push(audio === 1 ? "a voice note" : `${audio} voice notes`);
+    if (videos) parts.push(videos === 1 ? "a video" : `${videos} videos`);
     return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
   }
 
@@ -187,7 +195,7 @@ const Postal = (() => {
   return {
     DAY, lockSvg, openSvg, defaultTheme, defaultBlocks,
     esc, time, plural, capsuleNumber, daysUntil, formatDate, formatDay, postmarkParts,
-    themeOf, blockOf, blockStyle, posterStyle, posterHTML, stampHTML, postmarkHTML,
+    themeOf, blockOf, blockStyle, posterStyle, posterIconHTML, posterHTML, stampHTML, postmarkHTML,
     audioPillHTML, wireAudio, stopAudio, insideText
   };
 })();

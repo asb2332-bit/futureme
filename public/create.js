@@ -3,6 +3,7 @@ const unlockAtInput = document.querySelector("#unlock-at");
 const presetInput = document.querySelector("#theme-preset");
 const backgroundInput = document.querySelector("#background-color");
 const accentInput = document.querySelector("#accent-color");
+const iconInput = document.querySelector("#poster-icon");
 const fontInput = document.querySelector("#poster-font");
 const titleInput = document.querySelector("#title-input");
 const messageInput = document.querySelector("#message-input");
@@ -13,10 +14,13 @@ const videoInput = document.querySelector("#capsule-video");
 const addMessageButton = document.querySelector("#add-message-block");
 const makeTitleBlockButton = document.querySelector("#make-title-block");
 const restoreTitleBlockButton = document.querySelector("#restore-title-block");
+const removeBlockButton = document.querySelector("#remove-poster-block");
+const undoPosterButton = document.querySelector("#undo-poster-change");
 const sealButton = document.querySelector("#seal-capsule");
 const savingOverlay = document.querySelector("#saving-overlay");
 const editingCapsuleId = new URLSearchParams(location.search).get("id");
 const posterPreview = document.querySelector("#poster-preview");
+let originalUnlockValue = null;
 let selectedBlockId = "message";
 let titleText = "";
 let messageText = "";
@@ -41,8 +45,9 @@ const themePresets = {
   night: { background_color: "#202923", accent_color: "#F5E8C8" }
 };
 
+const defaultEditorTheme = { background_color: "#E3E7DF", accent_color: "#202923", font: "sans" };
 const design = {
-  theme: { background_color: "#E3E7DF", accent_color: "#202923", font: "sans" },
+  theme: { ...defaultEditorTheme },
   title_block: { x: 8, y: 10, width: 72, height: 16, rotation: 0 },
   message_block: { x: 8, y: 36, width: 84, height: 38, rotation: 0 },
   audio_block: null,
@@ -51,9 +56,28 @@ const design = {
   sealed_blocks: []
 };
 
+function restorePosterDesign(saved) {
+  delete design.icon_block;
+  Object.assign(design, { audio_block: null, video_block: null, hidden_blocks: [], sealed_blocks: [] }, saved);
+  design.theme = { ...defaultEditorTheme, ...saved.theme };
+  design.title_block = Postal.blockOf(saved, "title_block");
+  design.message_block = Postal.blockOf(saved, "message_block");
+  if (design.theme.icon) design.icon_block = Postal.blockOf(saved, "icon_block");
+  iconInput.value = design.theme.icon || "";
+  backgroundInput.value = design.theme.background_color;
+  accentInput.value = design.theme.accent_color;
+  fontInput.value = design.theme.font;
+  presetInput.value = Object.keys(themePresets).find((name) => {
+    const preset = themePresets[name];
+    return preset.background_color.toLowerCase() === design.theme.background_color.toLowerCase()
+      && preset.accent_color.toLowerCase() === design.theme.accent_color.toLowerCase();
+  }) || "custom";
+}
+
 function blockFor(id) {
   if (id === "title") return design.title_block;
   if (id === "message") return design.message_block;
+  if (id === "icon") return design.icon_block;
   if (id === "audio") return design.audio_block;
   if (id === "video") return design.video_block;
   return design.sealed_blocks.find((block) => block.id === id);
@@ -65,21 +89,28 @@ function selectBlock(id) {
   renderPoster();
 }
 
+function draftChanged() {
+  window.dispatchEvent(new Event("capsule:changed"));
+}
+
 function updateBlock(id, changes) {
   const block = blockFor(id);
   if (!block) return;
   Object.assign(block, changes);
+  draftChanged();
   renderPoster();
 }
 
 function updateText(id, text) {
   // Keep React from replacing the active contentEditable node and its caret.
   if (id === "title") { titleText = text; titleInput.value = text; }
+  else if (id === "icon") { design.theme.icon = text; iconInput.value = text; }
   else if (id === "message") { messageText = text; messageInput.value = text; }
   else {
     const block = blockFor(id);
     if (block) block.text = text;
   }
+  draftChanged();
 }
 
 function updateMediaMetadata(id, { aspectRatio }) {
@@ -95,9 +126,12 @@ function updateMediaMetadata(id, { aspectRatio }) {
     block.width = block.height * aspectRatio / canvasRatio;
   }
   renderPoster();
+  draftChanged();
 }
 
 function renderPoster() {
+  removeBlockButton.disabled = !blockFor(selectedBlockId) || design.hidden_blocks.includes(selectedBlockId);
+  undoPosterButton.disabled = undoHistory.length === 0;
   window.PosterIsland.render(posterPreview, {
     design, titleText, messageText, selectedBlockId, imagePreviewUrls, audioPreviewUrls, videoPreviewUrls,
     onSelect: selectBlock,
@@ -133,8 +167,10 @@ function addImageBlock() {
     imagePreviewUrls[id] = URL.createObjectURL(file);
   }
 
+  saveUndoState();
   design.sealed_blocks.push(block);
   selectBlock(id);
+  draftChanged();
 }
 
 function addMediaBlocks(type, startIndex, count) {
@@ -149,6 +185,7 @@ function addMediaBlocks(type, startIndex, count) {
     selectedBlockId = id;
   }
   renderPoster();
+  draftChanged();
 }
 
 function saveUndoState() {
@@ -161,9 +198,11 @@ function saveUndoState() {
 function undo() {
   const state = undoHistory.pop();
   if (!state) return;
-  Object.assign(design, state.design);
+  restorePosterDesign(state.design);
   titleText = state.titleText;
   messageText = state.messageText;
+  titleInput.value = titleText;
+  messageInput.value = messageText;
   selectedBlockId = state.selectedBlockId;
   existingImages = state.existingImages; existingAudio = state.existingAudio; existingVideo = state.existingVideo;
   removedAttachmentIds = state.removedAttachmentIds;
@@ -177,6 +216,7 @@ function undo() {
   imageFiles.forEach((file) => files.items.add(file));
   imageInput.files = files.files;
   renderPoster();
+  draftChanged();
 }
 
 function removeMediaAt(existing, files, index) {
@@ -189,20 +229,32 @@ function removeMediaAt(existing, files, index) {
   }
 }
 
-function deleteSelectedImage() {
+function removeSelectedBlock() {
+  if (removeBlockButton.disabled) return;
   saveUndoState();
   const block = blockFor(selectedBlockId);
+  if (selectedBlockId === "icon") {
+    delete design.theme.icon;
+    delete design.icon_block;
+    iconInput.value = "";
+    selectedBlockId = "message";
+    renderPoster();
+    draftChanged();
+    return;
+  }
   if (selectedBlockId === "title" || selectedBlockId === "message") {
     design.hidden_blocks.push(selectedBlockId);
     selectedBlockId = "audio";
     renderPoster();
+    draftChanged();
     return;
   }
 
-  if (block?.text) {
+  if (typeof block?.text === "string") {
     design.sealed_blocks = design.sealed_blocks.filter((item) => item.id !== block.id);
     selectedBlockId = "message";
     renderPoster();
+    draftChanged();
     return;
   }
 
@@ -219,6 +271,7 @@ function deleteSelectedImage() {
     design.sealed_blocks.forEach((item) => { if (item.media_type === "audio" && item.media_index > 0) item.media_index -= 1; });
     selectedBlockId = "message";
     renderPoster();
+    draftChanged();
     return;
   }
   if (selectedBlockId === "video") {
@@ -229,6 +282,7 @@ function deleteSelectedImage() {
     design.sealed_blocks.forEach((item) => { if (item.media_type === "video" && item.media_index > 0) item.media_index -= 1; });
     selectedBlockId = "message";
     renderPoster();
+    draftChanged();
     return;
   }
 
@@ -254,12 +308,15 @@ function deleteSelectedImage() {
   design.sealed_blocks = design.sealed_blocks.filter((item) => item.id !== block.id);
   selectedBlockId = "message";
   renderPoster();
+  draftChanged();
 }
 
 function addMessageBlock() {
+  saveUndoState();
   const id = `message-${Date.now()}`;
   design.sealed_blocks.push({ id: id, kind: "message", text: "New message", x: 12, y: 78, width: 50, height: 12, rotation: 0 });
   selectBlock(id);
+  draftChanged();
 }
 
 function makeSelectedTextTitle() {
@@ -268,18 +325,23 @@ function makeSelectedTextTitle() {
     formErrors.textContent = "Select a text block to make it the title.";
     return;
   }
+  saveUndoState();
   titleText = block.text;
+  titleInput.value = titleText;
   design.title_block = { x: block.x, y: block.y, width: block.width, height: block.height, rotation: block.rotation };
   design.hidden_blocks = design.hidden_blocks.filter((id) => id !== "title");
   design.sealed_blocks = design.sealed_blocks.filter((item) => item.id !== block.id);
   selectedBlockId = "title";
   renderPoster();
+  draftChanged();
 }
 
 function restoreTitleBlock() {
+  if (design.hidden_blocks.includes("title")) saveUndoState();
   design.hidden_blocks = design.hidden_blocks.filter((id) => id !== "title");
   selectedBlockId = "title";
   renderPoster();
+  draftChanged();
 }
 
 async function uploadSelectedImages(session) {
@@ -333,7 +395,14 @@ function showValidationErrors(errors) {
 
 function setSaving(saving) {
   savingOverlay.hidden = !saving;
+  document.querySelector("main").inert = saving;
   sealButton.disabled = saving;
+}
+
+function localDateTimeValue(value) {
+  const date = new Date(value);
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${String(date.getFullYear()).padStart(4, "0")}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 async function createCapsule() {
@@ -354,6 +423,7 @@ async function createCapsule() {
   const session = await window.futuremeSession;
   if (!session.user) { location.assign("/login"); return; }
 
+  const submittedDraft = await window.prepareCapsuleDraft?.();
   let imageSignedIds, audioSignedIds, videoSignedIds;
   try {
     imageSignedIds = await uploadSelectedImages(session);
@@ -370,7 +440,6 @@ async function createCapsule() {
   const capsule = {
     title: titleText,
     message: capsuleMessage,
-    unlock_at: unlockAt ? new Date(unlockAt).toISOString() : "",
     image_signed_ids: imageSignedIds,
     audio_signed_ids: audioSignedIds,
     video_signed_ids: videoSignedIds,
@@ -378,6 +447,8 @@ async function createCapsule() {
     recipient_emails: window.capsuleRecipients.emails(),
     design: design
   };
+  if (!editingCapsuleId || unlockAt !== originalUnlockValue) capsule.unlock_at = new Date(unlockAt).toISOString();
+
   const response = await fetch(editingCapsuleId ? `/api/capsules/${editingCapsuleId}` : "/api/capsules", {
     method: editingCapsuleId ? "PATCH" : "POST",
     headers: { "Content-Type": "application/json", "X-CSRF-Token": session.csrf_token },
@@ -392,6 +463,11 @@ async function createCapsule() {
   }
 
   const createdCapsule = await response.json();
+  if (window.finishCapsuleDraft && !window.finishCapsuleDraft(submittedDraft, createdCapsule.id)) {
+    setSaving(false);
+    sealButton.disabled = true;
+    return;
+  }
   window.location.href = `/capsule.html?id=${createdCapsule.id}`;
 }
 
@@ -412,8 +488,9 @@ async function loadCapsuleForEditing() {
   messageText = capsule.message || "";
   titleInput.value = titleText;
   messageInput.value = messageText;
-  unlockAtInput.value = new Date(capsule.unlock_at).toISOString().slice(0, 16);
-  Object.assign(design, capsule.design);
+  originalUnlockValue = localDateTimeValue(capsule.unlock_at);
+  unlockAtInput.value = originalUnlockValue;
+  restorePosterDesign(capsule.design || {});
   (design.sealed_blocks || []).forEach((block) => {
     if (Number.isInteger(block.image_index)) imagePreviewUrls[block.id] = existingImages[block.image_index]?.url;
   });
@@ -423,6 +500,8 @@ async function loadCapsuleForEditing() {
   renderPoster();
 }
 
+[presetInput, fontInput, unlockAtInput].forEach((input) => input.addEventListener("change", () => queueMicrotask(draftChanged)));
+[backgroundInput, accentInput, iconInput, titleInput, messageInput, unlockAtInput].forEach((input) => input.addEventListener("input", () => queueMicrotask(draftChanged)));
 presetInput.addEventListener("change", () => {
   const preset = themePresets[presetInput.value];
   design.theme.background_color = preset.background_color;
@@ -431,8 +510,13 @@ presetInput.addEventListener("change", () => {
   accentInput.value = preset.accent_color;
   renderPoster();
 });
-backgroundInput.addEventListener("input", () => { design.theme.background_color = backgroundInput.value; renderPoster(); });
-accentInput.addEventListener("input", () => { design.theme.accent_color = accentInput.value; renderPoster(); });
+backgroundInput.addEventListener("input", () => { design.theme.background_color = backgroundInput.value; presetInput.value = "custom"; renderPoster(); });
+accentInput.addEventListener("input", () => { design.theme.accent_color = accentInput.value; presetInput.value = "custom"; renderPoster(); });
+iconInput.addEventListener("input", () => {
+  design.theme.icon = iconInput.value;
+  design.icon_block = Postal.blockOf(design, "icon_block");
+  renderPoster();
+});
 fontInput.addEventListener("change", () => { design.theme.font = fontInput.value; renderPoster(); });
 titleInput.addEventListener("input", () => { titleText = titleInput.value; renderPoster(); });
 messageInput.addEventListener("input", () => { messageText = messageInput.value; renderPoster(); });
@@ -464,7 +548,7 @@ function addSelectedMedia(input, files, label) {
     return false;
   }
   files.push(...addedFiles);
-  input.value = ""; // Allows selecting the same file again.
+  input.value = "";
   return addedFiles;
 }
 
@@ -514,16 +598,18 @@ imageInput.addEventListener("change", () => {
     selectedBlockId = id;
   });
   renderPoster();
+  draftChanged();
 });
 window.addEventListener("keydown", (event) => {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+  if (event.target.isContentEditable || /^(TEXTAREA|SELECT)$/.test(event.target.tagName) || (event.target.tagName === "INPUT" && event.target.type !== "file")) return;
+  if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z" && undoHistory.length) {
     event.preventDefault();
     undo();
     return;
   }
-  if ((event.key !== "Delete" && event.key !== "Backspace") || event.target.isContentEditable || /^(TEXTAREA|SELECT)$/.test(event.target.tagName) || (event.target.tagName === "INPUT" && event.target.type !== "file")) return;
+  if (event.key !== "Delete" && event.key !== "Backspace") return;
   event.preventDefault();
-  deleteSelectedImage();
+  removeSelectedBlock();
 });
 remoteImageUrlInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
@@ -531,6 +617,8 @@ remoteImageUrlInput.addEventListener("keydown", (event) => {
     addImageBlock();
   }
 });
+removeBlockButton.addEventListener("click", removeSelectedBlock);
+undoPosterButton.addEventListener("click", undo);
 addMessageButton.addEventListener("click", addMessageBlock);
 makeTitleBlockButton.addEventListener("click", makeSelectedTextTitle);
 restoreTitleBlockButton.addEventListener("click", restoreTitleBlock);

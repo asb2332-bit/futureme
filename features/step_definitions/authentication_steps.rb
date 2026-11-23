@@ -30,6 +30,8 @@ end
 
 When('I log out') do
   click_button 'Log out'
+  expect(page).to have_current_path('/login')
+  expect(page).to have_text('You have logged out.')
 end
 
 Given('I am logged in as an admin') do
