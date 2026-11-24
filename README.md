@@ -1,8 +1,8 @@
 # FutureMe
 
-FutureMe is a digital time-capsule app. Signed-in users can design a capsule with text, images, audio, and video; seal it until a future date; and reopen or edit their own capsules later.
+FutureMe is a digital time-capsule app. Signed-in users create a private poster with text, images, audio, and video, seal it until a future date, and reopen or edit their own capsules. Owners can also add email recipients, who receive a link when the capsule is sealed and when it unlocks.
 
-## Iteration 1 submission
+## Iteration 2 submission
 
 - **Working SaaS prototype:** <https://calm-shore-09946-2d1c172059b3.herokuapp.com/>
 - **GitHub repository:** <https://github.com/asb2332-bit/futureme>
@@ -18,12 +18,26 @@ FutureMe is a digital time-capsule app. Signed-in users can design a capsule wit
 | Sammy | sn3136 |
 | Yiyao | yz5137 |
 
+## What's new since Iteration 1
+
+- Redesigned capsule-creation UI with a custom, draggable poster editor
+- Ported the poster editor UI to React for a more responsive editing experience
+- Google Drive media import
+- Seal and unlock email notifications for recipients
+
+## Features
+
+- Email/password accounts and private capsule ownership
+- Custom, draggable poster layouts with text, linked or uploaded images, audio, and video
+- Google Drive media import when Google Picker credentials are configured
+- Future unlock dates, owner editing, and recipient delivery links
+- Seal and unlock email notifications for up to 20 recipients
+
 ## Requirements
 
-- Ruby 3.3.8
-- Bundler
-- Node.js 18+ and npm (to build the React poster editor)
-- Docker Desktop (for local PostgreSQL)
+- Ruby 3.3.8 and Bundler
+- Node.js 18+ and npm
+- Docker Desktop (for PostgreSQL)
 
 ## Run locally
 
@@ -40,21 +54,26 @@ bin/rails server
 
 Open <http://localhost:3000>.
 
-### Optional local integrations
+Stop the local database when finished:
 
-Create a local `.env` file for Cloudinary uploads and Google sign-in. Development automatically loads this file; never commit it.
+```sh
+docker compose down
+```
+
+## Optional integrations
+
+Development uses local storage for uploads by default. Add these values to an uncommitted `.env` file to use Cloudinary and Google Drive import:
 
 ```dotenv
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
 GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_PICKER_API_KEY=your-google-picker-api-key
+GOOGLE_CLOUD_PROJECT_NUMBER=your-google-project-number
 ```
 
-Cloudinary is required to persist uploaded media outside the local process. Google OAuth is optional; email/password accounts work without it. When a capsule is sealed, a confirmation is sent to its owner. Without SMTP configuration, development writes these emails to `tmp/mails` instead of sending them.
-
-To send confirmation emails, configure an SMTP provider and a verified sender in `.env` (or the production environment):
+Configure SMTP to send owner and recipient emails instead of writing them to `tmp/mails`:
 
 ```dotenv
 FUTUREME_PUBLIC_URL=https://your-futureme-domain.example
@@ -65,27 +84,13 @@ FUTUREME_SMTP_USER=your-smtp-username
 FUTUREME_SMTP_PASSWORD=your-smtp-password
 ```
 
-Email delivery failures are logged; they do not undo a successfully sealed capsule. Configure SMTP and the public HTTPS origin in production to deliver emails.
-
-Recipients receive a seal notification with an unlock date and a countdown link. They must sign in or register with the invited email address. To send unlock notifications and retry failed recipient emails, schedule this command regularly (for example, with Heroku Scheduler or cron):
+Recipient unlock notifications need a scheduled job. In local development, run this in a second terminal:
 
 ```sh
-bin/rails capsules:notify_recipients
+bin/notify-recipients
 ```
 
-The scheduler must be configured separately in each deployment. Notification timing depends on its interval. A crash after the mail provider accepts an email but before the database records it can cause a duplicate on retry.
-
-For local Google sign-in, add this authorized redirect URI in Google Cloud Console:
-
-```text
-http://localhost:3000/auth/google_oauth2/callback
-```
-
-Stop the local database with:
-
-```sh
-docker compose down
-```
+In production, schedule `bin/rails capsules:notify_recipients` regularly. The job sends pending seal notices and unlock notices.
 
 ## Run tests
 
@@ -94,18 +99,8 @@ bundle exec rspec
 bundle exec cucumber
 ```
 
-The Cucumber stories cover registration/login, authorization, creating and viewing capsules, multiple capsules, custom poster layouts, and image/audio/video media. The RSpec suite covers models and authenticated API behavior.
-
 ## Product limits
 
-These limits keep the prototype within the Cloudinary free-tier storage allowance.
-
 - Each account can create up to **5 capsules**.
+- A capsule can have up to **20 recipients**.
 - Uploaded image, audio, and video files are limited to **2 MB total per capsule**.
-
-
-### Draft invitations
-
-The draft owner can save a draft, open **Collaborate → Share**, and send an invitation. The recipient signs in with the invited address and selects **Join draft**. Online editors can see typing previews and drag outlines while the draft is open. Use **Save draft for editing** to keep changes.
-
-Local development writes invitation emails to `tmp/mails` unless SMTP is configured. For email delivery, set `FUTUREME_PUBLIC_URL` to the app's public HTTPS origin and set `FUTUREME_MAIL_FROM`, `FUTUREME_SMTP_HOST`, and your provider's `FUTUREME_SMTP_USER` and `FUTUREME_SMTP_PASSWORD`. The SMTP port defaults to 587 and can be set with `FUTUREME_SMTP_PORT`.
