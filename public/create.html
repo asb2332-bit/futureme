@@ -9,10 +9,9 @@
   <script src="/auth.js?v=frontend-port-1" defer></script>
   <script src="/postal.js?v=frontend-port-1" defer></script>
   <script src="/drive-import.js" defer></script>
-  <script src="/draft-collaboration.js" defer></script>
   <script src="/create-poster.js?v=react-poster-1" defer></script>
   <script src="/create.js?v=react-poster-1" defer></script>
-  <script src="/collaboration-preview.js" defer></script>
+  <script src="/recipient-preview.js" defer></script>
 </head>
 <body>
   <div class="stripe" aria-hidden="true"></div>
@@ -36,26 +35,14 @@
     </nav>
     <div class="desk">
       <div class="stage">
-        <div class="collaboration-poster">
-          <div id="poster-preview" class="poster-preview"></div>
-        </div>
-        <div id="collaborator-activity" class="collaborator-activity" hidden></div>
+        <div id="poster-preview" class="poster-preview"></div>
         <p class="hint">Drag to move · double-click text to write · use the handles to resize or rotate</p>
       </div>
       <aside class="side" aria-label="Capsule settings">
         <p id="form-errors" class="errors" role="alert"></p>
         <section data-step="collaborate" hidden>
-          <h2><span>01</span>Create it together</h2>
-          <p>Save a draft to share it with other FutureMe accounts.</p>
-          <label class="fld" id="editor-field">Co-editors (account emails, separated by commas)<input id="editor-emails" type="text" autocomplete="off"></label>
-          <details id="share-draft" hidden>
-            <summary class="btn quiet">Share</summary>
-            <form id="share-draft-form">
-              <label class="fld">Teammate’s email<input name="email" type="email" required></label>
-              <button class="btn primary" type="submit">Send invitation</button>
-            </form>
-            <p id="share-feedback" role="status"></p>
-          </details>
+          <h2><span>01</span>Collaborate</h2>
+          <p>Collaboration will be implemented later and is not currently available.</p>
           <button type="button" class="btn primary" data-show-step="write">Next: Write →</button>
         </section>
         <section data-step="write">
@@ -99,7 +86,6 @@
           <ul id="recipient-list" class="recipient-list" aria-label="Email recipients"></ul>
           </div>
           <button type="button" class="btn quiet" data-show-step="design">← Back to Design</button>
-          <button id="save-draft" class="btn quiet" type="button">Save draft for editing</button>
           <button id="seal-capsule" class="btn seal" type="button"><span class="dot" aria-hidden="true">FM</span>Seal the capsule</button>
         </section>
         <div class="editor-actions">

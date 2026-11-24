@@ -73,15 +73,10 @@ function updateBlock(id, changes, mode) {
   const block = blockFor(id);
   if (!block) return;
   Object.assign(block, changes);
-  if (mode === "drag") {
-    DraftCollaboration.preview({ kind: "dragging", label: id === "title" ? "title" : id === "message" ? "message" : "poster block",
-      x: block.x, y: block.y, width: block.width, height: block.height });
-  }
   renderPoster();
 }
 
 function updateText(id, text) {
-  DraftCollaboration.preview({ kind: "typing", field: id === "title" ? "Title" : id === "message" ? "Message" : "Poster note", text });
   // Keep React from replacing the active contentEditable node and its caret.
   if (id === "title") { titleText = text; titleInput.value = text; }
   else if (id === "message") { messageText = text; messageInput.value = text; }
@@ -343,18 +338,17 @@ function showValidationErrors(errors) {
 function setSaving(saving) {
   savingOverlay.hidden = !saving;
   sealButton.disabled = saving;
-  document.querySelector("#save-draft").disabled = saving;
 }
 
-async function createCapsule(draft = false) {
+async function createCapsule() {
   formErrors.textContent = "";
   const unlockAt = unlockAtInput.value;
   const messageBlocks = design.sealed_blocks.filter((block) => block.text).map((block) => String(block.text).trim()).filter(Boolean);
   const capsuleMessage = String(messageText || "").trim() || messageBlocks.join("\n");
   const missingFields = [];
   if (!String(titleText || "").trim()) missingFields.push("Title can't be blank");
-  if (!draft && !capsuleMessage) missingFields.push("Message can't be blank");
-  if (!draft && !unlockAt) missingFields.push("Unlock at can't be blank");
+  if (!capsuleMessage) missingFields.push("Message can't be blank");
+  if (!unlockAt) missingFields.push("Unlock at can't be blank");
   if (missingFields.length) {
     formErrors.textContent = missingFields.join(", ");
     showStep(!String(titleText || "").trim() || !capsuleMessage ? "write" : "deliver");
@@ -379,14 +373,13 @@ async function createCapsule(draft = false) {
 
   const capsule = {
     title: titleText,
-    draft,
+    draft: false,
     message: capsuleMessage,
     unlock_at: unlockAt ? new Date(unlockAt).toISOString() : "",
     image_signed_ids: imageSignedIds,
     audio_signed_ids: audioSignedIds,
     video_signed_ids: videoSignedIds,
     lock_version: capsuleVersion,
-    ...(canManageEditors ? {editor_emails: document.querySelector("#editor-emails").value.split(",").map(email => email.trim()).filter(Boolean)} : {}),
     removed_attachment_ids: removedAttachmentIds,
     ...(canManageEditors ? { recipient_emails: window.capsuleRecipients.emails() } : {}),
     design: design
@@ -405,22 +398,12 @@ async function createCapsule(draft = false) {
   }
 
   const createdCapsule = await response.json();
-  if (draft && canManageEditors) {
-    const collaborationUrl = `/create.html?id=${createdCapsule.id}#collaborate`;
-    if (editingCapsuleId) {
-      history.replaceState(null, "", collaborationUrl);
-      location.reload();
-    } else {
-      location.assign(collaborationUrl);
-    }
-    return;
-  }
-  location.assign(draft ? "/" : `/capsule.html?id=${createdCapsule.id}`);
+  location.assign(`/capsule.html?id=${createdCapsule.id}`);
 }
 
 async function loadCapsuleForEditing() {
   if (!editingCapsuleId) return;
-  [imageInput, audioInput, videoInput, sealButton, document.querySelector("#save-draft")].forEach((input) => { input.disabled = true; });
+  [imageInput, audioInput, videoInput, sealButton].forEach((input) => { input.disabled = true; });
   const response = await fetch(`/api/capsules/${editingCapsuleId}?editing=true`, { cache: "no-store" });
   const capsule = await response.json();
   if (!response.ok) { location.replace(`/capsule.html?id=${editingCapsuleId}`); return; }
@@ -430,27 +413,22 @@ async function loadCapsuleForEditing() {
   window.capsuleRecipients.setEmails(capsule.recipient_emails || []);
   existingImages = attachments.images; existingAudio = attachments.audio; existingVideo = attachments.video;
   existingMediaSize = capsule.media_byte_size;
-  [imageInput, audioInput, videoInput, sealButton, document.querySelector("#save-draft")].forEach((input) => { input.disabled = false; });
+  [imageInput, audioInput, videoInput, sealButton].forEach((input) => { input.disabled = false; });
   titleText = capsule.title || "";
   messageText = capsule.message || "";
   titleInput.value = titleText;
   messageInput.value = messageText;
   if (capsule.unlock_at) unlockAtInput.value = new Date(capsule.unlock_at).toISOString().slice(0, 16);
   capsuleVersion = capsule.lock_version;
-  if (capsule.draft) DraftCollaboration.start(capsule);
-  if (location.hash === "#collaborate") showStep("collaborate");
   canManageEditors = capsule.owner;
   document.querySelector("#delivery-recipients").hidden = !canManageEditors;
   document.querySelector("#delete-edit-form").hidden = !canManageEditors || !deleteTokenReady;
-  document.querySelector("#editor-field").hidden = !canManageEditors;
-  document.querySelector("#editor-emails").value = (capsule.editor_emails || []).join(", ");
   savedDocuments = capsule.documents || [];
   renderDocumentList();
   Object.assign(design, capsule.design);
   (design.sealed_blocks || []).forEach((block) => {
     if (Number.isInteger(block.image_index)) imagePreviewUrls[block.id] = existingImages[block.image_index]?.url;
   });
-  document.querySelector("#save-draft").hidden = !capsule.draft;
   audioPreviewUrls = capsule.audio_url || [];
   videoPreviewUrls = capsule.video_url || [];
   sealButton.textContent = capsule.draft ? "Seal the capsule" : "Save changes";
@@ -468,8 +446,8 @@ presetInput.addEventListener("change", () => {
 backgroundInput.addEventListener("input", () => { design.theme.background_color = backgroundInput.value; renderPoster(); });
 accentInput.addEventListener("input", () => { design.theme.accent_color = accentInput.value; renderPoster(); });
 fontInput.addEventListener("change", () => { design.theme.font = fontInput.value; renderPoster(); });
-titleInput.addEventListener("input", () => { titleText = titleInput.value; renderPoster(); DraftCollaboration.preview({ kind: "typing", field: "Title", text: titleText }); });
-messageInput.addEventListener("input", () => { messageText = messageInput.value; renderPoster(); DraftCollaboration.preview({ kind: "typing", field: "Message", text: messageText }); });
+titleInput.addEventListener("input", () => { titleText = titleInput.value; renderPoster(); });
+messageInput.addEventListener("input", () => { messageText = messageInput.value; renderPoster(); });
 let capsuleLimitErrorTimer;
 function showCapsuleLimitError() {
   const message = "This file can't be added: it would exceed this capsule's 2 MB limit.";
@@ -583,7 +561,6 @@ remoteImageUrlInput.addEventListener("keydown", (event) => {
 addMessageButton.addEventListener("click", addMessageBlock);
 makeTitleBlockButton.addEventListener("click", makeSelectedTextTitle);
 restoreTitleBlockButton.addEventListener("click", restoreTitleBlock);
-document.querySelector("#save-draft").addEventListener("click", () => createCapsule(true).catch(error => { setSaving(false); formErrors.textContent = error.message; }));
 sealButton.addEventListener("click", () => {
   createCapsule().catch((error) => {
     console.error(error);

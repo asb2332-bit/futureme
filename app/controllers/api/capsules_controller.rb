@@ -29,7 +29,6 @@ class Api::CapsulesController < ApplicationController
     remote_image_urls = submitted_data.delete(:remote_image_urls)
     submitted_data[:design] = (submitted_data[:design]&.to_h || {}).merge("remote_image_urls" => remote_image_urls) if remote_image_urls.present?
     @capsule = current_user.capsules.new(submitted_data)
-    return unless assign_editors
     @capsule.images.attach(image_signed_ids) if image_signed_ids.present?
     @capsule.audio.attach(audio_signed_ids) if audio_signed_ids.any?
     @capsule.video.attach(video_signed_ids) if video_signed_ids.any?
@@ -72,7 +71,7 @@ class Api::CapsulesController < ApplicationController
   def update
     @capsule.with_lock do
       version = params.dig(:capsule, :lock_version)
-      if (version.present? && version.to_s != @capsule.lock_version.to_s) || (version.blank? && @capsule.editors.exists?)
+      if version.present? && version.to_s != @capsule.lock_version.to_s
         return render json: { error: "Another editor may have saved changes. Reload before editing again." }, status: :conflict
       end
       update_capsule
@@ -84,7 +83,6 @@ class Api::CapsulesController < ApplicationController
   private def update_capsule
     return render json: { error: "Unsupported file type. Attach images, audio, or video." }, status: :unprocessable_entity if params[:capsule]&.key?(:document_signed_ids)
     submitted_data = capsule_params
-    return unless assign_editors
     if submitted_data[:draft] && !@capsule.draft?
       return render json: { error: "A sealed capsule cannot become a draft." }, status: :unprocessable_entity
     end
@@ -140,23 +138,7 @@ class Api::CapsulesController < ApplicationController
   end
 
   def accessible_capsules
-    current_user.capsules.or(Capsule.where(id: CapsuleEditor.where(user: current_user).select(:capsule_id)))
-  end
-
-  def assign_editors
-    return true unless params[:capsule].key?(:editor_emails)
-    unless @capsule.user == current_user
-      render json: { error: "Only the owner can change editors." }, status: :forbidden
-      return false
-    end
-    emails = Array(params[:capsule][:editor_emails]).map { |value| value.to_s.strip.downcase }.reject(&:blank?).uniq - [current_user.email_address]
-    editors = User.where(email_address: emails).to_a
-    unless editors.size == emails.size
-      render json: { error: "Each editor needs an existing FutureMe account." }, status: :unprocessable_entity
-      return false
-    end
-    @capsule.editors = editors
-    true
+    current_user.capsules
   end
 
   def capsule_params
@@ -213,7 +195,6 @@ class Api::CapsulesController < ApplicationController
       draft: capsule.draft?,
       owner: capsule.user_id == current_user.id,
       lock_version: capsule.lock_version,
-      editor_emails: capsule.user_id == current_user.id ? capsule.editors.map(&:email_address) : [],
       contents: { notes: Array(capsule.design["sealed_blocks"]).count { |block| block.is_a?(Hash) && block["text"].present? }, photos: capsule.images.count + Array(capsule.design["remote_image_urls"]).size, audio: capsule.audio.count, video: capsule.video.count },
       title: capsule.title,
       unlock_at: capsule.unlock_at,

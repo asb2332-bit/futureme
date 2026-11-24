@@ -37,6 +37,7 @@ gem "bootsnap", require: false
 group :development, :test do
   gem "debug", platforms: %i[ mri windows ]
   gem "rspec-rails", "~> 7.1"
+  gem "simplecov", require: false
   gem "cucumber-rails", "~> 3.1", require: false
   gem "capybara", "~> 3.40"
   gem "selenium-webdriver", "~> 4.0"

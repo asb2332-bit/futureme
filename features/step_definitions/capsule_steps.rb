@@ -27,12 +27,7 @@ def drag_poster_element(element, x, y)
   page.driver.browser.action.move_to(element.native).click_and_hold.move_by(x, y).release.perform
 end
 
-Then('I can enter co-editors and manage delivery recipients') do
-  creation_step('collaborate')
-  fill_in 'editor-emails', with: 'friend@example.com'
-  creation_step('write')
-  creation_step('collaborate')
-  expect(find_field('editor-emails').value).to eq('friend@example.com')
+Then('I can manage delivery recipients') do
   creation_step('deliver')
   fill_in 'Recipient email', with: 'reader@example.com'
   click_button 'Add recipient'

@@ -6,10 +6,10 @@ Feature: Time capsules
   Background:
     Given I am a registered user who is logged in
 
-  Scenario: Enter co-editors and manage delivery recipients
+  Scenario: Manage delivery recipients
     When I visit FutureMe
     And I visit the new capsule page
-    Then I can enter co-editors and manage delivery recipients
+    Then I can manage delivery recipients
 
   Scenario: Save and reopen recipient addresses
     When I visit FutureMe
@@ -314,8 +314,3 @@ Feature: Time capsules
     Then I see "Title can't be blank"
     And I see "Message can't be blank"
     And I see "Unlock at can't be blank"
-
-  Scenario: Two editors join by email and see each other's live activity
-    Given an account exists with email "teammate@example.com"
-    When I share a saved draft with "teammate@example.com"
-    Then the owner and teammate can see typing and dragging on the same draft
